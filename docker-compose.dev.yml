@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: sittidop-mysql-dev
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: "V@radorn7887"
+      MYSQL_DATABASE: "sittidop"
+      MYSQL_USER: "sitti"
+      MYSQL_PASSWORD: "V@radorn7887"
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_dev_data:/var/lib/mysql
+
+volumes:
+  mysql_dev_data:
+    driver: local

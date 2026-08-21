@@ -1,0 +1,42 @@
+name: CI - sittidop-benefit-system
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    name: Lint, Typecheck & Next.js 15 Build
+    runs-on: ubuntu-latest
+
+    env:
+      DATABASE_URL: "mysql://dop_user:dop_password@localhost:3306/sittidop_db"
+      NEXTAUTH_URL: "http://localhost:3000"
+      NEXTAUTH_SECRET: "ci-test-secret-key-123456789"
+      NODE_ENV: "production"
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Validate Prisma Schema & Generate Client
+        run: |
+          npx prisma validate
+          npx prisma generate
+
+      - name: TypeScript Type Checking (Strict)
+        run: npm run type-check
+
+      - name: Next.js Production Build
+        run: npm run build

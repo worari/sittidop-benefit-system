@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # ============================================================================
+  # 1. MySQL 8 Database Service
+  # ============================================================================
+  db:
+    image: mysql:8.0
+    container_name: sittidop-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: "V@radorn7887"
+      MYSQL_DATABASE: "sittidop"
+      MYSQL_USER: "sitti"
+      MYSQL_PASSWORD: "V@radorn7887"
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - sittidop_network
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u sitti -p'V@radorn7887' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ============================================================================
+  # 2. Next.js 15 Web Application Service (with Prisma Migration on Startup)
+  # ============================================================================
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: sittidop-web
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "mysql://sitti:V%40radorn7887@db:3306/sittidop"
+      NEXTAUTH_URL: "http://localhost:3000"
+      NEXTAUTH_SECRET: "sittidop-enterprise-secure-jwt-secret-key-2026"
+      NODE_ENV: "production"
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    networks:
+      - sittidop_network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  sittidop_network:
+    driver: bridge
