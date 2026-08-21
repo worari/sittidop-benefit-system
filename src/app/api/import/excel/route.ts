@@ -24,8 +24,14 @@ export async function GET(req: NextRequest) {
   }
 }
 
+import { Role } from "@/core/domain/value-objects/enums";
+import { authorizeRoles } from "@/infrastructure/auth/rbac-guard";
+
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeRoles([Role.SUPERADMIN, Role.ADMIN, Role.STAFF], req);
+    if (!auth.authorized) return auth.response!;
+
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
     const commit = formData.get("commit") === "true";

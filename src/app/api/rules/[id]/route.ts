@@ -18,11 +18,17 @@ export async function GET(
   }
 }
 
+import { Role } from "@/core/domain/value-objects/enums";
+import { authorizeRoles } from "@/infrastructure/auth/rbac-guard";
+
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRoles([Role.SUPERADMIN, Role.ADMIN], req);
+    if (!auth.authorized) return auth.response!;
+
     const { id } = await params;
     const body = await req.json();
 
@@ -52,6 +58,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await authorizeRoles([Role.SUPERADMIN, Role.ADMIN], req);
+    if (!auth.authorized) return auth.response!;
+
     const { id } = await params;
     const deleted = militaryRuleRepository.deleteRule(id);
     if (!deleted) {

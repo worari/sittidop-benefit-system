@@ -26,8 +26,14 @@ export async function GET(req: NextRequest) {
   }
 }
 
+import { Role } from "@/core/domain/value-objects/enums";
+import { authorizeRoles } from "@/infrastructure/auth/rbac-guard";
+
 export async function POST(req: NextRequest) {
   try {
+    const auth = await authorizeRoles([Role.SUPERADMIN, Role.ADMIN], req);
+    if (!auth.authorized) return auth.response!;
+
     const body = await req.json();
 
     if (!body.ruleCode || !body.ruleName || !body.category || !body.formulaExpression) {
