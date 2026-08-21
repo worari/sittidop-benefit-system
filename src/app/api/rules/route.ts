@@ -64,14 +64,16 @@ export async function POST(req: NextRequest) {
     });
 
     await AuditLogger.log({
-      action: "RULE_CREATED",
+      action: "CREATE",
       resource: "BenefitRule",
-      resourceId: created.id,
+      resourceId: created.ruleCode,
       details: {
         ruleCode: created.ruleCode,
         category: created.category,
         formula: created.formulaExpression,
       },
+      user: auth.user,
+      req,
     });
 
     return NextResponse.json({

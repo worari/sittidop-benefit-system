@@ -46,10 +46,12 @@ export async function POST(req: NextRequest) {
     storeManager.users.unshift(newUser);
 
     await AuditLogger.log({
-      action: "USER_CREATED",
+      action: "CREATE",
       resource: "User",
-      resourceId: newUser.id,
+      resourceId: newUser.email,
       details: { email: newUser.email, role: newUser.role, createdBy: auth.user?.email },
+      user: auth.user,
+      req,
     });
 
     const { passwordHash, ...safeUser } = newUser;

@@ -54,14 +54,17 @@ export async function POST(req: NextRequest) {
     const created = militaryStore.createPersonnel(body);
 
     await AuditLogger.log({
-      action: "PERSONNEL_CREATED",
+      action: "CREATE",
       resource: "MilitaryPersonnel",
-      resourceId: created.id,
+      resourceId: created.militaryId,
       details: {
         militaryId: created.militaryId,
         name: `${created.rankAbbr} ${created.firstName} ${created.lastName}`,
         lossType: created.lossType,
+        salary: created.salary,
       },
+      user: auth.user,
+      req,
     });
 
     return NextResponse.json({ success: true, data: created });

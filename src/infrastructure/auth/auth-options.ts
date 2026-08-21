@@ -43,16 +43,16 @@ export const authOptions: AuthOptions = {
         try {
           const forwarded = req?.headers ? (req.headers as any)["x-forwarded-for"] : null;
           const ip = forwarded ? (Array.isArray(forwarded) ? forwarded[0] : forwarded.split(",")[0]) : "127.0.0.1";
-          const userAgent = req?.headers ? (req.headers as any)["user-agent"] : "Unknown";
+          const userAgent = req?.headers ? (req.headers as any)["user-agent"] : "Unknown Browser";
 
           await auditLogRepository.create({
             userId: user.id,
             userName: user.name,
             role: user.role,
-            action: "USER_LOGIN_SUCCESS",
+            action: "LOGIN",
             resource: "Auth",
             resourceId: user.id,
-            detailsJson: JSON.stringify({ email: user.email, role: user.role }),
+            detailsJson: JSON.stringify({ email: user.email, role: user.role, status: "SUCCESS" }),
             ipAddress: ip,
             userAgent: userAgent,
           });

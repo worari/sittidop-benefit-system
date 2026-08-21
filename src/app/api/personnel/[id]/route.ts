@@ -35,14 +35,16 @@ export async function PUT(
     const updated = militaryStore.updatePersonnel(id, body);
 
     await AuditLogger.log({
-      action: "PERSONNEL_UPDATED",
+      action: "UPDATE",
       resource: "MilitaryPersonnel",
-      resourceId: id,
+      resourceId: updated.militaryId,
       details: {
         rank: updated.rank,
         promotedRank: updated.promotedRank,
         lossType: updated.lossType,
       },
+      user: auth.user,
+      req,
     });
 
     return NextResponse.json({ success: true, data: updated });
@@ -64,6 +66,16 @@ export async function DELETE(
     if (!deleted) {
       return NextResponse.json({ success: false, error: "Personnel not found" }, { status: 404 });
     }
+
+    await AuditLogger.log({
+      action: "DELETE",
+      resource: "MilitaryPersonnel",
+      resourceId: id,
+      details: { deletedAt: new Date().toISOString() },
+      user: auth.user,
+      req,
+    });
+
     return NextResponse.json({ success: true, message: "Personnel deleted successfully" });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 400 });

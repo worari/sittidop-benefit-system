@@ -26,11 +26,19 @@ export async function GET(req: NextRequest) {
       issuedDate,
     });
 
+    const actionType = format.toLowerCase() === "pdf" ? "EXPORT_PDF" : "EXPORT_DOCX";
+
     await AuditLogger.log({
-      action: "DOCUMENT_EXPORTED",
+      action: actionType,
       resource: "OfficialDocument",
-      resourceId: personnel.id,
-      details: { template, format, personnelName: `${personnel.rankAbbr} ${personnel.firstName}` },
+      resourceId: personnel.militaryId,
+      details: {
+        template,
+        format,
+        personnelName: `${personnel.rankAbbr} ${personnel.firstName} ${personnel.lastName}`,
+        militaryId: personnel.militaryId,
+      },
+      req,
     });
 
     const fileNames: Record<DocumentTemplateType, string> = {

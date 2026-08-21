@@ -35,9 +35,9 @@ export async function PUT(
     const updated = militaryRuleRepository.updateRule(id, body);
 
     await AuditLogger.log({
-      action: "RULE_FORMULA_UPDATED",
+      action: "UPDATE",
       resource: "BenefitRule",
-      resourceId: id,
+      resourceId: updated.ruleCode,
       details: {
         ruleCode: updated.ruleCode,
         formula: updated.formulaExpression,
@@ -45,6 +45,8 @@ export async function PUT(
         baseAmount: updated.baseAmount,
         isActive: updated.isActive,
       },
+      user: auth.user,
+      req,
     });
 
     return NextResponse.json({ success: true, data: updated });
@@ -68,9 +70,11 @@ export async function DELETE(
     }
 
     await AuditLogger.log({
-      action: "RULE_DELETED",
+      action: "DELETE",
       resource: "BenefitRule",
       resourceId: id,
+      user: auth.user,
+      req,
     });
 
     return NextResponse.json({ success: true, message: "Rule deleted successfully" });
