@@ -13,6 +13,7 @@ import {
   Sliders,
   FileBarChart,
   FileText,
+  FileSpreadsheet,
   UserCog,
   History,
   ShieldCheck,

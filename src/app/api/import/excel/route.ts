@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
 
     if (action === "template") {
       const buffer = ExcelImportService.generateTemplateBuffer();
-      return new NextResponse(buffer, {
+      return new NextResponse(new Uint8Array(buffer), {
         status: 200,
         headers: {
           "Content-Disposition": `attachment; filename="sittidop_import_template.xlsx"`,
