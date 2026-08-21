@@ -88,6 +88,13 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
       roles: [Role.ADMIN, Role.OFFICER, Role.AUDITOR, Role.MILITARY_OFFICER, Role.BENEFIT_REVIEWER],
     },
     {
+      title: "นำเข้าข้อมูล Excel",
+      href: "/import",
+      icon: FileSpreadsheet,
+      badge: "Import",
+      roles: [Role.ADMIN, Role.OFFICER, Role.MILITARY_OFFICER],
+    },
+    {
       title: "จัดการผู้ใช้งาน (User Management)",
       href: "/users",
       icon: UserCog,
