@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
       return new NextResponse(new Uint8Array(buffer), {
         status: 200,
         headers: {
-          "Content-Disposition": `attachment; filename="sittidop_import_template.xlsx"`,
+          "Content-Disposition": `attachment; filename="rta_personnel_import_template.xlsx"`,
           "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         },
       });

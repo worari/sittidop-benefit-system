@@ -10,7 +10,7 @@ export async function POST() {
       action: "DEMO_DATA_RESET",
       resource: "Database",
       details: {
-        message: "ระบบถูกรีเซ็ตข้อมูลตัวอย่างมาตรฐานกรมกิจการผู้สูงอายุเรียบร้อยแล้ว",
+        message: "ระบบถูกรีเซ็ตข้อมูลตัวอย่างมาตรฐานกำลังพล กองทัพบก เรียบร้อยแล้ว",
       },
     });
 

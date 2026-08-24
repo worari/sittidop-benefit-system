@@ -5,16 +5,10 @@ import { usePathname } from "next/navigation";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserNav } from "./UserNav";
 import {
+  Shield,
   Calculator,
   LayoutDashboard,
-  FileCheck2,
-  Users,
-  Layers,
-  FileBarChart,
-  History,
-  Settings,
-  Bell,
-  Search,
+  FileText,
   Sparkles,
   Menu,
 } from "lucide-react";
@@ -29,7 +23,7 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur-md border-slate-200/80 dark:border-slate-800">
+    <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur-md border-emerald-800/20 dark:border-slate-800 shadow-xs">
       <div className="flex h-16 items-center justify-between px-4 sm:px-6">
         <div className="flex items-center gap-3">
           <Button
@@ -43,20 +37,20 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
           </Button>
 
           <Link href="/dashboard" className="flex items-center gap-3 group">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform">
-              <Calculator className="h-5 w-5 text-white" />
+            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-700 via-emerald-800 to-slate-900 flex items-center justify-center shadow-md shadow-emerald-900/25 border border-emerald-600/40 group-hover:scale-105 transition-transform">
+              <Shield className="h-5 w-5 text-amber-400" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-bold text-base tracking-tight text-slate-900 dark:text-slate-100">
-                  sittidop
+                <span className="font-extrabold text-base tracking-tight text-slate-900 dark:text-slate-100">
+                  ระบบสิทธิกำลังพล ทบ.
                 </span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                  Enterprise
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                  กองทัพบก
                 </span>
               </div>
               <p className="text-[11px] text-muted-foreground hidden sm:block">
-                ระบบประมาณการสิทธิสวัสดิการ กรมกิจการผู้สูงอายุ (DOP)
+                กรมกำลังพลทหารบก (กพ.ทบ.) • กรมสวัสดิการทหารบก (สก.ทบ.)
               </p>
             </div>
           </Link>
@@ -67,10 +61,10 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
           <Link href="/calculator">
             <Button
               size="sm"
-              className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm flex items-center gap-1.5 text-xs sm:text-sm font-medium"
+              className="bg-emerald-800 hover:bg-emerald-900 text-white shadow-sm flex items-center gap-1.5 text-xs sm:text-sm font-medium"
             >
-              <Sparkles className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">คำนวณประมาณการสิทธิ</span>
+              <Calculator className="h-3.5 w-3.5 text-amber-400" />
+              <span className="hidden sm:inline">คำนวณสิทธิ 4 หมวด</span>
               <span className="sm:hidden">คำนวณสิทธิ</span>
             </Button>
           </Link>

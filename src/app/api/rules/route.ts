@@ -52,6 +52,8 @@ export async function POST(req: NextRequest) {
       description: body.description || "",
       legalBasis: body.legalBasis || "",
       paymentType: body.paymentType || "ONE_TIME_LUMP_SUM",
+      benefitScope: body.benefitScope || "IN_ARMY",
+      causeType: body.causeType || "BOTH",
       formulaType: body.formulaType || "EXPRESSION",
       formulaExpression: body.formulaExpression,
       multiplierFactor: Number(body.multiplierFactor) || 1,
@@ -59,6 +61,7 @@ export async function POST(req: NextRequest) {
       minAmount: body.minAmount !== undefined ? Number(body.minAmount) : undefined,
       maxAmount: body.maxAmount !== undefined ? Number(body.maxAmount) : undefined,
       conditions: body.conditions || {},
+      insuranceMatrix: body.insuranceMatrix || undefined,
       isActive: body.isActive !== undefined ? body.isActive : true,
       priorityOrder: Number(body.priorityOrder) || 10,
     });

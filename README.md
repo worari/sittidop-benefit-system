@@ -1,168 +1,127 @@
-# sittidop-benefit-system
-### ระบบประมาณการสิทธิสวัสดิการและบริหารจัดการสิทธิประโยชน์ กรมกิจการผู้สูงอายุ (DOP)
-**Department of Older Persons (DOP) Welfare & Benefit Estimation Management System**
+# ระบบประมาณการสิทธิประโยชน์และเงินสงเคราะห์กำลังพล กองทัพบก (RTA Benefit System)
+### Royal Thai Army (RTA) Military Benefit, Pension & Welfare Estimation Management System
+**กรมกำลังพลทหารบก (กพ.ทบ.) • กรมสวัสดิการทหารบก (สก.ทบ.)**
 
-[![CI - sittidop-benefit-system](https://github.com/dop-thailand/sittidop-benefit-system/actions/workflows/ci.yml/badge.svg)](https://github.com/dop-thailand/sittidop-benefit-system/actions)
 [![Next.js 15](https://img.shields.io/badge/Next.js-15_App_Router-black?logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue?logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.4-38bdf8?logo=tailwind-css)](https://tailwindcss.com/)
 [![Prisma ORM](https://img.shields.io/badge/Prisma-5.22-2D3748?logo=prisma)](https://www.prisma.io/)
 [![MySQL 8.0](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql)](https://www.mysql.com/)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker)](https://www.docker.com/)
+[![Security](https://img.shields.io/badge/Security-RTA_Classified-emerald)](https://rta.mi.th)
 
 ---
 
 ## 🏛️ บทนำ (Overview)
 
-**sittidop-benefit-system** เป็นเว็บแอปพลิเคชันระดับองค์กร (Enterprise Web Application) ที่พัฒนาขึ้นตามสถาปัตยกรรมแบบ **Clean Architecture** เพื่อสนับสนุนภารกิจของ **กรมกิจการผู้สูงอายุ (DOP) กระทรวงการพัฒนาสังคมและความมั่นคงของมนุษย์ (พม.)** ในการประมาณการสิทธิสวัสดิการผู้สูงอายุแห่งชาติ การตรวจสอบคุณสมบัติสิทธิประโยชน์แบบเรียลไทม์ การบริหารจัดการคำขอรับเงินสงเคราะห์ (Claims Processing) และการติดตามผลการอนุมัติงบประมาณระดับประเทศ
+**ระบบประมาณการสิทธิประโยชน์และเงินสงเคราะห์กำลังพล กองทัพบก (RTA Benefit System)** เป็นเว็บแอปพลิเคชันระดับองค์กร (Enterprise Web Application) ที่พัฒนาขึ้นตามสถาปัตยกรรมแบบ **Clean Architecture** เพื่อสนับสนุนภารกิจของ **กองทัพบก (Royal Thai Army)** โดย **กรมกำลังพลทหารบก (กพ.ทบ.)** และ **กรมสวัสดิการทหารบก (สก.ทบ.)** ในการประมาณการสิทธิประโยชน์ เงินสงเคราะห์ บำนาญพิเศษ บำเหน็จตกทอด ทุนการศึกษาบุตร และสิทธิการบรรจุทายาททดแทน สำหรับกำลังพลที่เสียชีวิต ทุพพลภาพ หรือได้รับบาดเจ็บจากการปฏิบัติหน้าที่ราชการสนามและการรบ
+
+---
+
+## 🎯 โครงสร้างสิทธิประโยชน์ 4 หมวดของกองทัพบก (4-Category RTA Benefit Structure)
+
+1. **หมวดที่ 1: รับเงินครั้งเดียว (One-Time Lump Sum Grants & Aids)**:
+   - **เงินสินไหมทดแทนประกันชีวิตทหารภัยสงคราม (กห./ทบ.)**: คุ้มครองกำลังพลเสียชีวิตและทุพพลภาพถาวร (1,000,000 - 2,000,000 บาท)
+   - **เงินบำเหน็จตกทอดแก่ทายาทตามกฎหมาย**: คำนวณจากฐานเงินเดือนปูนบำเหน็จพิเศษคูณเวลาราชการรวม (`{promotedSalary} * {totalServiceYears} * 1.5`)
+   - **เงินช่วยเหลือตาม พ.ร.บ. สงเคราะห์ผู้ประสบภัยเนื่องจากการปฏิบัติราชการสนาม พ.ศ. 2543**: จ่าย 30 เท่าของเงินเดือน
+   - **เงินเพิ่มพิเศษผลต่างการปูนบำเหน็จเลื่อนชั้นยศ (7 - 9 ชั้นยศ)**
+   - **เงินกองทุนสวัสดิการกองทัพบก (สก.ทบ.) / กองทุนช่วยเหลือผู้ประสบภัย ทบ.**
+   - **เงินฌาปนกิจสงเคราะห์กองทัพบก (ฌส.ทบ.)** และเงินพระราชทานเพลิงศพ
+   - **เงินช่วยเหลือจากมูลนิธิสายใจไทยในพระบรมราชูปถัมภ์ / องค์การสงเคราะห์ทหารผ่านศึก (ผศ.)**
+
+2. **หมวดที่ 2: รับเงินรายเดือน (Monthly Recurring Pension & Allowances)**:
+   - **บำนาญพิเศษทายาท (Special Pension for Heirs)**: จ่ายให้แก่ทายาทตามสัดส่วนกฎหมาย อิงฐานเงินเดือนปูนบำเหน็จพิเศษ
+   - **เงินเพิ่มพิเศษสำหรับการสู้รบ (พ.ช.ท.)**: เงินเพิ่มรายเดือนสำหรับกำลังพลปฏิบัติหน้าที่ในพื้นที่การรบและเสี่ยงภัย
+   - **เงินบำนาญกำลังพลทุพพลภาพ ทบ.**: จ่ายรายเดือนตลอดชีพ
+   - **เงินช่วยเหลือรายเดือนจากกองทุนสวัสดิการกองทัพบก (สก.ทบ.)**
+
+3. **หมวดที่ 3: รับเงินรายปี (Annual Grants & Scholarships)**:
+   - **ทุนการศึกษาบุตรกำลังพล ทบ. (สก.ทบ.)**: ให้ทุนการศึกษาแก่บุตรกำลังพลจนสำเร็จการศึกษาระดับปริญญาตรี (ประถม, มัธยม, ปวช./ปวส., ปริญญาตรี)
+   - **ทุนมูลนิธิ พล.อ.เปรม ติณสูลานนท์**
+   - **ทุนมูลนิธิสายใจไทยในพระบรมราชูปถัมภ์** สำหรับบุตรกำลังพลผู้สูญเสีย
+
+4. **หมวดที่ 4: สิทธิประโยชน์มิใช่ตัวเงินและสิทธิด้านอื่นๆ (Non-Monetary & Honour Rights)**:
+   - **สิทธิการบรรจุทายาททดแทนเข้ารับราชการในกองทัพบก (1 อัตรา)**: ตามคุณวุฒิการศึกษาและเกณฑ์กระทรวงกลาโหม
+   - **สิทธิการรักษาพยาบาล รพ.พระมงกุฎเกล้า / รพ.ค่าย สังกัด กรมแพทย์ทหารบก (พบ.) ตลอดชีพ**
+   - **สิทธิเสนอขอพระราชทานเหรียญพิทักษ์เสรีชน / เหรียญกล้าหาญ / เหรียญราชการชายแดน**
+   - **สิทธิเงินกู้สวัสดิการเคหะ ทบ. อัตราดอกเบี้ยพิเศษ** เพื่อที่อยู่อาศัยของทายาท
 
 ---
 
 ## 🏗️ สถาปัตยกรรมระบบ (Clean Architecture Structure)
 
-ระบบถูกออกแบบโดยแยก Layer ของความรับผิดชอบอย่างชัดเจน (Separation of Concerns):
-
 ```
 src/
 ├── core/
-│   ├── domain/                  # Enterprise Business Rules & Domain Entities
-│   │   ├── entities/            # Citizen, BenefitProgram, BenefitRule, Application, User, AuditLog
-│   │   ├── value-objects/       # Role, BenefitCategory, PaymentFrequency, VulnerabilityLevel
-│   │   └── repositories/        # Repository Interfaces (ICitizenRepository, IApplicationRepository...)
+│   ├── domain/                  # Enterprise Military Rules & Domain Entities
+│   │   ├── entities/            # MilitaryPersonnel, BenefitRule, Heir, Application, User, AuditLog
+│   │   ├── value-objects/       # military-types, Role, MilitaryBranch, MilitaryRank, LossType
+│   │   └── repositories/        # Repository Interfaces (IMilitaryPersonnelRepository, IMilitaryRuleRepository...)
 │   └── use-cases/               # Application Business Rules
-│       ├── estimation/          # BenefitEstimationEngine (Rules Engine คำนวณเบี้ยขั้นบันได & สิทธิ)
-│       ├── applications/        # ApplicationService (กระบวนการยื่นคำขอ, ตรวจสอบ, อนุมัติสิทธิ)
-│       ├── citizens/            # CitizenService (จัดการทะเบียนประวัติและความเปราะบาง)
-│       └── analytics/           # GetDashboardMetricsUseCase (วิเคราะห์ KPI & สถิติ)
+│       ├── estimation/          # MilitaryRuleEngine (เครื่องมือคำนวณสิทธิ 4 หมวดของ ทบ.)
+│       ├── documents/           # OfficialDocumentService (สร้างหนังสือรับรองสิทธิ กพ.ทบ. + QR Code)
+│       └── import/              # ExcelImportService (นำเข้าข้อมูลกำลังพลและทายาท)
 ├── infrastructure/              # Frameworks, Drivers & External Services
 │   ├── database/
 │   │   ├── prisma.ts            # Prisma Client Singleton
-│   │   └── repositories/        # Prisma Repositories & In-Memory Store Manager Fallback
-│   ├── auth/                    # NextAuth (Auth.js) Configuration & JWT Callbacks
-│   ├── logging/                 # Structured ISO 27001 / PDPA Audit Logger
-│   └── seed/                    # Comprehensive Database Seeder (7 โครงการ, 4 Demo Users, 8 ประชาชน)
+│   │   └── repositories/        # MilitaryStoreManager, PrismaMilitaryRuleRepository, PrismaUserRepository
+│   ├── auth/                    # NextAuth RBAC Guard & Army User Roles
+│   └── logging/                 # Structured ISO 27001 / MOD Security Audit Logger
 ├── presentation/                # Interface Adapters & UI Components
 │   ├── components/
-│   │   ├── ui/                  # Shadcn UI Base Primitives (Button, Dialog, Table, Card, Badge...)
-│   │   ├── layout/              # AppHeader, Sidebar, UserNav, ThemeToggle, Providers
-│   │   ├── calculator/          # BenefitCalculatorWizard (เครื่องมือคำนวณสิทธิ 5 ขั้นตอน + Live Breakdown)
-│   │   ├── dashboard/           # MetricCards, TrendsChart, DemographicsChart, ClaimsPipeline
-│   │   ├── benefits/            # BenefitCatalog (ทำเนียบโครงการ & รายละเอียดเกณฑ์กฎหมาย)
-│   │   ├── applications/        # ApplicationTable (Workflow ตรวจสอบเอกสาร & อนุมัติ)
-│   │   ├── citizens/            # CitizenTable (ทะเบียนผู้สูงอายุ & ดัชนีความเปราะบาง)
-│   │   ├── reports/             # ReportGenerator & หนังสือรับรองสิทธิทางการ (Printable Certificate)
-│   │   └── audit/               # AuditLogViewer (ประวัติการทำงานตรวจสอบย้อนกลับได้)
-│   └── lib/                     # Currency, Thai Buddhist Era (พ.ศ.) & National ID Formatters
+│   │   ├── layout/              # AppHeader (RTA Crest), Sidebar, UserNav, ThemeToggle
+│   │   ├── calculator/          # MilitaryBenefitCalculator (คำนวณสิทธิ 4 หมวดของ ทบ. แบบละเอียด)
+│   │   ├── dashboard/           # ภาพรวมสถิติงบประมาณและกำลังพล ทบ.
+│   │   ├── personnel/           # PersonnelTable (ทะเบียนประวัติกำลังพล สังกัด ทภ.1-4, ฉก.สนาม)
+│   │   ├── family/ & heirs/     # ข้อมูลครอบครัวและสัดส่วนทายาทตามกฎหมาย
+│   │   ├── rules/               # RuleManager (จัดการสูตรและเกณฑ์สิทธิประโยชน์)
+│   │   ├── documents/           # DocumentStudio (สร้างและพิมพ์หนังสือรับรองสิทธิ กพ.ทบ.)
+│   │   ├── import/              # ExcelImportWizard (นำเข้าไฟล์ Excel ทบ.)
+│   │   └── reports/             # ReportGenerator (รายงานสถิติและหนังสือรับรอง)
+│   └── lib/                     # Currency, Thai Buddhist Era (พ.ศ.) & Military Formatters
 └── app/                         # Next.js 15 App Router Pages & API Route Handlers
-    ├── (auth)/login/            # เข้าสู่ระบบพร้อม Role Quick-Switcher
-    ├── (dashboard)/             # ระบบปฏิบัติงานภายใน (Dashboard, Calculator, Benefits, Claims, Reports, Settings)
-    ├── api/                     # RESTful API Endpoints (/calculator/estimate, /applications, /benefits...)
-    ├── globals.css              # Tailwind CSS Design System Tokens
-    ├── layout.tsx               # Root Layout with Theme & Session Providers
-    └── page.tsx                 # พอร์ทัลประชาชนหน้าแรก (Public Landing & Instant Estimator)
+    ├── (auth)/login/            # เข้าสู่ระบบพร้อมบัญชีทดสอบระดับ ทบ.
+    ├── (dashboard)/             # ระบบปฏิบัติงานภายใน ทบ. (Dashboard, Calculator, Personnel, Rules, Docs...)
+    ├── api/                     # RESTful API Endpoints (/personnel, /rules, /documents, /calculator...)
+    ├── globals.css              # Army Green & Gold Military Design Tokens
+    ├── layout.tsx               # Root Layout with RTA Title & Providers
+    └── page.tsx                 # หน้าพอร์ทัลบริการกำลังพล ทบ. พร้อม Live Fast Estimator
 ```
 
 ---
 
-## 🎯 ฟีเจอร์หลักของระบบ (Core Features)
+## 🔐 บัญชีผู้ใช้งานทดสอบระบบ (Demo Accounts for Royal Thai Army)
 
-1. **เครื่องมือคำนวณประมาณการสิทธิอัจฉริยะ (Smart Benefit Estimation Engine)**:
-   - ประเมินสิทธิแบบโต้ตอบ 5 ขั้นตอน (อายุ, รายได้, สวัสดิการแห่งรัฐ, ความพิการ, ที่อยู่อาศัย)
-   - คำนวณเบี้ยยังชีพขั้นบันได (60-69 ปี: 600 บ., 70-79 ปี: 700 บ., 80-89 ปี: 800 บ., 90+ ปี: 1,000 บ.)
-   - คำนวณเบี้ยคนพิการ 800 - 1,000 บาท/เดือน
-   - คำนวณสิทธิสวัสดิการแห่งรัฐ 400 - 1,415 บาท/เดือน
-   - คำนวณเงินสงเคราะห์ผู้สูงอายุในภาวะยากลำบากฉุกเฉิน (สูงสุด 3,000 บ./ครั้ง)
-   - คำนวณเงินช่วยเหลือปรับปรุงสภาพแวดล้อมบ้านผู้สูงอายุ (22,500 - 40,000 บ./หลัง)
-   - คำนวณดัชนีคะแนนความเปราะบาง (Vulnerability Index: 0 - 100)
-   - ปุ่ม **"ยื่นคำขอรับสิทธิออนไลน์ทันที"** เชื่อมโยงเข้าสู่ท่อการพิจารณาของเจ้าหน้าที่
-
-2. **แดชบอร์ดสถิติและภาพรวมผู้บริหาร (Executive Analytics Dashboard)**:
-   - การ์ดสรุปตัวชี้วัด KPI (งบประมาณการรวม, ผู้รับสิทธิสะสม, คำขอรอพิจารณา, Approval Rate)
-   - กราฟแนวโน้มงบประมาณการเปรียบเทียบยอดเบิกจ่ายจริงรายเดือน (Recharts Area Chart)
-   - แผนภูมิกระจายตัวตามช่วงอายุขั้นบันได และสัดส่วนหมวดหมู่โครงการ (Recharts Bar & Pie Chart)
-   - ท่อกระบวนการพิจารณาคำขอแบบเรียลไทม์ (Claims Processing Pipeline)
-   - ตารางอันดับจังหวัดที่มีการจัดสรรงบประมาณสูงสุด (Regional Demographics)
-
-3. **ทำเนียบโครงการสวัสดิการ (Benefit Programs Directory)**:
-   - แสดงข้อมูลโครงการอย่างเป็นทางการ 7 โครงการ พร้อมแถบวัดการใช้จ่ายงบประมาณ (Budget Utilization)
-   - Modal แสดงข้อกฎหมาย ระเบียบกระทรวงมหาดไทย/พม. และเกณฑ์คุณสมบัติ
-
-4. **ระบบบริหารจัดการคำขอและการอนุมัติ (Claims & Approvals Workflow)**:
-   - รายการคำขอพร้อมระบบกรองสถานะ (`SUBMITTED`, `UNDER_REVIEW`, `DOCUMENT_VERIFIED`, `APPROVED`, `REJECTED`, `DISBURSED`)
-   - หน้าต่างพิจารณาสิทธิสำหรับเจ้าหน้าที่ (อนุมัติ, กำหนดวงเงิน, ปฏิเสธพร้อมเหตุผล, ขอเอกสารเพิ่ม)
-
-5. **ระบบทะเบียนประวัติผู้สูงอายุ (Beneficiary Registry)**:
-   - ค้นหาเลขบัตรประชาชน 13 หลัก ชื่อ-นามสกุล ภูมิลำเนา
-   - แสดงสถานะความเปราะบาง (Low, Moderate, High, Critical) พร้อมปุ่มคลิกคำนวณสิทธิให้รายบุคคลทันที
-
-6. **ระบบรายงานและหนังสือรับรองผลการประมาณการสิทธิ (Printable Certificate)**:
-   - ส่งออกข้อมูลในรูปแบบ CSV (Excel) และ JSON
-   - หน้าหนังสือรับรองผลการประมาณการสิทธิสวัสดิการผู้สูงอายุทางการ พร้อมลายน้ำ QR e-Verification และบล็อกลายเซ็นนายทะเบียน
-
-7. **ระบบบันทึกความปลอดภัยและการตรวจสอบ (ISO / PDPA Audit Trail)**:
-   - บันทึกการกระทำของผู้ใช้ (Actor, Role, Action, Resource, IP Address, Timestamp) เพื่อความโปร่งใส
+| บทบาทหน้าที่ | ชื่อ-สกุล | อีเมล | รหัสผ่าน | สิทธิ์การใช้งาน |
+|---|---|---|---|---|
+| **ผู้ดูแลระบบ (Admin)** | พันเอก พงศกร พิทักษ์สิทธิ์ | `admin@army.mod.go.th` | `admin1234` | สิทธิ์สูงสุด จัดการเกณฑ์สิทธิและผู้ใช้ กพ.ทบ. |
+| **เจ้าหน้าที่สวัสดิการ (Staff)** | พันตรี นพดล สายสวัสดิการ | `staff@army.mod.go.th` | `staff1234` | คำนวณและออกหนังสือรับรองสิทธิ สก.ทบ. |
+| **ผู้บังคับบัญชา (Commander)** | พลโท สมโชค ชัยชนะ | `commander@army.mod.go.th` | `commander1234` | ลงนามอนุมัติสิทธิและหนังสือรับรอง จก.กพ.ทบ. |
+| **ผู้ตรวจสอบ (Auditor)** | พันเอก พิษณุ ตรวจการดี | `auditor@army.mod.go.th` | `auditor1234` | ตรวจสอบรายงานและ Audit Logs สตส.ทบ. |
+| **กำลังพล / ทายาท (Personnel)** | สิบเอก สันติ ผู้รับสิทธิ | `readonly@army.mod.go.th` | `readonly1234` | ตรวจสอบสิทธิและสถานะเงินสงเคราะห์ |
 
 ---
 
-## 👥 บัญชีผู้ใช้ตัวอย่างสำหรับทดสอบ (Demo Accounts)
+## 🚀 การติดตั้งและรันระบบ (Getting Started)
 
-ระบบมาพร้อมกับ 4 บทบาทและปุ่ม **Quick Role Switcher** ในหน้า Login และเมนูผู้ใช้มุมขวาบน:
+1. ติดตั้ง Dependencies:
+   ```bash
+   npm install
+   ```
 
-| บทบาท (Role) | อีเมล (Email) | รหัสผ่าน (Password) | สิทธิ์การเข้าถึง (Permissions) |
-| :--- | :--- | :--- | :--- |
-| 👨‍💼 **Admin (ผู้ดูแลระบบ)** | `admin@dop.go.th` | `admin1234` | สิทธิ์สูงสุด ทุกโมดูล ตั้งค่าระบบ และรีเซ็ตฐานข้อมูล |
-| 👩‍💼 **Officer (เจ้าหน้าที่)** | `officer@dop.go.th` | `officer1234` | ตรวจสอบคำขอ พิจารณาเอกสาร และอนุมัติสิทธิ |
-| 🕵️ **Auditor (ผู้ตรวจสอบ)** | `auditor@dop.go.th` | `auditor1234` | ดูรายงานเชิงลึก สถิติ และประวัติการทำงาน (Audit Trail) |
-| 👴 **Citizen (ประชาชน)** | `citizen@dop.go.th` | `citizen1234` | คำนวณประมาณการสิทธิและยื่นคำขอรับสวัสดิการ |
+2. รันในโหมดพัฒนา (Development Mode):
+   ```bash
+   npm run dev
+   ```
+   เข้าใช้งานผ่านเบราว์เซอร์ที่ [http://localhost:3000](http://localhost:3000)
 
----
-
-## 🚀 การติดตั้งและรันระบบ (Quick Start)
-
-### 1. ติดตั้ง Dependencies
-```bash
-npm install
-```
-
-### 2. สร้าง Prisma Client & กำหนดค่า Environment
-```bash
-cp .env.example .env
-npx prisma generate
-```
-
-### 3. รันในโหมด Development
-```bash
-npm run dev
-```
-เปิดเบราว์เซอร์ที่: **http://localhost:3000**
+3. ตรวจสอบการ Build สำหรับ Production:
+   ```bash
+   npm run build
+   ```
 
 ---
 
-## 🐳 การใช้งานผ่าน Docker & Docker Compose
+## 🛡️ มาตรฐานความปลอดภัย
+ระบบถูกออกแบบตามระเบียบว่าด้วยการรักษาความลับของทางราชการ และมาตรฐานความปลอดภัยสารสนเทศของกระทรวงกลาโหม ข้อมูลเลขบัตรประจำตัวและประวัติการสูญเสียได้รับการเข้ารหัสและควบคุมสิทธิ์การเข้าถึงอย่างเคร่งครัด
 
-ระบบมีคอนฟิก `Dockerfile` แบบ Multi-Stage Production Build และ `docker-compose.yml` ที่เชื่อมต่อกับ MySQL 8.0:
-
-```bash
-# สตาร์ท MySQL และ Next.js App พร้อมกัน
-docker-compose up -d --build
-
-# ดูสถานะและ Log
-docker-compose logs -f
-```
-
----
-
-## 🧪 การตรวจสอบคุณภาพโค้ด (Quality Assurance)
-
-```bash
-# ตรวจสอบ TypeScript Types (Strict Mode)
-npm run type-check
-
-# Build Production Bundle
-npm run build
-```
-
----
-
-## 📄 ใบอนุญาต (License)
-ลิขสิทธิ์ © 2569 กรมกิจการผู้สูงอายุ (Department of Older Persons - DOP). พัฒนาเพื่อประโยชน์สาธารณะของประชาชนไทย
+ลิขสิทธิ์ © 2569 กองทัพบก (Royal Thai Army) • กรมกำลังพลทหารบก (กพ.ทบ.) • กรมสวัสดิการทหารบก (สก.ทบ.)

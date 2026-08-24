@@ -4,14 +4,14 @@ import React, { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "../../../presentation/components/ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../../../presentation/components/ui/card";
 import { Button } from "../../../presentation/components/ui/button";
 import { Input } from "../../../presentation/components/ui/input";
 import { Label } from "../../../presentation/components/ui/label";
 import { Badge } from "../../../presentation/components/ui/badge";
 import { ThemeToggle } from "../../../presentation/components/layout/ThemeToggle";
 import {
-  Calculator,
+  Shield,
   Lock,
   Mail,
   ArrowRight,
@@ -19,11 +19,12 @@ import {
   UserCheck,
   AlertCircle,
   Sparkles,
+  KeyRound,
 } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@dop.go.th");
+  const [email, setEmail] = useState("admin@army.mod.go.th");
   const [password, setPassword] = useState("admin1234");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -60,41 +61,54 @@ export default function LoginPage() {
 
   const demoAccounts = [
     {
-      role: "Admin (ผู้ดูแลระบบ)",
-      email: "admin@dop.go.th",
+      role: "ผู้ดูแลระบบ (Admin กพ.ทบ.)",
+      name: "พ.อ. พงศกร พิทักษ์สิทธิ์",
+      email: "admin@army.mod.go.th",
       pass: "admin1234",
-      desc: "สิทธิ์สูงสุด จัดการเกณฑ์สิทธิและผู้ใช้",
-      badge: "Full Access",
+      desc: "สิทธิ์สูงสุด จัดการเกณฑ์สิทธิและทะเบียน",
+      badge: "กพ.ทบ.",
       color: "border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/30",
     },
     {
-      role: "Officer (เจ้าหน้าที่)",
-      email: "officer@dop.go.th",
-      pass: "officer1234",
-      desc: "ตรวจสอบเอกสารและอนุมัติคำขอ",
-      badge: "Reviewer",
+      role: "นายทหารฝ่ายสวัสดิการ (Staff)",
+      name: "พ.ต. นพดล สายสวัสดิการ",
+      email: "staff@army.mod.go.th",
+      pass: "staff1234",
+      desc: "คำนวณและออกหนังสือรับรองสิทธิ",
+      badge: "สก.ทบ.",
       color: "border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/30",
     },
     {
-      role: "Auditor (ผู้ตรวจสอบ)",
-      email: "auditor@dop.go.th",
+      role: "ผู้บังคับบัญชา (Commander)",
+      name: "พล.ท. สมโชค ชัยชนะ (จก.กพ.ทบ.)",
+      email: "commander@army.mod.go.th",
+      pass: "commander1234",
+      desc: "ลงนามอนุมัติสิทธิและหนังสือรับรอง",
+      badge: "ผู้บังคับบัญชา",
+      color: "border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/30",
+    },
+    {
+      role: "ผู้ตรวจสอบภายใน (Auditor)",
+      name: "พ.อ. พิษณุ ตรวจการดี",
+      email: "auditor@army.mod.go.th",
       pass: "auditor1234",
       desc: "ตรวจสอบรายงานและ Audit Logs",
-      badge: "Audit Only",
+      badge: "สตส.ทบ.",
       color: "border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/30",
     },
     {
-      role: "Citizen (ประชาชน)",
-      email: "citizen@dop.go.th",
-      pass: "citizen1234",
-      desc: "คำนวณสิทธิและยื่นคำขอรับสวัสดิการ",
-      badge: "Applicant",
+      role: "กำลังพล / ทายาท (Personnel)",
+      name: "ส.อ. สันติ ผู้รับสิทธิ",
+      email: "readonly@army.mod.go.th",
+      pass: "readonly1234",
+      desc: "ตรวจสอบสิทธิและสถานะเงินสงเคราะห์",
+      badge: "ทายาท/กำลังพล",
       color: "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30",
     },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-slate-50 via-slate-100 to-emerald-50/40 dark:from-slate-950 dark:via-slate-900 dark:to-emerald-950/20">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-emerald-950/20 via-slate-900 to-slate-950">
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>
@@ -103,24 +117,24 @@ export default function LoginPage() {
         {/* Branding Logo */}
         <div className="text-center space-y-2">
           <Link href="/" className="inline-flex items-center gap-3">
-            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-700 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-              <Calculator className="h-6 w-6 text-white" />
+            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-700 via-emerald-800 to-slate-900 flex items-center justify-center shadow-lg shadow-emerald-900/30 border border-emerald-600/40">
+              <Shield className="h-7 w-7 text-amber-400" />
             </div>
           </Link>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">
-            sittidop-benefit-system
+          <h1 className="text-2xl font-black tracking-tight text-slate-100">
+            ระบบสิทธิประโยชน์กำลังพล ทบ.
           </h1>
-          <p className="text-xs text-muted-foreground">
-            ระบบประมาณการสิทธิสวัสดิการ กรมกิจการผู้สูงอายุ (DOP)
+          <p className="text-xs text-slate-400">
+            กรมกำลังพลทหารบก (กพ.ทบ.) • กรมสวัสดิการทหารบก (สก.ทบ.) กองทัพบก
           </p>
         </div>
 
         {/* Login Form Card */}
-        <Card className="border-slate-200/90 dark:border-slate-800 shadow-xl">
+        <Card className="border-emerald-800/30 dark:border-slate-800 bg-card/95 backdrop-blur-md shadow-2xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg font-bold">เข้าสู่ระบบ (Sign In)</CardTitle>
             <CardDescription className="text-xs">
-              กรอกอีเมลและรหัสผ่านเพื่อเข้าสู่ระบบงานสิทธิสวัสดิการ
+              กรอกอีเมลและรหัสผ่านเพื่อเข้าสู่ระบบงานประมาณการสิทธิประโยชน์
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -142,8 +156,8 @@ export default function LoginPage() {
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-9 text-xs"
-                    placeholder="name@dop.go.th"
+                    className="pl-9 text-xs font-mono"
+                    placeholder="name@army.mod.go.th"
                   />
                 </div>
               </div>
@@ -167,9 +181,10 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm py-2.5 shadow-md shadow-emerald-600/20"
+                className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs sm:text-sm py-2.5 shadow-md shadow-emerald-900/30 gap-1.5"
               >
-                {isLoading ? "กำลังตรวจสอบข้อมูล..." : "เข้าสู่ระบบ (Sign In)"}
+                <KeyRound className="h-4 w-4 text-amber-400" />
+                {isLoading ? "กำลังตรวจสอบความปลอดภัย..." : "เข้าสู่ระบบงาน กองทัพบก"}
               </Button>
             </form>
           </CardContent>
@@ -178,21 +193,27 @@ export default function LoginPage() {
           <div className="px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800/80 space-y-3">
             <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
               <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-              คลิกเพื่อเลือกบัญชีทดสอบระบบ (Demo Accounts):
+              คลิกเพื่อเลือกบัญชีทดสอบระบบกองทัพบก (RTA Roles):
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2">
               {demoAccounts.map((acc, idx) => (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => handleQuickLogin(acc.email, acc.pass)}
-                  className={`p-2 rounded-xl border text-left text-xs transition-all hover:scale-[1.02] ${acc.color}`}
+                  className={`p-2.5 rounded-xl border text-left text-xs transition-all hover:scale-[1.01] ${acc.color}`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-slate-900 dark:text-slate-100">{acc.role}</span>
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+                      {acc.badge}
+                    </Badge>
                   </div>
-                  <p className="text-[10px] text-muted-foreground font-mono mt-0.5 truncate">{acc.email}</p>
+                  <div className="flex items-center justify-between mt-0.5">
+                    <span className="text-[11px] text-muted-foreground">{acc.name}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono truncate">{acc.email}</span>
+                  </div>
                 </button>
               ))}
             </div>
@@ -203,9 +224,9 @@ export default function LoginPage() {
         <div className="text-center">
           <Link
             href="/"
-            className="text-xs text-muted-foreground hover:text-slate-900 dark:hover:text-slate-100 font-medium inline-flex items-center gap-1"
+            className="text-xs text-slate-400 hover:text-slate-100 font-medium inline-flex items-center gap-1"
           >
-            ← กลับสู่หน้าหลักพอร์ทัลประชาชน
+            ← กลับสู่หน้าหลักพอร์ทัลกำลังพล กองทัพบก
           </Link>
         </div>
       </div>

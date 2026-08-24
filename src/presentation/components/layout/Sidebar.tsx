@@ -179,13 +179,13 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
       </div>
 
       {/* Security & Branch Classification Banner */}
-      <div className="rounded-xl border border-emerald-200/70 bg-gradient-to-br from-emerald-500/10 to-teal-500/5 p-3 dark:border-emerald-900/40 dark:from-emerald-950/30 space-y-1">
+      <div className="rounded-xl border border-emerald-800/30 bg-gradient-to-br from-emerald-950/20 via-card to-card p-3 dark:border-emerald-900/40 dark:from-emerald-950/40 space-y-1">
         <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300 text-xs font-bold">
-          <ShieldCheck className="h-4 w-4 text-emerald-600" />
-          <span>ระบบความปลอดภัยกลาโหม</span>
+          <ShieldCheck className="h-4 w-4 text-emerald-600 dark:text-amber-400" />
+          <span>ระบบความปลอดภัย กองทัพบก</span>
         </div>
         <p className="text-[10px] text-muted-foreground leading-tight">
-          คุ้มครองข้อมูลสิทธิกำลังพลและทายาทตามระเบียบชั้นความลับทางราชการ
+          คุ้มครองข้อมูลสิทธิกำลังพลและทายาทตามระเบียบชั้นความลับ กองทัพบก & กห.
         </p>
       </div>
     </aside>

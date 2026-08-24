@@ -96,6 +96,8 @@ export class ExcelImportService {
         const serviceYearsMultiplier = Number(row["serviceYearsMultiplier"] || row["เวลาราชการทวีคูณ"] || 0);
         const lossType = String(row["lossType"] || row["ประเภทความสูญเสีย"] || "KIA_COMBAT_DEATH").trim();
         const promotionSteps = Number(row["promotionSteps"] || row["ชั้นยศปูนบำเหน็จ"] || 7);
+        const hospitalAdmissionDate = String(row["hospitalAdmissionDate"] || row["วันที่เข้ารักษาพยาบาล"] || "").trim();
+        const hospitalDischargeDate = String(row["hospitalDischargeDate"] || row["วันที่ออกจากโรงพยาบาล"] || "").trim();
 
         // Required Validations
         if (!militaryId) {
@@ -196,6 +198,8 @@ export class ExcelImportService {
             promotionSteps,
             promotedRankAbbr: "พล.อ.",
             promotedSalary: Math.round(salary * 1.55),
+            hospitalAdmissionDate: hospitalAdmissionDate || undefined,
+            hospitalDischargeDate: hospitalDischargeDate || undefined,
             spouse: null,
             children: [],
             heirs: [],
@@ -445,12 +449,12 @@ export class ExcelImportService {
         ...p,
         spouse: spouseItem
           ? {
-              nationalId: spouseItem.nationalId || "1100400289112",
-              fullName: spouseItem.fullName,
-              isLegallyMarried: true,
-              hasPensionRights: true,
-              allocationPercentage: spouseItem.allocationPercentage || 50,
-            }
+            nationalId: spouseItem.nationalId || "1100400289112",
+            fullName: spouseItem.fullName,
+            isLegallyMarried: true,
+            hasPensionRights: true,
+            allocationPercentage: spouseItem.allocationPercentage || 50,
+          }
           : null,
         children: childrenItems.map((c) => ({
           nationalId: c.nationalId || "1100400289113",
@@ -507,6 +511,8 @@ export class ExcelImportService {
         serviceYearsMultiplier: 7,
         lossType: "KIA_COMBAT_DEATH",
         promotionSteps: 7,
+        hospitalAdmissionDate: "2026-03-12",
+        hospitalDischargeDate: "2026-03-27",
       },
       {
         militaryId: "MIL-61028441",
@@ -521,6 +527,8 @@ export class ExcelImportService {
         serviceYearsMultiplier: 5,
         lossType: "TOTAL_PERMANENT_DISABILITY",
         promotionSteps: 5,
+        hospitalAdmissionDate: "2026-04-05",
+        hospitalDischargeDate: "2026-04-20",
       },
     ];
     const wsPersonnel = XLSX.utils.json_to_sheet(personnelData);

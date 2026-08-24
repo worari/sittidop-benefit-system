@@ -29,6 +29,7 @@ import {
   Calendar,
   CalendarDays,
   Gift,
+  Activity,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -59,6 +60,14 @@ export function MilitaryBenefitCalculator() {
   const [promotionSteps, setPromotionSteps] = useState(7);
   const [promotedRankAbbr, setPromotedRankAbbr] = useState("พล.อ.");
   const [promotedSalary, setPromotedSalary] = useState(68500);
+
+  const [benefitScope, setBenefitScope] = useState<"IN_ARMY" | "OUTSIDE_ARMY" | "BOTH">("IN_ARMY");
+  const [actionCause, setActionCause] = useState<"ENEMY_ACTION" | "NON_ENEMY_ACTION" | "BOTH">("ENEMY_ACTION");
+  const [personnelCategory, setPersonnelCategory] = useState<string>("COMMISSIONED_OFFICER");
+
+  // Hospital Stay dates
+  const [hospitalAdmissionDate, setHospitalAdmissionDate] = useState("2026-03-12");
+  const [hospitalDischargeDate, setHospitalDischargeDate] = useState("2026-03-27");
 
   const [hasSpouse, setHasSpouse] = useState(true);
   const [spouseName, setSpouseName] = useState("นางพิมพา ภักดีสยาม");
@@ -96,6 +105,8 @@ export function MilitaryBenefitCalculator() {
     setServiceYearsMultiplier(p.serviceYearsMultiplier);
     setMissionType(p.missionType);
     setLossType(p.lossType);
+    setBenefitScope(p.benefitScope || "IN_ARMY");
+    setActionCause(p.actionCause || "ENEMY_ACTION");
     setPromotionSteps(p.promotionSteps || 7);
     setPromotedRankAbbr(p.promotedRankAbbr || "พล.อ.");
     setPromotedSalary(p.promotedSalary || Math.round(p.salary * 1.55));
@@ -103,11 +114,26 @@ export function MilitaryBenefitCalculator() {
     setSpouseName(p.spouse?.fullName || "");
     setChildrenCount(p.children?.length || 0);
     setStudyingChildrenCount(p.children?.filter((c) => c.isStudying)?.length || 0);
+    setHospitalAdmissionDate(p.hospitalAdmissionDate || "");
+    setHospitalDischargeDate(p.hospitalDischargeDate || "");
+  };
+
+  const calculateStayDays = (adm: string, dis: string) => {
+    if (!adm || !dis) return 0;
+    try {
+      const d1 = new Date(adm);
+      const d2 = new Date(dis);
+      const diff = Math.abs(d2.getTime() - d1.getTime());
+      return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+    } catch {
+      return 0;
+    }
   };
 
   const handleRunCalculation = async () => {
     setCalculating(true);
     try {
+      const stayDays = calculateStayDays(hospitalAdmissionDate, hospitalDischargeDate);
       const payload = {
         militaryId,
         citizenId: "3100600492811",
@@ -129,22 +155,26 @@ export function MilitaryBenefitCalculator() {
         serviceYearsNormal: Number(serviceYearsNormal),
         serviceYearsMultiplier: Number(serviceYearsMultiplier),
         totalServiceYears,
+        benefitScope,
+        actionCause,
         missionType,
-        actionType: "DIRECT_COMBAT",
-        incidentType: "COMBAT_ENGAGEMENT",
+        personnelCategory,
         lossType,
+        hospitalAdmissionDate,
+        hospitalDischargeDate,
+        hospitalStayDays: stayDays,
         promotionSteps: Number(promotionSteps),
         promotedRank: "GENERAL",
         promotedRankAbbr,
         promotedSalary: Number(promotedSalary),
         spouse: hasSpouse
           ? {
-              nationalId: "1100400289112",
-              fullName: spouseName,
-              isLegallyMarried: true,
-              hasPensionRights: true,
-              allocationPercentage: 50,
-            }
+            nationalId: "1100400289112",
+            fullName: spouseName,
+            isLegallyMarried: true,
+            hasPensionRights: true,
+            allocationPercentage: 50,
+          }
           : null,
         children: [
           {
@@ -231,13 +261,12 @@ export function MilitaryBenefitCalculator() {
           {steps.map((s) => (
             <div
               key={s.num}
-              className={`text-[10px] truncate ${
-                step === s.num
+              className={`text-[10px] truncate ${step === s.num
                   ? "font-bold text-emerald-600"
                   : step > s.num
-                  ? "text-slate-700 dark:text-slate-300"
-                  : "text-muted-foreground"
-              }`}
+                    ? "text-slate-700 dark:text-slate-300"
+                    : "text-muted-foreground"
+                }`}
             >
               {s.num}. {s.title}
             </div>
@@ -417,10 +446,38 @@ export function MilitaryBenefitCalculator() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">ประเภทความสูญเสีย (Loss Type)</Label>
+              <Label className="text-xs font-bold">1. ประเภทสิทธิ (Benefit Scope)</Label>
+              <select
+                value={benefitScope}
+                onChange={(e) => setBenefitScope(e.target.value as any)}
+                aria-label="1. ประเภทสิทธิ (Benefit Scope)"
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
+              >
+                <option value="IN_ARMY">ใน ทบ. (สิทธิและเงินกองทุนภายในกองทัพบก)</option>
+                <option value="OUTSIDE_ARMY">นอก ทบ. (ประกันภัยร่วม กห., กรมบัญชีกลาง, มูลนิธิสายใจไทย)</option>
+                <option value="BOTH">ทั้งในและนอก ทบ.</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">2. ถูกกระทำ (Action Cause)</Label>
+              <select
+                value={actionCause}
+                onChange={(e) => setActionCause(e.target.value as any)}
+                aria-label="2. ถูกกระทำ (Action Cause)"
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
+              >
+                <option value="ENEMY_ACTION">การกระทำของข้าศึก / ผู้ก่อความไม่สงบ / การสู้รบ</option>
+                <option value="NON_ENEMY_ACTION">มิใช่การกระทำของข้าศึก (อุบัติเหตุสนาม, ปฏิบัติงานปกติ)</option>
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">3. ประเภทความสูญเสีย (Loss Type)</Label>
               <select
                 value={lossType}
                 onChange={(e) => setLossType(e.target.value)}
+                aria-label="3. ประเภทความสูญเสีย (Loss Type)"
                 className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
               >
                 <option value="KIA_COMBAT_DEATH">เสียชีวิตจากการสู้รบในสมรภูมิ (KIA - 7-9 ชั้นยศ)</option>
@@ -466,6 +523,53 @@ export function MilitaryBenefitCalculator() {
                 onChange={(e) => setPromotedSalary(Number(e.target.value))}
                 className="text-xs font-mono font-bold text-amber-600"
               />
+            </div>
+
+            {/* Hospitalization Stay Section */}
+            <div className="sm:col-span-2 p-4 rounded-xl border border-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-950/20 space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+                  <Activity className="h-4 w-4 text-emerald-600" />
+                  การพักรักษาพยาบาลในโรงพยาบาล (Hospital Stay)
+                </Label>
+                <Badge className="bg-emerald-700 text-white font-mono text-xs px-2 py-0.5">
+                  คำนวณอัตโนมัติ: {calculateStayDays(hospitalAdmissionDate, hospitalDischargeDate)} วัน
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">วันที่เข้ารับการรักษาพยาบาล (Admission Date)</Label>
+                  <Input
+                    type="date"
+                    value={hospitalAdmissionDate}
+                    onChange={(e) => setHospitalAdmissionDate(e.target.value)}
+                    className="text-xs h-9 bg-background"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">วันที่จำหน่าย/ออกจากโรงพยาบาล (Discharge Date)</Label>
+                  <Input
+                    type="date"
+                    value={hospitalDischargeDate}
+                    onChange={(e) => setHospitalDischargeDate(e.target.value)}
+                    className="text-xs h-9 bg-background"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-slate-600 dark:text-slate-400">
+                <span className="font-semibold">เกณฑ์เงินช่วยเหลือ:</span>
+                <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                  1-10 วัน: <strong>10,000 บ.</strong>
+                </span>
+                <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                  11-20 วัน: <strong>20,000 บ.</strong> (รับเพิ่ม 10,000 บ.)
+                </span>
+                <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
+                  เกิน 20 วัน: <strong>30,000 บ.</strong>
+                </span>
+              </div>
             </div>
           </div>
 

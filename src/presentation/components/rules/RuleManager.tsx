@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { BenefitRuleDefinition } from "@/core/domain/entities/BenefitRule";
+import { BenefitRuleDefinition, BenefitScopeType, ActionCauseType } from "@/core/domain/entities/BenefitRule";
 import { BenefitCategoryCode, MilitaryBenefitCalculationResult } from "@/core/domain/value-objects/military-types";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/presentation/components/ui/card";
 import { Button } from "@/presentation/components/ui/button";
 import { Badge } from "@/presentation/components/ui/badge";
 import { Input } from "@/presentation/components/ui/input";
 import { Label } from "@/presentation/components/ui/label";
+import { Switch } from "@/presentation/components/ui/switch";
 import {
   Table,
   TableHeader,
@@ -44,6 +45,16 @@ import {
   Calendar,
   CalendarDays,
   Gift,
+  Target,
+  Flame,
+  Building,
+  HeartCrack,
+  Activity,
+  Layers,
+  Crosshair,
+  Trash2,
+  FilePlus2,
+  Landmark,
 } from "lucide-react";
 
 export function RuleManager() {
@@ -54,11 +65,40 @@ export function RuleManager() {
   const [loading, setLoading] = useState(true);
   const [editingRule, setEditingRule] = useState<BenefitRuleDefinition | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSandboxOpen, setIsSandboxOpen] = useState(false);
 
-  // Sandbox simulation state
-  const [simulationResult, setSimulationResult] = useState<MilitaryBenefitCalculationResult | null>(null);
-  const [simulating, setSimulating] = useState(false);
+  // Filters for Rule Table
+  const [scopeFilter, setScopeFilter] = useState<string>("ALL");
+  const [causeFilter, setCauseFilter] = useState<string>("ALL");
+
+  // Extensible Options Lists (with memory / state so user can add more in future)
+  const [missionOptions, setMissionOptions] = useState<{ id: string; label: string }[]>([
+    { id: "SOUTHERN_BORDER", label: "จชต. (จังหวัดชายแดนภาคใต้ / กอ.รมน.ภาค 4 สน.)" },
+    { id: "BORDER_DEFENSE", label: "แผนป้องกันประเทศ (กองกำลังชายแดน ทภ.1-4)" },
+    { id: "INTERNAL_SECURITY", label: "รักษาความสงบเรียบร้อยภายในราชอาณาจักร" },
+    { id: "DISASTER_RELIEF", label: "บรรเทาสาธารณภัย / ช่วยเหลือประชาชน" },
+    { id: "PEACEKEEPING_UN", label: "รักษาสันติภาพสหประชาชาติ (UN Peacekeeping)" },
+    { id: "COUNTER_INSURGENCY", label: "ปราบปรามความไม่สงบและการก่อการร้าย" },
+    { id: "ROUTINE_SERVICE", label: "ราชการประจำ / งานในที่ตั้งปกติ" },
+  ]);
+
+  const [personnelCategoryOptions, setPersonnelCategoryOptions] = useState<{ id: string; label: string }[]>([
+    { id: "COMMISSIONED_OFFICER", label: "นายทหารสัญญาบัตร (พล.อ. - ร.ต.)" },
+    { id: "NON_COMMISSIONED_OFFICER", label: "นายทหารประทวน (จ.ส.อ. - ส.ต.)" },
+    { id: "VOLUNTEER_RANGER", label: "อาสาสมัครทหารพราน (อส.ทพ.)" },
+    { id: "CONSCRIPT_SOLDIER", label: "ทหารกองประจำการ (พลทหาร)" },
+    { id: "CIVILIAN_STAFF", label: "พนักงานราชการ / ลูกจ้าง ทบ." },
+  ]);
+
+  const [lossTypeOptions] = useState<{ id: string; label: string }[]>([
+    { id: "KIA_COMBAT_DEATH", label: "เสียชีวิตจากการสู้รบ/การปะทะ (KIA)" },
+    { id: "DUTY_DEATH", label: "เสียชีวิตขณะปฏิบัติหน้าที่ราชการสนาม" },
+    { id: "TOTAL_PERMANENT_DISABILITY", label: "พิการทุพพลภาพถาวรสมบูรณ์ (TPD)" },
+    { id: "PARTIAL_DISABILITY", label: "พิการทุพพลภาพบางส่วน" },
+    { id: "SEVERE_WOUND_WIA", label: "บาดเจ็บสาหัสจากการสู้รบ (WIA)" },
+    { id: "MODERATE_INJURY", label: "บาดเจ็บปานกลาง / เล็กน้อย" },
+  ]);
 
   // Edit form state
   const [formFormula, setFormFormula] = useState("");
@@ -68,6 +108,64 @@ export function RuleManager() {
   const [formMaxAmount, setFormMaxAmount] = useState<number | undefined>(undefined);
   const [formIsActive, setFormIsActive] = useState(true);
   const [formDescription, setFormDescription] = useState("");
+  
+  // 5 Dimension state in Editor
+  const [formBenefitScope, setFormBenefitScope] = useState<BenefitScopeType>("IN_ARMY");
+  const [formCauseType, setFormCauseType] = useState<ActionCauseType>("BOTH");
+  const [formMissions, setFormMissions] = useState<string[]>([]);
+  const [formPersonnelCategories, setFormPersonnelCategories] = useState<string[]>([]);
+  const [formLossTypes, setFormLossTypes] = useState<string[]>([]);
+
+  // Create Form State
+  const [newRuleCode, setNewRuleCode] = useState("");
+  const [newRuleName, setNewRuleName] = useState("");
+  const [newCategory, setNewCategory] = useState<BenefitCategoryCode>(BenefitCategoryCode.LUMP_SUM_PAYMENT);
+  const [newDescription, setNewDescription] = useState("");
+  const [newLegalBasis, setNewLegalBasis] = useState("");
+  const [newPaymentType, setNewPaymentType] = useState<"ONE_TIME_LUMP_SUM" | "MONTHLY_PENSION" | "ANNUAL_GRANT" | "NON_MONETARY">("ONE_TIME_LUMP_SUM");
+  const [newBenefitScope, setNewBenefitScope] = useState<BenefitScopeType>("OUTSIDE_ARMY");
+  const [newCauseType, setNewCauseType] = useState<ActionCauseType>("ENEMY_ACTION");
+  const [newFormula, setNewFormula] = useState("{baseAmount}");
+  const [newBaseAmount, setNewBaseAmount] = useState(500000);
+  const [newFactor, setNewFactor] = useState(1);
+  const [newMinAmount, setNewMinAmount] = useState<number | undefined>(undefined);
+  const [newMaxAmount, setNewMaxAmount] = useState<number | undefined>(undefined);
+  const [newMissions, setNewMissions] = useState<string[]>(["SOUTHERN_BORDER", "COUNTER_INSURGENCY"]);
+  const [newPersonnelCategories, setNewPersonnelCategories] = useState<string[]>(["COMMISSIONED_OFFICER", "NON_COMMISSIONED_OFFICER", "VOLUNTEER_RANGER", "CONSCRIPT_SOLDIER"]);
+  const [newLossTypes, setNewLossTypes] = useState<string[]>(["KIA_COMBAT_DEATH", "TOTAL_PERMANENT_DISABILITY"]);
+  const [creating, setCreating] = useState(false);
+
+  // Inline "Add New Type" form inputs
+  const [newMissionInput, setNewMissionInput] = useState("");
+  const [showAddMission, setShowAddMission] = useState(false);
+  const [newCategoryInput, setNewCategoryInput] = useState("");
+  const [showAddCategory, setShowAddCategory] = useState(false);
+
+  // Sandbox simulation interactive state (5 dimensions tester)
+  const [sbScope, setSbScope] = useState<"IN_ARMY" | "OUTSIDE_ARMY">("IN_ARMY");
+  const [sbCause, setSbCause] = useState<"ENEMY_ACTION" | "NON_ENEMY_ACTION">("ENEMY_ACTION");
+  const [sbMission, setSbMission] = useState("SOUTHERN_BORDER");
+  const [sbCategory, setSbCategory] = useState("COMMISSIONED_OFFICER");
+  const [sbLossType, setSbLossType] = useState("SEVERE_WOUND_WIA");
+  const [sbAdmissionDate, setSbAdmissionDate] = useState("2026-03-12");
+  const [sbDischargeDate, setSbDischargeDate] = useState("2026-03-27");
+  const [sbSalary, setSbSalary] = useState(43500);
+  const [sbTotalYears, setSbTotalYears] = useState(24);
+  const [sbPromotionSteps, setSbPromotionSteps] = useState(7);
+  const [simulationResult, setSimulationResult] = useState<MilitaryBenefitCalculationResult | null>(null);
+  const [simulating, setSimulating] = useState(false);
+
+  const calculateStayDays = (adm: string, dis: string) => {
+    if (!adm || !dis) return 0;
+    try {
+      const d1 = new Date(adm);
+      const d2 = new Date(dis);
+      const diff = Math.abs(d2.getTime() - d1.getTime());
+      return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+    } catch {
+      return 0;
+    }
+  };
 
   const fetchRules = async () => {
     try {
@@ -97,7 +195,177 @@ export function RuleManager() {
     setFormMaxAmount(rule.maxAmount);
     setFormIsActive(rule.isActive);
     setFormDescription(rule.description);
+
+    // 5 Dimensions
+    setFormBenefitScope(rule.benefitScope || "IN_ARMY");
+    setFormCauseType(rule.causeType || "BOTH");
+    setFormMissions(rule.conditions?.allowedMissions || ["SOUTHERN_BORDER", "BORDER_DEFENSE", "INTERNAL_SECURITY"]);
+    setFormPersonnelCategories(rule.conditions?.allowedPersonnelCategories || ["COMMISSIONED_OFFICER", "NON_COMMISSIONED_OFFICER", "VOLUNTEER_RANGER", "CONSCRIPT_SOLDIER"]);
+    setFormLossTypes(rule.conditions?.allowedLossTypes || ["KIA_COMBAT_DEATH", "TOTAL_PERMANENT_DISABILITY"]);
+    
     setIsEditorOpen(true);
+  };
+
+  const handleOpenCreateModal = () => {
+    setNewRuleCode(`RULE-LUMP-NEW-${Date.now().toString().slice(-4)}`);
+    setNewRuleName("");
+    setNewCategory(selectedCategory);
+    setNewDescription("");
+    setNewLegalBasis("");
+    setNewPaymentType(
+      selectedCategory === BenefitCategoryCode.LUMP_SUM_PAYMENT
+        ? "ONE_TIME_LUMP_SUM"
+        : selectedCategory === BenefitCategoryCode.MONTHLY_PAYMENT
+        ? "MONTHLY_PENSION"
+        : selectedCategory === BenefitCategoryCode.ANNUAL_PAYMENT
+        ? "ANNUAL_GRANT"
+        : "NON_MONETARY"
+    );
+    setNewBenefitScope("OUTSIDE_ARMY");
+    setNewCauseType("ENEMY_ACTION");
+    setNewFormula("{baseAmount}");
+    setNewBaseAmount(500000);
+    setNewFactor(1);
+    setNewMinAmount(undefined);
+    setNewMaxAmount(undefined);
+    setNewMissions(["SOUTHERN_BORDER", "BORDER_DEFENSE", "COUNTER_INSURGENCY"]);
+    setNewPersonnelCategories(["COMMISSIONED_OFFICER", "NON_COMMISSIONED_OFFICER", "VOLUNTEER_RANGER", "CONSCRIPT_SOLDIER", "CIVILIAN_STAFF"]);
+    setNewLossTypes(["KIA_COMBAT_DEATH", "TOTAL_PERMANENT_DISABILITY", "SEVERE_WOUND_WIA"]);
+    setIsCreateModalOpen(true);
+  };
+
+  // Preset Template loader (e.g. เงินเยียวยา สำนักนายกฯ, พักรักษาพยาบาล)
+  const applyTemplate = (type: "PM_RELIEF" | "SBPAC_AID" | "ARMY_SPECIAL_FUND" | "PM_SCHOLARSHIP" | "HOSPITAL_STAY") => {
+    if (type === "PM_RELIEF") {
+      setNewRuleCode("RULE-LUMP-PM-RELIEF");
+      setNewRuleName("เงินเยียวยาพิเศษ สำนักนายกรัฐมนตรี");
+      setNewCategory(BenefitCategoryCode.LUMP_SUM_PAYMENT);
+      setNewPaymentType("ONE_TIME_LUMP_SUM");
+      setNewDescription("เงินช่วยเหลือเยียวยาผู้ได้รับผลกระทบสืบเนื่องจากสถานการณ์ความไม่สงบในจังหวัดชายแดนภาคใต้ (กองทุนสำนักนายกฯ)");
+      setNewLegalBasis("ระเบียบสำนักนายกรัฐมนตรีว่าด้วยการให้ความช่วยเหลือเยียวยาผู้ได้รับผลกระทบจากเหตุการณ์ความไม่สงบฯ พ.ศ. 2555");
+      setNewBenefitScope("OUTSIDE_ARMY");
+      setNewCauseType("ENEMY_ACTION");
+      setNewFormula("{baseAmount}");
+      setNewBaseAmount(500000);
+      setNewMissions(["SOUTHERN_BORDER", "COUNTER_INSURGENCY"]);
+      setNewLossTypes(["KIA_COMBAT_DEATH", "TOTAL_PERMANENT_DISABILITY"]);
+    } else if (type === "SBPAC_AID") {
+      setNewRuleCode("RULE-LUMP-SBPAC-AID");
+      setNewRuleName("เงินช่วยเหลือเยียวยา ศอ.บต.");
+      setNewCategory(BenefitCategoryCode.LUMP_SUM_PAYMENT);
+      setNewPaymentType("ONE_TIME_LUMP_SUM");
+      setNewDescription("เงินช่วยเหลือเยียวยาผู้ได้รับผลกระทบจากศูนย์อำนวยการบริหารจังหวัดชายแดนภาคใต้");
+      setNewLegalBasis("ระเบียบคณะกรรมการยุทธศาสตร์ด้านการพัฒนาจังหวัดชายแดนภาคใต้ (กพต.)");
+      setNewBenefitScope("OUTSIDE_ARMY");
+      setNewCauseType("ENEMY_ACTION");
+      setNewFormula("{baseAmount}");
+      setNewBaseAmount(500000);
+      setNewMissions(["SOUTHERN_BORDER"]);
+      setNewLossTypes(["KIA_COMBAT_DEATH", "TOTAL_PERMANENT_DISABILITY", "SEVERE_WOUND_WIA"]);
+    } else if (type === "PM_SCHOLARSHIP") {
+      setNewRuleCode("RULE-ANNUAL-PM-SCHOLARSHIP");
+      setNewRuleName("ทุนการศึกษาบุตรผู้เสียสละ สำนักนายกรัฐมนตรี");
+      setNewCategory(BenefitCategoryCode.ANNUAL_PAYMENT);
+      setNewPaymentType("ANNUAL_GRANT");
+      setNewDescription("ทุนการศึกษาต่อเนื่องรายปีสำหรับบุตรกำลังพลผู้สูญเสียจนสำเร็จการศึกษาระดับปริญญาตรี");
+      setNewLegalBasis("กองทุนช่วยเหลือเยียวยาด้านการศึกษา สำนักนายกรัฐมนตรี");
+      setNewBenefitScope("OUTSIDE_ARMY");
+      setNewCauseType("ENEMY_ACTION");
+      setNewFormula("{baseAmount} * {studyingChildrenCount}");
+      setNewBaseAmount(50000);
+      setNewMissions(["SOUTHERN_BORDER", "BORDER_DEFENSE"]);
+      setNewLossTypes(["KIA_COMBAT_DEATH", "TOTAL_PERMANENT_DISABILITY"]);
+    } else if (type === "HOSPITAL_STAY") {
+      setNewRuleCode("RULE-LUMP-HOSPITAL-STAY");
+      setNewRuleName("เงินช่วยเหลือการพักรักษาพยาบาล (Hospital Stay Benefit)");
+      setNewCategory(BenefitCategoryCode.LUMP_SUM_PAYMENT);
+      setNewPaymentType("ONE_TIME_LUMP_SUM");
+      setNewDescription("เงินช่วยเหลือบำรุงขวัญกำลังพลที่ได้รับบาดเจ็บและเข้ารับการรักษาพยาบาล (ไม่เกิน 10 วัน รับ 10,000 บาท, เกิน 10 วันแต่ไม่เกิน 20 วัน รับเพิ่มอีก 10,000 บาท เป็น 20,000 บาท, เกิน 20 วัน รับ 30,000 บาท)");
+      setNewLegalBasis("ระเบียบกองทัพบกว่าด้วยการสงเคราะห์กำลังพลที่ได้รับบาดเจ็บจากการปฏิบัติราชการสนาม พ.ศ. 2562");
+      setNewBenefitScope("IN_ARMY");
+      setNewCauseType("BOTH");
+      setNewFormula("{hospitalStayDays} <= 10 ? 10000 : {hospitalStayDays} <= 20 ? 20000 : 30000");
+      setNewBaseAmount(10000);
+      setNewMissions(["SOUTHERN_BORDER", "BORDER_DEFENSE", "INTERNAL_SECURITY", "ALL"]);
+      setNewLossTypes(["SEVERE_WOUND_WIA", "MODERATE_INJURY", "TOTAL_PERMANENT_DISABILITY", "PARTIAL_DISABILITY", "ALL"]);
+    } else if (type === "ARMY_SPECIAL_FUND") {
+      setNewRuleCode("RULE-LUMP-ARMY-HERO-FUND");
+      setNewRuleName("เงินกองทุนเชิดชูเกียรติวีรชน ทบ. พิทักษ์ชาติ");
+      setNewCategory(BenefitCategoryCode.LUMP_SUM_PAYMENT);
+      setNewPaymentType("ONE_TIME_LUMP_SUM");
+      setNewDescription("เงินกองทุนพิเศษกองทัพบกเพื่อช่วยเหลือครอบครัวและทายาทกำลังพลผู้เสียสละชีพ");
+      setNewLegalBasis("ระเบียบกองทัพบกว่าด้วยกองทุนสวัสดิการเชิดชูเกียรติกำลังพล พ.ศ. 2568");
+      setNewBenefitScope("IN_ARMY");
+      setNewCauseType("BOTH");
+      setNewFormula("{baseAmount}");
+      setNewBaseAmount(300000);
+      setNewMissions(["SOUTHERN_BORDER", "BORDER_DEFENSE", "INTERNAL_SECURITY"]);
+      setNewLossTypes(["KIA_COMBAT_DEATH", "TOTAL_PERMANENT_DISABILITY"]);
+    }
+  };
+
+  const handleCreateRule = async () => {
+    if (!newRuleCode || !newRuleName || !newFormula) {
+      alert("กรุณากรอกรหัสกฎเกณฑ์ ชื่อสิทธิประโยชน์ และสูตรคำนวณ");
+      return;
+    }
+    try {
+      setCreating(true);
+      const res = await fetch("/api/rules", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ruleCode: newRuleCode,
+          ruleName: newRuleName,
+          category: newCategory,
+          categoryName:
+            newCategory === BenefitCategoryCode.LUMP_SUM_PAYMENT
+              ? "One-Time Lump Sum"
+              : newCategory === BenefitCategoryCode.MONTHLY_PAYMENT
+              ? "Monthly Payment"
+              : newCategory === BenefitCategoryCode.ANNUAL_PAYMENT
+              ? "Annual Grants"
+              : "Non-Monetary Rights",
+          categoryThaiName:
+            newCategory === BenefitCategoryCode.LUMP_SUM_PAYMENT
+              ? "หมวด 1: รับเงินครั้งเดียว"
+              : newCategory === BenefitCategoryCode.MONTHLY_PAYMENT
+              ? "หมวด 2: รับเงินรายเดือน"
+              : newCategory === BenefitCategoryCode.ANNUAL_PAYMENT
+              ? "หมวด 3: รับเงินรายปี"
+              : "หมวด 4: สิทธิมิใช่ตัวเงิน",
+          description: newDescription,
+          legalBasis: newLegalBasis,
+          paymentType: newPaymentType,
+          benefitScope: newBenefitScope,
+          causeType: newCauseType,
+          formulaType: newFormula.includes("{") ? "EXPRESSION" : "FIXED_AMOUNT",
+          formulaExpression: newFormula,
+          multiplierFactor: Number(newFactor),
+          baseAmount: Number(newBaseAmount),
+          minAmount: newMinAmount ? Number(newMinAmount) : undefined,
+          maxAmount: newMaxAmount ? Number(newMaxAmount) : undefined,
+          conditions: {
+            allowedMissions: newMissions,
+            allowedPersonnelCategories: newPersonnelCategories,
+            allowedLossTypes: newLossTypes,
+          },
+          isActive: true,
+          priorityOrder: rules.length + 1,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setIsCreateModalOpen(false);
+        fetchRules();
+      } else {
+        alert(json.error || "เกิดข้อผิดพลาดในการสร้างกฎเกณฑ์");
+      }
+    } catch (err: any) {
+      alert(err.message || "Failed to create rule");
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleSaveRule = async () => {
@@ -114,6 +382,14 @@ export function RuleManager() {
           maxAmount: formMaxAmount ? Number(formMaxAmount) : undefined,
           isActive: formIsActive,
           description: formDescription,
+          benefitScope: formBenefitScope,
+          causeType: formCauseType,
+          conditions: {
+            ...editingRule.conditions,
+            allowedMissions: formMissions,
+            allowedPersonnelCategories: formPersonnelCategories,
+            allowedLossTypes: formLossTypes,
+          },
         }),
       });
       const json = await res.json();
@@ -126,6 +402,41 @@ export function RuleManager() {
     }
   };
 
+  const handleDeleteRule = async (ruleId: string, ruleName: string) => {
+    if (!confirm(`ยืนยันการลบกฎเกณฑ์สิทธิประโยชน์ "${ruleName}" ออกจากระบบ?`)) return;
+    try {
+      const res = await fetch(`/api/rules/${ruleId}`, { method: "DELETE" });
+      const json = await res.json();
+      if (json.success) {
+        fetchRules();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddCustomMission = () => {
+    if (!newMissionInput.trim()) return;
+    const id = `MISSION_${Date.now()}`;
+    const newM = { id, label: newMissionInput.trim() };
+    setMissionOptions([...missionOptions, newM]);
+    setFormMissions([...formMissions, id]);
+    setNewMissions([...newMissions, id]);
+    setNewMissionInput("");
+    setShowAddMission(false);
+  };
+
+  const handleAddCustomPersonnelCategory = () => {
+    if (!newCategoryInput.trim()) return;
+    const id = `CAT_${Date.now()}`;
+    const newC = { id, label: newCategoryInput.trim() };
+    setPersonnelCategoryOptions([...personnelCategoryOptions, newC]);
+    setFormPersonnelCategories([...formPersonnelCategories, id]);
+    setNewPersonnelCategories([...newPersonnelCategories, id]);
+    setNewCategoryInput("");
+    setShowAddCategory(false);
+  };
+
   const runSimulation = async () => {
     try {
       setSimulating(true);
@@ -133,40 +444,41 @@ export function RuleManager() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          militaryId: "MIL-49021884",
+          militaryId: "MIL-RTA-TEST",
           citizenId: "3100600492811",
-          rank: "LIEUTENANT_COLONEL",
-          rankAbbr: "พ.ท.",
-          firstName: "วีรชาติ",
-          lastName: "ภักดีสยาม",
+          rank: sbCategory === "COMMISSIONED_OFFICER" ? "LIEUTENANT_COLONEL" : sbCategory === "NON_COMMISSIONED_OFFICER" ? "MASTER_SERGEANT_1ST" : sbCategory === "VOLUNTEER_RANGER" ? "VOLUNTEER_RANGER" : "PRIVATE",
+          rankAbbr: sbCategory === "COMMISSIONED_OFFICER" ? "พ.ท." : sbCategory === "NON_COMMISSIONED_OFFICER" ? "จ.ส.อ." : sbCategory === "VOLUNTEER_RANGER" ? "อส.ทพ." : "พลฯ",
+          firstName: "ทดสอบ",
+          lastName: "ระบบสิทธิ ทบ.",
           militaryBranch: "ROYAL_THAI_ARMY",
-          abbreviatedPosition: "ผบ.พัน.ร.1911",
+          benefitScope: sbScope,
+          actionCause: sbCause,
+          missionType: sbMission,
+          personnelCategory: sbCategory,
+          lossType: sbLossType,
+          hospitalAdmissionDate: sbAdmissionDate,
+          hospitalDischargeDate: sbDischargeDate,
+          hospitalStayDays: calculateStayDays(sbAdmissionDate, sbDischargeDate),
+          abbreviatedPosition: "ผบ.ร้อย.ร.",
           normalUnit: "ร.19 พัน.1 (พล.ร.9)",
-          fieldPosition: "ผบ.ฉก.นราธิวาส 30",
+          fieldPosition: "ผบ.ฉก.",
           fieldUnit: "ฉก.นราธิวาส",
-          salary: 43500,
+          salary: Number(sbSalary),
           salaryLevel: "น.3",
           salaryStep: 21.5,
-          compensation: "พ.ช.ท.",
           compensationAmount: 5000,
           additionalPay: 2500,
           appointmentDate: "2010-05-01",
-          multiplierDate: "2016-10-01",
-          serviceYearsNormal: 16,
-          serviceYearsMultiplier: 8,
-          totalServiceYears: 24,
-          missionType: "COUNTER_INSURGENCY",
+          serviceYearsNormal: Math.max(1, Math.round(sbTotalYears * 0.65)),
+          serviceYearsMultiplier: Math.round(sbTotalYears * 0.35),
+          totalServiceYears: Number(sbTotalYears),
           actionType: "DIRECT_COMBAT",
           incidentType: "COMBAT_ENGAGEMENT",
           incidentDate: "2026-03-12",
-          lossType: "KIA_COMBAT_DEATH",
-          promotionSteps: 7,
-          promotedRank: "GENERAL",
-          promotedRankAbbr: "พล.อ.",
-          promotedSalary: 68500,
+          promotionSteps: Number(sbPromotionSteps),
           spouse: {
             nationalId: "1100400289112",
-            fullName: "นางพิมพา ภักดีสยาม",
+            fullName: "นางสมหญิง ทดสอบ",
             isLegallyMarried: true,
             hasPensionRights: true,
             allocationPercentage: 50,
@@ -174,7 +486,7 @@ export function RuleManager() {
           children: [
             {
               nationalId: "1100400289113",
-              fullName: "ด.ช.นราธิป ภักดีสยาม",
+              fullName: "ด.ช.นราธิป ทดสอบ",
               age: 11,
               isStudying: true,
               educationLevel: "PRIMARY",
@@ -182,7 +494,7 @@ export function RuleManager() {
             },
             {
               nationalId: "1100400289114",
-              fullName: "น.ส.กานดา ภักดีสยาม",
+              fullName: "น.ส.กานดา ทดสอบ",
               age: 19,
               isStudying: true,
               educationLevel: "BACHELOR",
@@ -192,19 +504,19 @@ export function RuleManager() {
           heirs: [
             {
               nationalId: "1100400289112",
-              fullName: "นางพิมพา ภักดีสยาม",
+              fullName: "นางสมหญิง ทดสอบ",
               relationship: "SPOUSE_LEGAL",
               allocationPercentage: 50,
             },
             {
               nationalId: "1100400289113",
-              fullName: "ด.ช.นราธิป ภักดีสยาม",
+              fullName: "ด.ช.นราธิป ทดสอบ",
               relationship: "CHILD_LEGITIMATE",
               allocationPercentage: 25,
             },
             {
               nationalId: "3100600492800",
-              fullName: "นายสมศักดิ์ ภักดีสยาม (บิดา)",
+              fullName: "นายสมศักดิ์ ทดสอบ (บิดา)",
               relationship: "FATHER",
               allocationPercentage: 25,
             },
@@ -258,340 +570,1040 @@ export function RuleManager() {
     },
   ];
 
-  const filteredRules = rules.filter((r) => r.category === selectedCategory);
+  const filteredRules = rules.filter((r) => {
+    const matchCat = r.category === selectedCategory;
+    const matchScope = scopeFilter === "ALL" || !r.benefitScope || r.benefitScope === "BOTH" || r.benefitScope === scopeFilter;
+    const matchCause = causeFilter === "ALL" || !r.causeType || r.causeType === "BOTH" || r.causeType === causeFilter;
+    return matchCat && matchScope && matchCause;
+  });
 
   return (
     <div className="space-y-6">
-      {/* Top Banner */}
+      {/* Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
         <div>
           <div className="flex items-center gap-2.5">
-            <Sliders className="h-6 w-6 text-emerald-600" />
+            <Sliders className="h-6 w-6 text-emerald-700 dark:text-amber-400" />
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
-              การจัดการสูตรและกฎเกณฑ์สิทธิประโยชน์ 4 หมวด
+              สูตร & กฎเกณฑ์สิทธิและสวัสดิการ กองทัพบก (RTA Rules Engine)
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            แยก 4 หมวดหมู่: 1.รับเงินครั้งเดียว 2.รับเงินรายเดือน 3.รับเงินรายปี 4.สิทธิมิใช่ตัวเงิน
+            จัดการสูตรคำนวณ ตัวแปร 5 มิติ (ประเภทสิทธิ, ถูกกระทำ, ภารกิจ, กำลังพล, การสูญเสีย) และเพิ่มสิทธิประโยชน์ใหม่ที่เกิดขึ้นในอนาคต
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            size="sm"
+            onClick={handleOpenCreateModal}
+            className="bg-emerald-700 hover:bg-emerald-800 text-white text-xs gap-1.5 shadow-sm font-bold"
+          >
+            <Plus className="h-4 w-4 text-amber-300" />
+            เพิ่มสูตร/กฎเกณฑ์สิทธิประโยชน์ใหม่
+          </Button>
+
           <Button
             size="sm"
             variant="outline"
-            className="text-xs gap-1.5"
             onClick={runSimulation}
             disabled={simulating}
+            className="text-xs gap-1.5 shadow-sm border-slate-300 dark:border-slate-700"
           >
-            <Sparkles className="h-4 w-4 text-amber-500" />
-            {simulating ? "กำลังประมวลผล..." : "ทดสอบคำนวณ (Live Sandbox)"}
+            <Play className="h-4 w-4 text-amber-500" />
+            {simulating ? "กำลังจำลอง..." : "ทดสอบ Sandbox (5 มิติ)"}
           </Button>
         </div>
       </div>
 
       {/* 4 Category Selection Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {categories.map((cat) => {
           const isSelected = selectedCategory === cat.code;
           const Icon = cat.icon;
           return (
-            <div
+            <button
               key={cat.code}
+              type="button"
               onClick={() => setSelectedCategory(cat.code)}
-              className={`p-4 rounded-2xl border transition-all cursor-pointer bg-gradient-to-br ${
-                cat.color
-              } ${
+              className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden ${
                 isSelected
-                  ? "ring-2 ring-emerald-600 shadow-md font-bold"
-                  : "opacity-80 hover:opacity-100"
+                  ? "bg-gradient-to-br border-emerald-600 dark:border-emerald-500 shadow-md ring-2 ring-emerald-500/20"
+                  : "bg-card hover:border-slate-300 dark:hover:border-slate-700 shadow-xs"
               }`}
             >
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Icon className="h-5 w-5 shrink-0" />
-                  <div>
-                    <h3 className="text-xs font-bold text-slate-900 dark:text-slate-100">{cat.name}</h3>
-                    <p className="text-[10px] text-muted-foreground">{cat.subtitle}</p>
-                  </div>
+                <div className={`p-2 rounded-xl bg-slate-100 dark:bg-slate-800 ${isSelected ? "text-emerald-700 dark:text-amber-400" : "text-slate-600"}`}>
+                  <Icon className="h-5 w-5" />
                 </div>
                 <Badge variant={isSelected ? "default" : "secondary"} className="text-[10px]">
-                  {cat.count} กฎ
+                  {cat.count} กฎเกณฑ์
                 </Badge>
               </div>
-            </div>
+              <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-slate-100 mt-2">
+                {cat.name}
+              </h3>
+              <p className="text-[11px] text-muted-foreground">{cat.subtitle}</p>
+            </button>
           );
         })}
       </div>
 
+      {/* Scope & Cause Dimension Filters Bar */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-card shadow-xs">
+        <div className="space-y-1">
+          <Label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <Building className="h-3.5 w-3.5 text-emerald-600" />
+            ตัวกรองมิติ: ประเภทสิทธิ (Benefit Scope)
+          </Label>
+          <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 dark:bg-slate-900 rounded-lg text-xs">
+            {[
+              { id: "ALL", label: "ทั้งหมด" },
+              { id: "IN_ARMY", label: "ใน ทบ." },
+              { id: "OUTSIDE_ARMY", label: "นอก ทบ." },
+            ].map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setScopeFilter(t.id)}
+                className={`py-1 rounded font-bold transition-all ${
+                  scopeFilter === t.id
+                    ? "bg-emerald-800 text-white shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <Crosshair className="h-3.5 w-3.5 text-amber-600" />
+            ตัวกรองมิติ: ถูกกระทำ (Action Cause)
+          </Label>
+          <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 dark:bg-slate-900 rounded-lg text-xs">
+            {[
+              { id: "ALL", label: "ทั้งหมด" },
+              { id: "ENEMY_ACTION", label: "ข้าศึก" },
+              { id: "NON_ENEMY_ACTION", label: "มิใช่ข้าศึก" },
+            ].map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setCauseFilter(t.id)}
+                className={`py-1 rounded font-bold transition-all ${
+                  causeFilter === t.id
+                    ? "bg-emerald-800 text-white shadow-xs"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Rules Table */}
       <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
+        <CardHeader className="py-3 px-4 bg-slate-50/50 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-sm font-bold">
+                รายการสูตรและกฎเกณฑ์สิทธิประโยชน์
+              </CardTitle>
+              <CardDescription className="text-xs">
+                แสดงผล {filteredRules.length} กฎเกณฑ์ที่ตรงตามเงื่อนไข
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader className="bg-slate-50 dark:bg-slate-900/60">
               <TableRow>
-                <TableHead className="text-xs font-bold">รหัส / ชื่อกฎเกณฑ์</TableHead>
-                <TableHead className="text-xs font-bold">สูตรคำนวณที่ใช้ (Formula Expression)</TableHead>
-                <TableHead className="text-xs font-bold">ตัวคูณ / ฐานเงิน</TableHead>
-                <TableHead className="text-xs font-bold">กฎหมายอ้างอิง</TableHead>
+                <TableHead className="text-xs font-bold w-28">รหัสกฎเกณฑ์</TableHead>
+                <TableHead className="text-xs font-bold">ชื่อสิทธิประโยชน์และข้อกฎหมาย</TableHead>
+                <TableHead className="text-xs font-bold">ประเภทสิทธิ / ถูกกระทำ</TableHead>
+                <TableHead className="text-xs font-bold">สูตร / ตัวแปรคำนวณ</TableHead>
+                <TableHead className="text-xs font-bold">เกณฑ์ภารกิจ & กำลังพล</TableHead>
                 <TableHead className="text-xs font-bold text-center">สถานะ</TableHead>
-                <TableHead className="text-xs font-bold text-right">การจัดการ</TableHead>
+                <TableHead className="text-xs font-bold text-right">จัดการ</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-xs text-muted-foreground">
-                    กำลังโหลดกฎเกณฑ์สิทธิประโยชน์...
+                  <TableCell colSpan={7} className="text-center py-8 text-xs text-muted-foreground">
+                    กำลังโหลดข้อมูลกฎเกณฑ์...
                   </TableCell>
                 </TableRow>
               ) : filteredRules.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-xs text-muted-foreground">
-                    ไม่มีกฎเกณฑ์ในหมวดหมู่นี้
+                  <TableCell colSpan={7} className="text-center py-8 text-xs text-muted-foreground">
+                    ไม่พบกฎเกณฑ์ที่ตรงตามเงื่อนไข
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredRules.map((rule) => (
-                  <TableRow key={rule.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-900/40">
-                    <TableCell className="py-3">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono text-[10px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950 px-1.5 py-0.5 rounded">
-                            {rule.ruleCode}
-                          </span>
+                filteredRules.map((rule) => {
+                  const isInsurance = rule.ruleCode === "RULE-LUMP-INSURANCE";
+                  const isPM = rule.ruleCode.includes("PM-") || rule.ruleName.includes("นายก");
+                  return (
+                    <TableRow
+                      key={rule.id}
+                      className={`hover:bg-slate-50/60 dark:hover:bg-slate-900/30 ${
+                        isInsurance ? "bg-amber-500/5 dark:bg-amber-950/20" : isPM ? "bg-blue-500/5 dark:bg-blue-950/20" : ""
+                      }`}
+                    >
+                      <TableCell className="font-mono text-xs font-bold text-emerald-800 dark:text-amber-400">
+                        {rule.ruleCode}
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <p className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                              {rule.ruleName}
+                            </p>
+                            {isPM && (
+                              <Badge className="bg-blue-600 text-white text-[9px] px-1 py-0">
+                                สำนักนายกฯ
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground line-clamp-1">
+                            {rule.legalBasis}
+                          </p>
                         </div>
-                        <p className="font-bold text-xs text-slate-900 dark:text-slate-100">
-                          {rule.ruleName}
-                        </p>
-                        <p className="text-[11px] text-muted-foreground line-clamp-1">
-                          {rule.description}
-                        </p>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-slate-800 dark:text-slate-200">
-                      <code className="bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded text-[11px]">
-                        {rule.formulaExpression}
-                      </code>
-                    </TableCell>
-                    <TableCell className="text-xs">
-                      {rule.multiplierFactor > 1 && (
-                        <span className="block font-bold text-emerald-600">
-                          คูณ {rule.multiplierFactor} เท่า
-                        </span>
-                      )}
-                      {rule.baseAmount > 0 && (
-                        <span className="block font-mono text-[11px] text-muted-foreground">
-                          ฐาน {formatCurrency(rule.baseAmount)}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-[11px] text-muted-foreground max-w-xs truncate">
-                      {rule.legalBasis}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge
-                        variant={rule.isActive ? "default" : "secondary"}
-                        className={
-                          rule.isActive
-                            ? "bg-emerald-600 text-white text-[10px]"
-                            : "bg-slate-200 text-slate-600 text-[10px]"
-                        }
-                      >
-                        {rule.isActive ? "เปิดใช้งาน" : "ปิดชั่วคราว"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 text-xs gap-1.5 text-slate-600 hover:text-emerald-600"
-                        onClick={() => openEditor(rule)}
-                      >
-                        <Edit className="h-3.5 w-3.5" />
-                        แก้ไขสูตร
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-slate-100 dark:bg-slate-800">
+                            {rule.benefitScope === "OUTSIDE_ARMY" ? "นอก ทบ." : rule.benefitScope === "BOTH" ? "ใน/นอก ทบ." : "ใน ทบ."}
+                          </Badge>
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300">
+                            {rule.causeType === "ENEMY_ACTION" ? "ข้าศึก" : rule.causeType === "NON_ENEMY_ACTION" ? "มิใช่ข้าศึก" : "ทุกกรณี"}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-0.5">
+                          <code className="text-[11px] font-mono font-bold bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-emerald-700 dark:text-emerald-400">
+                            {rule.formulaExpression}
+                          </code>
+                          {rule.baseAmount > 0 && (
+                            <p className="text-[10px] text-muted-foreground">
+                              ฐานวงเงิน: {formatCurrency(rule.baseAmount)}
+                            </p>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-[11px] text-muted-foreground space-y-0.5">
+                          <p className="line-clamp-1">
+                            ภารกิจ: {rule.conditions?.allowedMissions?.includes("ALL") || !rule.conditions?.allowedMissions?.length ? "ทุกภารกิจ" : rule.conditions.allowedMissions.join(", ")}
+                          </p>
+                          <p className="line-clamp-1">
+                            กำลังพล: {rule.conditions?.allowedPersonnelCategories?.includes("ALL") || !rule.conditions?.allowedPersonnelCategories?.length ? "ทุกกลุ่ม" : rule.conditions.allowedPersonnelCategories.join(", ")}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge
+                          variant={rule.isActive ? "success" : "secondary"}
+                          className="text-[10px]"
+                        >
+                          {rule.isActive ? "เปิดใช้งาน" : "ปิดใช้งาน"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openEditor(rule)}
+                            className="text-xs h-8 gap-1"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                            แก้ไข
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteRule(rule.id, rule.ruleName)}
+                            className="text-xs h-8 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 p-2"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
         </div>
       </Card>
 
-      {/* Formula Editor Modal */}
-      <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-        <DialogContent className="max-w-xl">
+      {/* CREATE NEW RULE MODAL */}
+      <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold">
-              แก้ไขสูตรและตัวแปรคำนวณ ({editingRule?.ruleCode})
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <FilePlus2 className="h-5 w-5 text-emerald-700 dark:text-amber-400" />
+              เพิ่มสูตร & กฎเกณฑ์สิทธิและสวัสดิการใหม่ (Create New Benefit Rule)
             </DialogTitle>
             <DialogDescription className="text-xs">
-              {editingRule?.ruleName} - {editingRule?.categoryThaiName}
+              กำหนดสิทธิประโยชน์ใหม่ เช่น เงินเยียวยาสำนักนายกรัฐมนตรี, เงินช่วยเหลือ ศอ.บต., หรือกองทุนพิเศษที่จัดตั้งขึ้นใหม่
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-2 text-xs">
-            {/* Tokens Shortcuts */}
-            <div className="space-y-1.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
-              <span className="text-[10px] font-bold uppercase text-muted-foreground block">
-                คลิกเพื่อแทรกตัวแปรคำนวณ (Tokens)
-              </span>
+          <div className="space-y-4 py-2">
+            {/* Rapid Preset Templates Bar */}
+            <div className="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-2">
+              <Label className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                แม่แบบสิทธิประโยชน์สำเร็จรูป (Quick Templates):
+              </Label>
               <div className="flex flex-wrap gap-1.5">
-                {[
-                  "{salary}",
-                  "{promotedSalary}",
-                  "{totalServiceYears}",
-                  "{serviceYearsMultiplier}",
-                  "{multiplierFactor}",
-                  "{baseAmount}",
-                  "{studyingChildrenCount}",
-                ].map((token) => (
-                  <Button
-                    key={token}
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-6 text-[10px] px-2 font-mono"
-                    onClick={() => setFormFormula((prev) => `${prev} ${token}`)}
-                  >
-                    {token}
-                  </Button>
-                ))}
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => applyTemplate("PM_RELIEF")}
+                  className="text-xs h-7 bg-white dark:bg-slate-900 border-blue-300 dark:border-blue-900 text-blue-800 dark:text-blue-300 gap-1"
+                >
+                  <Landmark className="h-3 w-3" />
+                  🏛️ เงินเยียวยา สำนักนายกฯ (5 แสน)
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => applyTemplate("SBPAC_AID")}
+                  className="text-xs h-7 bg-white dark:bg-slate-900 border-amber-300 dark:border-amber-900 text-amber-800 dark:text-amber-300 gap-1"
+                >
+                  <Shield className="h-3 w-3" />
+                  🛡️ เงินเยียวยา ศอ.บต. (5 แสน)
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => applyTemplate("PM_SCHOLARSHIP")}
+                  className="text-xs h-7 bg-white dark:bg-slate-900 border-purple-300 dark:border-purple-900 text-purple-800 dark:text-purple-300 gap-1"
+                >
+                  <GraduationCap className="h-3 w-3" />
+                  🎓 ทุนการศึกษา สำนักนายกฯ (รายปี)
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => applyTemplate("HOSPITAL_STAY")}
+                  className="text-xs h-7 bg-white dark:bg-slate-900 border-rose-300 dark:border-rose-900 text-rose-800 dark:text-rose-300 gap-1"
+                >
+                  <Activity className="h-3 w-3" />
+                  🏥 เงินช่วยเหลือพักรักษาพยาบาล (10-20 วัน)
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => applyTemplate("ARMY_SPECIAL_FUND")}
+                  className="text-xs h-7 bg-white dark:bg-slate-900 border-emerald-300 dark:border-emerald-900 text-emerald-800 dark:text-emerald-300 gap-1"
+                >
+                  <Award className="h-3 w-3" />
+                  🎖️ กองทุนเชิดชูเกียรติ ทบ. (ใน ทบ.)
+                </Button>
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">สูตรทางคณิตศาสตร์ (Mathematical Expression)</Label>
-              <Input
-                value={formFormula}
-                onChange={(e) => setFormFormula(e.target.value)}
-                className="font-mono text-xs"
-              />
+            {/* General Info */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">รหัสกฎเกณฑ์ (Rule Code)</Label>
+                <Input
+                  value={newRuleCode}
+                  onChange={(e) => setNewRuleCode(e.target.value)}
+                  className="font-mono text-xs"
+                  placeholder="RULE-LUMP-PM-RELIEF"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">หมวดหมู่สิทธิประโยชน์</Label>
+                <select
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value as any)}
+                  aria-label="หมวดหมู่สิทธิประโยชน์"
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
+                >
+                  <option value={BenefitCategoryCode.LUMP_SUM_PAYMENT}>หมวด 1: รับเงินครั้งเดียว (Lump Sum)</option>
+                  <option value={BenefitCategoryCode.MONTHLY_PAYMENT}>หมวด 2: รับเงินรายเดือน (Monthly)</option>
+                  <option value={BenefitCategoryCode.ANNUAL_PAYMENT}>หมวด 3: รับเงินรายปี (Annual)</option>
+                  <option value={BenefitCategoryCode.NON_MONETARY_BENEFIT}>หมวด 4: สิทธิมิใช่ตัวเงิน (Non-Monetary)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1 sm:col-span-2">
+                <Label className="text-xs font-bold">ชื่อสิทธิประโยชน์และเงินสงเคราะห์</Label>
+                <Input
+                  value={newRuleName}
+                  onChange={(e) => setNewRuleName(e.target.value)}
+                  className="text-xs"
+                  placeholder="เช่น เงินเยียวยาพิเศษ สำนักนายกรัฐมนตรี"
+                />
+              </div>
+
+              <div className="space-y-1 sm:col-span-2">
+                <Label className="text-xs font-bold">ข้อกฎหมาย / มติ ครม. / ระเบียบอ้างอิง</Label>
+                <Input
+                  value={newLegalBasis}
+                  onChange={(e) => setNewLegalBasis(e.target.value)}
+                  className="text-xs"
+                  placeholder="เช่น ระเบียบสำนักนายกรัฐมนตรีว่าด้วยการให้ความช่วยเหลือเยียวยาฯ พ.ศ. 2555"
+                />
+              </div>
+
+              <div className="space-y-1 sm:col-span-2">
+                <Label className="text-xs font-bold">คำอธิบายและรายละเอียดสิทธิ</Label>
+                <Input
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                  className="text-xs"
+                  placeholder="ระบุวัตถุประสงค์และรายละเอียดการจ่ายเงิน..."
+                />
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label className="text-xs">ตัวคูณ (Multiplier Factor)</Label>
+            {/* 5 Dimensions Configuration */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold flex items-center gap-1">
+                  <Building className="h-3 w-3 text-emerald-600" />
+                  1. ประเภทสิทธิ (Benefit Scope)
+                </Label>
+                <select
+                  value={newBenefitScope}
+                  onChange={(e) => setNewBenefitScope(e.target.value as any)}
+                  aria-label="1. ประเภทสิทธิ (Benefit Scope)"
+                  className="w-full h-8 rounded border border-input bg-background px-2 text-xs"
+                >
+                  <option value="OUTSIDE_ARMY">นอก ทบ. (สำนักนายกฯ, ประกันภัยร่วม กห., กระทรวงการคลัง)</option>
+                  <option value="IN_ARMY">ใน ทบ. (สิทธิและกองทุนภายในกองทัพบก)</option>
+                  <option value="BOTH">ทั้งในและนอก ทบ.</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold flex items-center gap-1">
+                  <Crosshair className="h-3 w-3 text-amber-600" />
+                  2. ถูกกระทำ (Action Cause)
+                </Label>
+                <select
+                  value={newCauseType}
+                  onChange={(e) => setNewCauseType(e.target.value as any)}
+                  aria-label="2. ถูกกระทำ (Action Cause)"
+                  className="w-full h-8 rounded border border-input bg-background px-2 text-xs"
+                >
+                  <option value="ENEMY_ACTION">การกระทำของข้าศึก / ผู้ก่อความไม่สงบ</option>
+                  <option value="NON_ENEMY_ACTION">มิใช่การกระทำของข้าศึก (อุบัติเหตุสนาม)</option>
+                  <option value="BOTH">ทุกกรณี</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Formula & Amount */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">สูตรคำนวณ (Formula Expression)</Label>
+                <Input
+                  value={newFormula}
+                  onChange={(e) => setNewFormula(e.target.value)}
+                  className="font-mono text-xs"
+                  placeholder="{baseAmount}"
+                />
+                <p className="text-[10px] text-muted-foreground">เช่น &#123;baseAmount&#125;, &#123;salary&#125; * 30</p>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">ฐานวงเงินสิทธิ (บาท)</Label>
+                <Input
+                  type="number"
+                  value={newBaseAmount}
+                  onChange={(e) => setNewBaseAmount(Number(e.target.value))}
+                  className="font-mono text-xs font-bold text-emerald-600"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">ตัวคูณ (Multiplier)</Label>
                 <Input
                   type="number"
                   step="0.1"
-                  value={formFactor}
-                  onChange={(e) => setFormFactor(Number(e.target.value))}
-                  className="text-xs"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs">จำนวนเงินฐาน (Base Amount - บาท)</Label>
-                <Input
-                  type="number"
-                  value={formBaseAmount}
-                  onChange={(e) => setFormBaseAmount(Number(e.target.value))}
-                  className="text-xs"
+                  value={newFactor}
+                  onChange={(e) => setNewFactor(Number(e.target.value))}
+                  className="font-mono text-xs"
                 />
               </div>
             </div>
 
-            <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900">
-              <span className="text-xs font-bold">สถานะเปิดใช้งานกฎข้อนี้</span>
-              <input
-                type="checkbox"
-                checked={formIsActive}
-                onChange={(e) => setFormIsActive(e.target.checked)}
-                className="h-4 w-4 rounded text-emerald-600"
-              />
+            {/* Mission & Loss Type Badges */}
+            <div className="space-y-2">
+              <Label className="text-xs font-bold">ประเภทภารกิจที่ได้รับสิทธิ</Label>
+              <div className="flex flex-wrap gap-1">
+                {missionOptions.map((m) => {
+                  const isChecked = newMissions.includes(m.id);
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        if (isChecked) {
+                          setNewMissions(newMissions.filter((x) => x !== m.id));
+                        } else {
+                          setNewMissions([...newMissions, m.id]);
+                        }
+                      }}
+                      className={`text-[11px] px-2 py-0.5 rounded border transition-all ${
+                        isChecked
+                          ? "bg-emerald-800 text-white font-bold border-emerald-900"
+                          : "bg-background text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-bold">ประเภทความสูญเสียที่ได้รับสิทธิ</Label>
+              <div className="flex flex-wrap gap-1">
+                {lossTypeOptions.map((l) => {
+                  const isChecked = newLossTypes.includes(l.id);
+                  return (
+                    <button
+                      key={l.id}
+                      type="button"
+                      onClick={() => {
+                        if (isChecked) {
+                          setNewLossTypes(newLossTypes.filter((x) => x !== l.id));
+                        } else {
+                          setNewLossTypes([...newLossTypes, l.id]);
+                        }
+                      }}
+                      className={`text-[11px] px-2 py-0.5 rounded border transition-all ${
+                        isChecked
+                          ? "bg-rose-800 text-white font-bold border-rose-900"
+                          : "bg-background text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                      }`}
+                    >
+                      {l.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => setIsEditorOpen(false)}>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateModalOpen(false)} className="text-xs">
               ยกเลิก
             </Button>
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5" onClick={handleSaveRule}>
-              <CheckCircle2 className="h-4 w-4" />
-              บันทึกการเปลี่ยนแปลง
+            <Button
+              onClick={handleCreateRule}
+              disabled={creating}
+              className="text-xs bg-emerald-800 text-white font-bold"
+            >
+              {creating ? "กำลังบันทึก..." : "บันทึกและเปิดใช้งานกฎเกณฑ์ใหม่"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Sandbox Simulation Modal */}
-      <Dialog open={isSandboxOpen} onOpenChange={setIsSandboxOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+      {/* 5-Dimension Rule Editor Dialog */}
+      <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-amber-500" />
-              ผลการทดสอบคำนวณประมาณการสิทธิ 4 หมวด (Sandbox Results)
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Sliders className="h-5 w-5 text-emerald-700 dark:text-amber-400" />
+              แก้ไขสูตรและตัวแปรคำนวณ 5 มิติ: {editingRule?.ruleCode}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              ตัวอย่างกำลังพล: พ.ท. วีรชาติ ภักดีสยาม (ปูนบำเหน็จ พล.อ. 7 ชั้นยศ)
+              {editingRule?.ruleName}
             </DialogDescription>
           </DialogHeader>
 
-          {simulationResult && (
-            <div className="space-y-4 py-2 text-xs">
-              {/* 4 Grand Summary Highlights */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-900 text-center">
-                  <span className="text-[10px] text-amber-700 block">1. เงินก้อนครั้งเดียว</span>
-                  <span className="text-base font-black text-amber-900 dark:text-amber-200 font-mono">
-                    {formatCurrency(simulationResult.grandTotalLumpSum)}
-                  </span>
-                </div>
-                <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-900 text-center">
-                  <span className="text-[10px] text-blue-700 block">2. เงินรายเดือน</span>
-                  <span className="text-base font-black text-blue-900 dark:text-blue-200 font-mono">
-                    {formatCurrency(simulationResult.grandTotalMonthlyPension)}
-                  </span>
-                </div>
-                <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950 border border-emerald-200 dark:border-emerald-900 text-center">
-                  <span className="text-[10px] text-emerald-700 block">3. เงินรายปี (ทุนการศึกษา)</span>
-                  <span className="text-base font-black text-emerald-900 dark:text-emerald-200 font-mono">
-                    {formatCurrency(simulationResult.grandTotalAnnualScholarship)}
-                  </span>
-                </div>
-                <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-900 text-center">
-                  <span className="text-[10px] text-purple-700 block">4. สิทธิมิใช่ตัวเงิน</span>
-                  <span className="text-base font-black text-purple-900 dark:text-purple-200 font-mono">
-                    {simulationResult.nonMonetaryRightsCount} รายการ
-                  </span>
-                </div>
+          <div className="space-y-5 py-3">
+            {/* 1 & 2 Dimension: Scope and Action Cause */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Building className="h-3.5 w-3.5 text-emerald-600" />
+                  1. ประเภทสิทธิ (Benefit Scope)
+                </Label>
+                <select
+                  value={formBenefitScope}
+                  onChange={(e) => setFormBenefitScope(e.target.value as any)}
+                  aria-label="1. ประเภทสิทธิ (Benefit Scope)"
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:ring-1 focus:ring-ring"
+                >
+                  <option value="IN_ARMY">ใน ทบ. (สิทธิและเงินกองทุนภายในกองทัพบก)</option>
+                  <option value="OUTSIDE_ARMY">นอก ทบ. (สำนักนายกฯ, ประกันภัยร่วม กห., กรมบัญชีกลาง, สายใจไทย)</option>
+                  <option value="BOTH">ทั้งในและนอก ทบ. (ใช้ร่วมกันทุกหน่วย)</option>
+                </select>
               </div>
 
-              {/* 4 Categories Breakdown */}
-              <div className="space-y-3">
-                {Object.values(simulationResult.categories || {}).map((cat) => (
-                  <div
-                    key={cat.category}
-                    className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-card space-y-2"
-                  >
-                    <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-                      <span className="font-bold text-xs">{cat.categoryThaiName}</span>
-                      <span className="font-mono font-bold text-emerald-600">
-                        รวม: {formatCurrency(cat.totalAmount)}
-                      </span>
-                    </div>
-                    <div className="space-y-1">
-                      {cat.items.map((item) => (
-                        <div
-                          key={item.ruleId}
-                          className="flex items-center justify-between text-[11px] p-2 rounded bg-slate-50 dark:bg-slate-900"
-                        >
-                          <span>{item.ruleName}</span>
-                          <span className="font-mono font-bold">{formatCurrency(item.amount)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Crosshair className="h-3.5 w-3.5 text-amber-600" />
+                  2. ถูกกระทำ (Action Cause / Perpetrator)
+                </Label>
+                <select
+                  value={formCauseType}
+                  onChange={(e) => setFormCauseType(e.target.value as any)}
+                  aria-label="2. ถูกกระทำ (Action Cause / Perpetrator)"
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:ring-1 focus:ring-ring"
+                >
+                  <option value="ENEMY_ACTION">การกระทำของข้าศึก / ผู้ก่อความไม่สงบ / การสู้รบ</option>
+                  <option value="NON_ENEMY_ACTION">มิใช่การกระทำของข้าศึก (อุบัติเหตุปฏิบัติหน้าที่, ช่วยเหลือประชาชน)</option>
+                  <option value="BOTH">ทุกกรณีการถูกกระทำ</option>
+                </select>
               </div>
             </div>
-          )}
+
+            {/* 3. Dimension: Mission Types (Extensible) */}
+            <div className="space-y-2 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Target className="h-3.5 w-3.5 text-blue-600" />
+                  3. ประเภทภารกิจที่ได้รับสิทธิ (Mission Types)
+                </Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowAddMission(!showAddMission)}
+                  className="text-[11px] h-7 gap-1"
+                >
+                  <Plus className="h-3 w-3" />
+                  เพิ่มประเภทภารกิจใหม่
+                </Button>
+              </div>
+
+              {showAddMission && (
+                <div className="flex items-center gap-2 p-2 bg-background rounded-lg border border-slate-300 dark:border-slate-700">
+                  <Input
+                    placeholder="พิมพ์ชื่อภารกิจใหม่ เช่น ภารกิจลาดตระเวนชายแดนพิเศษ..."
+                    value={newMissionInput}
+                    onChange={(e) => setNewMissionInput(e.target.value)}
+                    className="text-xs h-8"
+                  />
+                  <Button size="sm" onClick={handleAddCustomMission} className="text-xs h-8 bg-emerald-800 text-white">
+                    เพิ่ม
+                  </Button>
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {missionOptions.map((m) => {
+                  const isChecked = formMissions.includes(m.id) || formMissions.includes("ALL");
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        if (isChecked) {
+                          setFormMissions(formMissions.filter((x) => x !== m.id && x !== "ALL"));
+                        } else {
+                          setFormMissions([...formMissions, m.id]);
+                        }
+                      }}
+                      className={`text-xs px-2.5 py-1 rounded-lg border transition-all text-left ${
+                        isChecked
+                          ? "bg-emerald-800 text-white font-bold border-emerald-900"
+                          : "bg-background text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 4. Dimension: Personnel Categories (Extensible) */}
+            <div className="space-y-2 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                  <Users className="h-3.5 w-3.5 text-purple-600" />
+                  4. ประเภทกำลังพลที่ได้รับสิทธิ (Personnel Categories)
+                </Label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setShowAddCategory(!showAddCategory)}
+                  className="text-[11px] h-7 gap-1"
+                >
+                  <Plus className="h-3 w-3" />
+                  เพิ่มประเภทกำลังพลใหม่
+                </Button>
+              </div>
+
+              {showAddCategory && (
+                <div className="flex items-center gap-2 p-2 bg-background rounded-lg border border-slate-300 dark:border-slate-700">
+                  <Input
+                    placeholder="พิมพ์ชื่อกลุ่มกำลังพลใหม่ เช่น ทหารพรานจู่โจมพิเศษ..."
+                    value={newCategoryInput}
+                    onChange={(e) => setNewCategoryInput(e.target.value)}
+                    className="text-xs h-8"
+                  />
+                  <Button size="sm" onClick={handleAddCustomPersonnelCategory} className="text-xs h-8 bg-emerald-800 text-white">
+                    เพิ่ม
+                  </Button>
+                </div>
+              )}
+
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {personnelCategoryOptions.map((c) => {
+                  const isChecked = formPersonnelCategories.includes(c.id) || formPersonnelCategories.includes("ALL");
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => {
+                        if (isChecked) {
+                          setFormPersonnelCategories(formPersonnelCategories.filter((x) => x !== c.id && x !== "ALL"));
+                        } else {
+                          setFormPersonnelCategories([...formPersonnelCategories, c.id]);
+                        }
+                      }}
+                      className={`text-xs px-2.5 py-1 rounded-lg border transition-all text-left ${
+                        isChecked
+                          ? "bg-purple-800 text-white font-bold border-purple-900"
+                          : "bg-background text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 5. Dimension: Loss Types */}
+            <div className="space-y-2 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
+              <Label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <HeartCrack className="h-3.5 w-3.5 text-rose-600" />
+                5. ประเภทความสูญเสียที่ได้รับสิทธิ (Loss & Casualty Types)
+              </Label>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {lossTypeOptions.map((l) => {
+                  const isChecked = formLossTypes.includes(l.id) || formLossTypes.includes("ALL");
+                  return (
+                    <button
+                      key={l.id}
+                      type="button"
+                      onClick={() => {
+                        if (isChecked) {
+                          setFormLossTypes(formLossTypes.filter((x) => x !== l.id && x !== "ALL"));
+                        } else {
+                          setFormLossTypes([...formLossTypes, l.id]);
+                        }
+                      }}
+                      className={`text-xs px-2.5 py-1 rounded-lg border transition-all text-left ${
+                        isChecked
+                          ? "bg-rose-800 text-white font-bold border-rose-900"
+                          : "bg-background text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                      }`}
+                    >
+                      {l.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Formula & Variables */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="formula">สูตรคำนวณ (Formula Expression)</Label>
+                <Input
+                  id="formula"
+                  value={formFormula}
+                  onChange={(e) => setFormFormula(e.target.value)}
+                  className="font-mono text-xs"
+                  placeholder="{baseAmount}"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="baseAmount">ฐานวงเงินสิทธิ (บาท)</Label>
+                <Input
+                  id="baseAmount"
+                  type="number"
+                  value={formBaseAmount}
+                  onChange={(e) => setFormBaseAmount(Number(e.target.value))}
+                  className="font-mono text-xs font-bold text-emerald-600"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="factor">ตัวคูณ (Multiplier Factor)</Label>
+                <Input
+                  id="factor"
+                  type="number"
+                  step="0.1"
+                  value={formFactor}
+                  onChange={(e) => setFormFactor(Number(e.target.value))}
+                  className="font-mono text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="minAmount">วงเงินขั้นต่ำ (Min Cap)</Label>
+                <Input
+                  id="minAmount"
+                  type="number"
+                  value={formMinAmount ?? ""}
+                  onChange={(e) => setFormMinAmount(e.target.value ? Number(e.target.value) : undefined)}
+                  className="font-mono text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800">
+              <div>
+                <p className="text-xs font-bold">สถานะการเปิดใช้งานกฎเกณฑ์</p>
+                <p className="text-[11px] text-muted-foreground">เปิดหรือปิดการประเมินสิทธิข้อนี้ในเครื่องมือคำนวณ</p>
+              </div>
+              <Switch checked={formIsActive} onCheckedChange={setFormIsActive} />
+            </div>
+          </div>
 
           <DialogFooter>
-            <Button size="sm" onClick={() => setIsSandboxOpen(false)}>
-              ปิดหน้าต่าง
+            <Button variant="outline" onClick={() => setIsEditorOpen(false)} className="text-xs">
+              ยกเลิก
+            </Button>
+            <Button onClick={handleSaveRule} className="text-xs bg-emerald-800 text-white font-bold">
+              บันทึกการเปลี่ยนแปลง 5 มิติ
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Interactive 5-Dimension Sandbox Simulation Dialog */}
+      <Dialog open={isSandboxOpen} onOpenChange={setIsSandboxOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-amber-500" />
+              การทดสอบคำนวณ 5 มิติ (Sandbox Simulator & Matrix Tester)
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              ทดลองสลับตัวแปรทั้ง 5 มิติเพื่อดูผลการคำนวณของ RULE-LUMP-INSURANCE และสิทธิ 4 หมวดของ ทบ. แบบเรียลไทม์
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Interactive Dimension Selector Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-2xl border border-emerald-800/30 bg-slate-50 dark:bg-slate-900/60">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">1. ประเภทสิทธิ</Label>
+                <select
+                  value={sbScope}
+                  onChange={(e) => setSbScope(e.target.value as any)}
+                  aria-label="1. ประเภทสิทธิ"
+                  className="w-full h-8 rounded border border-input bg-background px-2 text-xs"
+                >
+                  <option value="IN_ARMY">ใน ทบ. (กองทุน ทบ.)</option>
+                  <option value="OUTSIDE_ARMY">นอก ทบ. (สำนักนายกฯ / ประกันภัย กห.)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">2. ถูกกระทำ</Label>
+                <select
+                  value={sbCause}
+                  onChange={(e) => setSbCause(e.target.value as any)}
+                  aria-label="2. ถูกกระทำ"
+                  className="w-full h-8 rounded border border-input bg-background px-2 text-xs"
+                >
+                  <option value="ENEMY_ACTION">ข้าศึก / ผู้ก่อความไม่สงบ</option>
+                  <option value="NON_ENEMY_ACTION">มิใช่ข้าศึก (อุบัติเหตุสนาม)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">3. ประเภทภารกิจ</Label>
+                <select
+                  value={sbMission}
+                  onChange={(e) => setSbMission(e.target.value)}
+                  aria-label="3. ประเภทภารกิจ"
+                  className="w-full h-8 rounded border border-input bg-background px-2 text-xs"
+                >
+                  <option value="SOUTHERN_BORDER">จชต. (กอ.รมน.ภาค 4 สน.)</option>
+                  <option value="BORDER_DEFENSE">แผนป้องกันประเทศ (ชายแดน)</option>
+                  <option value="INTERNAL_SECURITY">รักษาความสงบเรียบร้อย</option>
+                  <option value="DISASTER_RELIEF">บรรเทาสาธารณภัย</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">4. ประเภทกำลังพล</Label>
+                <select
+                  value={sbCategory}
+                  onChange={(e) => setSbCategory(e.target.value)}
+                  aria-label="4. ประเภทกำลังพล"
+                  className="w-full h-8 rounded border border-input bg-background px-2 text-xs"
+                >
+                  <option value="COMMISSIONED_OFFICER">นายทหารสัญญาบัตร (พ.ท.)</option>
+                  <option value="NON_COMMISSIONED_OFFICER">นายทหารประทวน (จ.ส.อ.)</option>
+                  <option value="VOLUNTEER_RANGER">อาสาสมัครทหารพราน (อส.ทพ.)</option>
+                  <option value="CONSCRIPT_SOLDIER">ทหารกองประจำการ (พลทหาร)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1 sm:col-span-2">
+                <Label className="text-xs font-bold">5. ประเภทความสูญเสีย</Label>
+                <select
+                  value={sbLossType}
+                  onChange={(e) => setSbLossType(e.target.value)}
+                  aria-label="5. ประเภทความสูญเสีย"
+                  className="w-full h-8 rounded border border-input bg-background px-2 text-xs"
+                >
+                  <option value="KIA_COMBAT_DEATH">เสียชีวิตจากการสู้รบ (KIA) ปูนบำเหน็จ 7 ชั้น</option>
+                  <option value="DUTY_DEATH">เสียชีวิตขณะปฏิบัติหน้าที่ราชการสนาม</option>
+                  <option value="TOTAL_PERMANENT_DISABILITY">พิการทุพพลภาพถาวรสมบูรณ์จากการรบ</option>
+                  <option value="SEVERE_WOUND_WIA">บาดเจ็บสาหัสจากการสู้รบ (WIA)</option>
+                  <option value="MODERATE_INJURY">บาดเจ็บปานกลาง / เล็กน้อย</option>
+                </select>
+              </div>
+
+              {/* Hospital Stay Dates Tester */}
+              <div className="sm:col-span-3 p-3 rounded-xl border border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+                    <Activity className="h-3.5 w-3.5 text-emerald-600" />
+                    🏥 การพักรักษาพยาบาล (Hospital Stay - คำนวณวันอัตโนมัติ)
+                  </Label>
+                  <Badge className="bg-emerald-700 text-white font-mono text-xs px-2 py-0.5">
+                    คำนวณได้: {calculateStayDays(sbAdmissionDate, sbDischargeDate)} วัน (
+                    {calculateStayDays(sbAdmissionDate, sbDischargeDate) <= 10
+                      ? "10,000 บาท"
+                      : calculateStayDays(sbAdmissionDate, sbDischargeDate) <= 20
+                      ? "20,000 บาท [เพิ่ม 10k]"
+                      : "30,000 บาท"}
+                    )
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">วันที่เข้ารับการรักษาพยาบาล</Label>
+                    <Input
+                      type="date"
+                      value={sbAdmissionDate}
+                      onChange={(e) => setSbAdmissionDate(e.target.value)}
+                      className="text-xs h-8 bg-background"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">วันที่จำหน่าย/ออกจากโรงพยาบาล</Label>
+                    <Input
+                      type="date"
+                      value={sbDischargeDate}
+                      onChange={(e) => setSbDischargeDate(e.target.value)}
+                      className="text-xs h-8 bg-background"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button size="sm" onClick={runSimulation} className="text-xs bg-emerald-800 text-white font-bold gap-1.5">
+                <RotateCcw className="h-3.5 w-3.5" />
+                คำนวณผลลัพธ์ใหม่ทันที
+              </Button>
+            </div>
+
+            {/* Results Grid */}
+            {simulationResult && (
+              <div className="space-y-4 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
+                    <p className="text-xs font-bold text-amber-800 dark:text-amber-300">1. รับเงินครั้งเดียว</p>
+                    <p className="text-xl font-black text-amber-600 dark:text-amber-400 font-mono">
+                      {formatCurrency(simulationResult.grandTotalLumpSum)}
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
+                    <p className="text-xs font-bold text-blue-800 dark:text-blue-300">2. รับเงินรายเดือน</p>
+                    <p className="text-xl font-black text-blue-600 dark:text-blue-400 font-mono">
+                      {formatCurrency(simulationResult.grandTotalMonthlyPension)}
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                    <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">3. รับเงินรายปี</p>
+                    <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                      {formatCurrency(simulationResult.grandTotalAnnualScholarship)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Detailed Breakdown of Category 1 Items */}
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-card">
+                  <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 mb-2">
+                    รายการคำนวณในหมวด 1 (เงินสินไหมและเงินก้อน):
+                  </h4>
+                  <div className="space-y-2">
+                    {simulationResult.categories[BenefitCategoryCode.LUMP_SUM_PAYMENT].items.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex items-center justify-between p-2.5 rounded-lg border text-xs ${
+                          item.ruleCode === "RULE-LUMP-INSURANCE"
+                            ? "bg-amber-500/10 border-amber-500/40"
+                            : item.ruleCode.includes("PM-")
+                            ? "bg-blue-500/10 border-blue-500/40"
+                            : "bg-slate-50/50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800"
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold">{item.ruleName}</span>
+                            {item.ruleCode === "RULE-LUMP-INSURANCE" && (
+                              <Badge className="bg-amber-600 text-white text-[9px] px-1.5 py-0">
+                                5-DIMENSIONS APPLIED
+                              </Badge>
+                            )}
+                            {item.ruleCode.includes("PM-") && (
+                              <Badge className="bg-blue-600 text-white text-[9px] px-1.5 py-0">
+                                สำนักนายกฯ
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-muted-foreground">{item.eligibilityNotes.join(", ")}</p>
+                        </div>
+                        <span className="font-mono font-bold text-sm text-emerald-600 dark:text-emerald-400">
+                          {formatCurrency(item.amount)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => setIsSandboxOpen(false)} className="text-xs">
+              ปิดหน้าต่างจำลอง
             </Button>
           </DialogFooter>
         </DialogContent>

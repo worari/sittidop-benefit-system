@@ -43,7 +43,7 @@ export class OfficialDocumentService {
    * Generates a QR Code Data URL for digital e-verification
    */
   public static async generateQrCodeDataUrl(verifyCode: string): Promise<string> {
-    const payload = `https://sittidop.mod.go.th/verify?code=${encodeURIComponent(
+    const payload = `https://benefit.army.mod.go.th/verify?code=${encodeURIComponent(
       verifyCode
     )}&timestamp=${Date.now()}`;
     return await QRCode.toDataURL(payload, {

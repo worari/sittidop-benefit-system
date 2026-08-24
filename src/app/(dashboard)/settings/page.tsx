@@ -17,15 +17,17 @@ import {
   Sliders,
   Database,
   Lock,
+  Landmark,
+  Award,
 } from "lucide-react";
 
 export default function SettingsPage() {
-  const [tier60, setTier60] = useState(600);
-  const [tier70, setTier70] = useState(700);
-  const [tier80, setTier80] = useState(800);
-  const [tier90, setTier90] = useState(1000);
+  const [insuranceKIA, setInsuranceKIA] = useState(2000000);
+  const [disasterMultiplier, setDisasterMultiplier] = useState(30);
+  const [armyFundGrant, setArmyFundGrant] = useState(1500000);
+  const [funeralAid, setFuneralAid] = useState(200000);
   const [autoApproveEnabled, setAutoApproveEnabled] = useState(false);
-  const [emailNotifyEnabled, setEmailNotifyEnabled] = useState(true);
+  const [smsNotifyEnabled, setSmsNotifyEnabled] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
@@ -33,17 +35,17 @@ export default function SettingsPage() {
     setIsSaving(true);
     setTimeout(() => {
       setIsSaving(false);
-      setStatusMsg("บันทึกการตั้งค่าเกณฑ์ประมาณการสิทธิสวัสดิการเรียบร้อยแล้ว");
+      setStatusMsg("บันทึกเกณฑ์ประมาณการสิทธิกำลังพล กองทัพบก เรียบร้อยแล้ว");
       setTimeout(() => setStatusMsg(null), 4000);
     }, 600);
   };
 
   const handleResetDemoData = async () => {
-    if (!confirm("ต้องการรีเซ็ตข้อมูลตัวอย่างทั้งหมดกลับเป็นค่าเริ่มต้นหรือไม่?")) return;
+    if (!confirm("ต้องการรีเซ็ตข้อมูลตัวอย่างกำลังพล กองทัพบก กลับเป็นค่าเริ่มต้นหรือไม่?")) return;
     try {
       const res = await fetch("/api/seed", { method: "POST" });
       if (res.ok) {
-        alert("รีเซ็ตข้อมูลตัวอย่างมาตรฐานสำเร็จแล้ว!");
+        alert("รีเซ็ตข้อมูลตัวอย่างกำลังพล ทบ. สำเร็จแล้ว!");
         window.location.reload();
       }
     } catch {
@@ -54,11 +56,12 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-          ตั้งค่าระบบและเกณฑ์การประมาณการสิทธิ (System Settings)
+        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+          <Shield className="h-6 w-6 text-emerald-700 dark:text-amber-400" />
+          ตั้งค่าระบบและเกณฑ์การคำนวณสิทธิประโยชน์ กองทัพบก (RTA Settings)
         </h1>
         <p className="text-xs text-muted-foreground">
-          ปรับแต่งอัตราเบี้ยยังชีพขั้นบันได กฎเกณฑ์การประเมินความเปราะบาง และการจัดการฐานข้อมูล
+          ปรับแต่งวงเงินสินไหมประกันภัยสงคราม ตัวคูณเงินชดเชยราชการสนาม กองทุน สก.ทบ. และการจัดการข้อมูล
         </p>
       </div>
 
@@ -69,17 +72,17 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Benefit Rules Configuration */}
+      {/* Army Benefit Rules Configuration */}
       <Card className="border-slate-200/80 dark:border-slate-800 shadow-xs">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Sliders className="h-5 w-5 text-emerald-600" />
+            <Sliders className="h-5 w-5 text-emerald-700 dark:text-amber-400" />
             <div>
               <CardTitle className="text-base font-bold">
-                อัตราเบี้ยยังชีพผู้สูงอายุแห่งชาติ (แบบขั้นบันได พ.ร.บ. ผู้สูงอายุ)
+                เกณฑ์วงเงินสิทธิประโยชน์และเงินสงเคราะห์หลัก (หมวด 1 รับเงินครั้งเดียว)
               </CardTitle>
               <CardDescription className="text-xs">
-                กำหนดอัตราเงินสวัสดิการรายเดือนตามกลุ่มอายุ (บาท/คน/เดือน)
+                กำหนดอัตราและตัวคูณเงินสงเคราะห์ตามระเบียบ กห. และ กองทัพบก
               </CardDescription>
             </div>
           </div>
@@ -87,43 +90,43 @@ export default function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label htmlFor="tier60">ช่วงอายุ 60 - 69 ปี (บาท/เดือน)</Label>
+              <Label htmlFor="insurance">สินไหมทดแทนประกันชีวิตภัยสงคราม (KIA) บาท</Label>
               <Input
-                id="tier60"
+                id="insurance"
                 type="number"
-                value={tier60}
-                onChange={(e) => setTier60(Number(e.target.value))}
-                className="font-bold text-emerald-600"
+                value={insuranceKIA}
+                onChange={(e) => setInsuranceKIA(Number(e.target.value))}
+                className="font-bold text-amber-600 dark:text-amber-400 font-mono"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="tier70">ช่วงอายุ 70 - 79 ปี (บาท/เดือน)</Label>
+              <Label htmlFor="multiplier">ตัวคูณชดเชยตาม พ.ร.บ. สงเคราะห์ผู้ประสบภัย (เท่าของเงินเดือน)</Label>
               <Input
-                id="tier70"
+                id="multiplier"
                 type="number"
-                value={tier70}
-                onChange={(e) => setTier70(Number(e.target.value))}
-                className="font-bold text-emerald-600"
+                value={disasterMultiplier}
+                onChange={(e) => setDisasterMultiplier(Number(e.target.value))}
+                className="font-bold text-emerald-600 dark:text-emerald-400 font-mono"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="tier80">ช่วงอายุ 80 - 89 ปี (บาท/เดือน)</Label>
+              <Label htmlFor="armyFund">เงินกองทุนสวัสดิการกองทัพบก / ช่วยเหลือผู้ประสบภัย (บาท)</Label>
               <Input
-                id="tier80"
+                id="armyFund"
                 type="number"
-                value={tier80}
-                onChange={(e) => setTier80(Number(e.target.value))}
-                className="font-bold text-emerald-600"
+                value={armyFundGrant}
+                onChange={(e) => setArmyFundGrant(Number(e.target.value))}
+                className="font-bold text-blue-600 dark:text-blue-400 font-mono"
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="tier90">ช่วงอายุ 90 ปีขึ้นไป (บาท/เดือน)</Label>
+              <Label htmlFor="funeral">เงินพระราชทานเพลิงศพ / ช่วยเหลือค่าจัดการศพ ทบ. (บาท)</Label>
               <Input
-                id="tier90"
+                id="funeral"
                 type="number"
-                value={tier90}
-                onChange={(e) => setTier90(Number(e.target.value))}
-                className="font-bold text-emerald-600"
+                value={funeralAid}
+                onChange={(e) => setFuneralAid(Number(e.target.value))}
+                className="font-bold text-purple-600 dark:text-purple-400 font-mono"
               />
             </div>
           </div>
@@ -132,25 +135,25 @@ export default function SettingsPage() {
           <Button
             onClick={handleSaveParameters}
             disabled={isSaving}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs gap-1.5"
+            className="bg-emerald-800 hover:bg-emerald-900 text-white font-semibold text-xs gap-1.5"
           >
-            <Save className="h-4 w-4" />
-            {isSaving ? "กำลังบันทึก..." : "บันทึกอัตราเกณฑ์สิทธิ"}
+            <Save className="h-4 w-4 text-amber-400" />
+            {isSaving ? "กำลังบันทึก..." : "บันทึกเกณฑ์สิทธิ กองทัพบก"}
           </Button>
         </CardFooter>
       </Card>
 
-      {/* System Automation & Security */}
+      {/* Security & Notification Controls */}
       <Card className="border-slate-200/80 dark:border-slate-800 shadow-xs">
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Lock className="h-5 w-5 text-purple-600" />
+            <Lock className="h-5 w-5 text-emerald-700 dark:text-amber-400" />
             <div>
               <CardTitle className="text-base font-bold">
-                การควบคุมความปลอดภัยและระบบอัตโนมัติ
+                การแจ้งเตือนและการคุ้มครองข้อมูลกำลังพล
               </CardTitle>
               <CardDescription className="text-xs">
-                การตั้งค่าระบบแจ้งเตือน และการตรวจสอบสิทธิอัตโนมัติ
+                การตั้งค่าระบบแจ้งเตือนสิทธิประโยชน์แก่ทายาท และการรักษาความปลอดภัยข้อมูล
               </CardDescription>
             </div>
           </div>
@@ -159,22 +162,22 @@ export default function SettingsPage() {
           <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800">
             <div className="space-y-0.5">
               <p className="font-semibold text-slate-800 dark:text-slate-200">
-                ระบบแจ้งเตือนทาง SMS/Email เมื่อคำขอผ่านการอนุมัติ
+                ระบบแจ้งเตือน SMS/Email ไปยังทายาทเมื่อสิทธิได้รับการอนุมัติ
               </p>
-              <p className="text-muted-foreground">ส่งข้อความอัตโนมัติไปยังหมายเลขโทรศัพท์ผู้สูงอายุ/ทายาท</p>
+              <p className="text-muted-foreground">แจ้งเตือนสถานะเงินสงเคราะห์และการออกหนังสือรับรองสิทธิทางการ</p>
             </div>
             <Switch
-              checked={emailNotifyEnabled}
-              onCheckedChange={setEmailNotifyEnabled}
+              checked={smsNotifyEnabled}
+              onCheckedChange={setSmsNotifyEnabled}
             />
           </div>
 
           <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800">
             <div className="space-y-0.5">
               <p className="font-semibold text-slate-800 dark:text-slate-200">
-                ระบบตรวจคุณสมบัติล่วงหน้าแบบอัตโนมัติ (AI Pre-screening)
+                ระบบตรวจสอบคุณสมบัติทายาทและการปูนบำเหน็จอัตโนมัติ
               </p>
-              <p className="text-muted-foreground">ตรวจสอบความครบถ้วนของเอกสารด้วย OCR อัตโนมัติก่อนส่งเจ้าหน้าที่</p>
+              <p className="text-muted-foreground">คำนวณขั้นเงินเดือนและสัดส่วนทายาทตามกฎหมายอัตโนมัติ</p>
             </div>
             <Switch
               checked={autoApproveEnabled}
@@ -191,17 +194,17 @@ export default function SettingsPage() {
             <Database className="h-5 w-5 text-rose-600" />
             <div>
               <CardTitle className="text-base font-bold text-rose-900 dark:text-rose-300">
-                การจัดการฐานข้อมูลและการทดสอบ (Database Seeder)
+                การจัดการฐานข้อมูลกำลังพล กองทัพบก (Database Seeder)
               </CardTitle>
               <CardDescription className="text-xs">
-                รีเซ็ตข้อมูลตัวอย่างกลับเป็นชุดข้อมูลมาตรฐานของกรมกิจการผู้สูงอายุ
+                รีเซ็ตข้อมูลตัวอย่างกลับเป็นชุดข้อมูลมาตรฐานของ กองทัพบก (กพ.ทบ. / สก.ทบ.)
               </CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="text-xs text-muted-foreground space-y-2">
           <p>
-            การคลิกปุ่มรีเซ็ตจะทำการโหลดข้อมูลโครงการสวัสดิการ 7 โครงการ บัญชีผู้ใช้ตัวอย่าง 4 บทบาท (Admin, Officer, Auditor, Citizen) ทะเบียนผู้สูงอายุ 8 ราย และคำขอ 7 รายการ
+            การคลิกปุ่มรีเซ็ตจะทำการโหลดข้อมูลกำลังพลตัวอย่างสังกัดกองทัพบก (พล.ร.9, พล.ร.2 รอ., พล.ร.15, กรม ทพ.45) ข้อมูลทายาท และสูตรสิทธิประโยชน์ 4 หมวดของ ทบ.
           </p>
         </CardContent>
         <CardFooter className="border-t border-rose-200/50 dark:border-rose-900/30 pt-4">
@@ -212,7 +215,7 @@ export default function SettingsPage() {
             className="text-xs gap-1.5"
           >
             <RotateCcw className="h-4 w-4" />
-            รีเซ็ตข้อมูลตัวอย่าง (Reset & Re-seed Demo Data)
+            รีเซ็ตข้อมูลตัวอย่างกำลังพล ทบ. (Reset RTA Data)
           </Button>
         </CardFooter>
       </Card>

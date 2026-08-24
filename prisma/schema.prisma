@@ -1,6 +1,6 @@
 // ==============================================================================
 // Prisma Schema for Military Benefit & Social Welfare Estimation System
-// ระบบประมาณการสิทธิกำลังพลและสวัสดิการ (กระทรวงกลาโหม & กรมกิจการผู้สูงอายุ)
+// ระบบประมาณการสิทธิกำลังพลและสวัสดิการ (กองทัพบก & กรมกำลังพลทหารบก)
 // ==============================================================================
 
 generator client {
@@ -230,6 +230,9 @@ model MilitaryPersonnel {
   incidentLocation    String?
   lossType            LossType       @default(KIA_COMBAT_DEATH)
   incidentDescription String?        @db.Text
+
+  hospitalAdmissionDate  DateTime?
+  hospitalDischargeDate  DateTime?
 
   promotedRank        MilitaryRank?
   promotedRankAbbr    String?

@@ -12,16 +12,40 @@ export const defaultMilitaryRules: BenefitRuleDefinition[] = [
     category: BenefitCategoryCode.LUMP_SUM_PAYMENT,
     categoryName: "One-Time Lump Sum",
     categoryThaiName: "หมวด 1: รับเงินครั้งเดียว",
-    description: "เงินสินไหมทดแทนประกันชีวิตกำลังพลที่เสียชีวิตจากการปฏิบัติหน้าที่ในสนามรบและพื้นที่ จชต.",
+    description: "เงินสินไหมทดแทนประกันชีวิตกำลังพลที่เสียชีวิต ทุพพลภาพ หรือบาดเจ็บจากการปฏิบัติหน้าที่ในสนามรบและพื้นที่ จชต.",
     legalBasis: "สัญญากรมธรรม์ประกันชีวิตกำลังพล กรมการเงินกลาโหมและกองทัพบก",
     paymentType: "ONE_TIME_LUMP_SUM",
+
+    // 1. ประเภทสิทธิ (Benefit Scope)
+    benefitScope: "IN_ARMY",
+
+    // 2. ถูกกระทำ (Action Cause)
+    causeType: "BOTH",
+
     formulaType: "FIXED_AMOUNT",
     formulaExpression: "{baseAmount}",
     multiplierFactor: 1,
     baseAmount: 2000000,
+    minAmount: 150000,
+    maxAmount: 2000000,
+
+    // 3, 4, 5 Dimensions
     conditions: {
-      allowedLossTypes: ["KIA_COMBAT_DEATH", "TOTAL_PERMANENT_DISABILITY"],
+      allowedMissions: ["SOUTHERN_BORDER", "BORDER_DEFENSE", "INTERNAL_SECURITY", "COUNTER_INSURGENCY", "DISASTER_RELIEF", "ALL"],
+      allowedPersonnelCategories: ["COMMISSIONED_OFFICER", "NON_COMMISSIONED_OFFICER", "VOLUNTEER_RANGER", "CONSCRIPT_SOLDIER", "CIVILIAN_STAFF", "ALL"],
+      allowedLossTypes: ["KIA_COMBAT_DEATH", "TOTAL_PERMANENT_DISABILITY", "SEVERE_WOUND_WIA", "DUTY_DEATH", "PARTIAL_DISABILITY", "INJURY_SEVERE"],
     },
+
+    // Matrix Tiers
+    insuranceMatrix: [
+      { scope: "IN_ARMY", cause: "ENEMY_ACTION", lossType: "KIA_COMBAT_DEATH", amount: 2000000 },
+      { scope: "IN_ARMY", cause: "ENEMY_ACTION", lossType: "TOTAL_PERMANENT_DISABILITY", amount: 2000000 },
+      { scope: "IN_ARMY", cause: "ENEMY_ACTION", lossType: "SEVERE_WOUND_WIA", amount: 500000 },
+      { scope: "IN_ARMY", cause: "NON_ENEMY_ACTION", lossType: "DUTY_DEATH", amount: 1000000 },
+      { scope: "IN_ARMY", cause: "NON_ENEMY_ACTION", lossType: "TOTAL_PERMANENT_DISABILITY", amount: 1200000 },
+      { scope: "OUTSIDE_ARMY", cause: "ENEMY_ACTION", lossType: "KIA_COMBAT_DEATH", amount: 1000000 },
+    ],
+
     isActive: true,
     priorityOrder: 1,
     createdAt: new Date(),
@@ -91,6 +115,34 @@ export const defaultMilitaryRules: BenefitRuleDefinition[] = [
     },
     isActive: true,
     priorityOrder: 4,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
+    id: "rule-cat1-09",
+    ruleCode: "RULE-LUMP-HOSPITAL-STAY",
+    ruleName: "เงินบำรุงขวัญกำลังพล (Morale / Consolation Grant)",
+    category: BenefitCategoryCode.LUMP_SUM_PAYMENT,
+    categoryName: "One-Time Lump Sum",
+    categoryThaiName: "หมวด 1: รับเงินครั้งเดียว",
+    description: "เงินบำรุงขวัญกำลังพล: กรณีเสียชีวิตรับ 40,000 บาท; กรณีบาดเจ็บและพักรักษาตัวในโรงพยาบาลไม่เกิน 20 วันรับ 10,000 บาท; กรณีบาดเจ็บพักรักษาตัวเกิน 20 วันรับเพิ่มอีก 10,000 บาท รวม 20,000 บาท",
+    legalBasis: "ระเบียบกองทัพบกว่าด้วยการสงเคราะห์กำลังพลที่ได้รับบาดเจ็บจากการปฏิบัติราชการสนาม พ.ศ. 2562",
+    paymentType: "ONE_TIME_LUMP_SUM",
+    benefitScope: "IN_ARMY",
+    causeType: "BOTH",
+    formulaType: "EXPRESSION",
+    formulaExpression: "{hospitalStayDays} <= 20 ? 10000 : 20000",
+    multiplierFactor: 1,
+    baseAmount: 10000,
+    minAmount: 10000,
+    maxAmount: 40000,
+    conditions: {
+      allowedLossTypes: ["KIA_COMBAT_DEATH", "DUTY_DEATH", "SEVERE_WOUND_WIA", "MODERATE_INJURY", "MINOR_INJURY", "TOTAL_PERMANENT_DISABILITY", "PARTIAL_DISABILITY", "ALL"],
+      allowedMissions: ["SOUTHERN_BORDER", "BORDER_DEFENSE", "INTERNAL_SECURITY", "COUNTER_INSURGENCY", "DISASTER_RELIEF", "ALL"],
+      allowedPersonnelCategories: ["COMMISSIONED_OFFICER", "NON_COMMISSIONED_OFFICER", "VOLUNTEER_RANGER", "CONSCRIPT_SOLDIER", "CIVILIAN_STAFF", "ALL"],
+    },
+    isActive: true,
+    priorityOrder: 5,
     createdAt: new Date(),
     updatedAt: new Date(),
   },

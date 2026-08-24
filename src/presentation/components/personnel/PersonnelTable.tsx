@@ -36,6 +36,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   Users,
+  Activity,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -62,6 +63,8 @@ export function PersonnelTable() {
   const [newTotalYears, setNewTotalYears] = useState(15);
   const [newLossType, setNewLossType] = useState("KIA_COMBAT_DEATH");
   const [newPromotionSteps, setNewPromotionSteps] = useState(7);
+  const [newHospitalAdmissionDate, setNewHospitalAdmissionDate] = useState("");
+  const [newHospitalDischargeDate, setNewHospitalDischargeDate] = useState("");
 
   const fetchPersonnel = async () => {
     try {
@@ -132,6 +135,8 @@ export function PersonnelTable() {
           promotionSteps: Number(newPromotionSteps),
           promotedRankAbbr: "พล.อ.",
           promotedSalary: Math.round(Number(newSalary) * 1.5),
+          hospitalAdmissionDate: newHospitalAdmissionDate || undefined,
+          hospitalDischargeDate: newHospitalDischargeDate || undefined,
         }),
       });
       const json = await res.json();
@@ -201,12 +206,11 @@ export function PersonnelTable() {
           <select
             value={branchFilter}
             onChange={(e) => setBranchFilter(e.target.value)}
+            aria-label="ตัวกรองกองทัพภาคและหน่วยสังกัด ทบ."
             className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring"
           >
-            <option value="ALL">ทุกเหล่าทัพ (All Branches)</option>
-            <option value="ROYAL_THAI_ARMY">กองทัพบก (ทบ.)</option>
-            <option value="ROYAL_THAI_NAVY">กองทัพเรือ (ทร.)</option>
-            <option value="ROYAL_THAI_AIR_FORCE">กองทัพอากาศ (ทอ.)</option>
+            <option value="ALL">ทุกหน่วยสังกัด กองทัพบก (All RTA Units)</option>
+            <option value="ROYAL_THAI_ARMY">กองทัพบก (ทบ.) - ทุกหน่วย</option>
           </select>
         </div>
 
@@ -411,6 +415,26 @@ export function PersonnelTable() {
                 </div>
               </div>
 
+              {/* Hospital Stay */}
+              <div className="p-3.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 space-y-1">
+                <span className="text-[11px] font-bold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                  <Activity className="h-3.5 w-3.5" />
+                  ข้อมูลการพักรักษาพยาบาล (เงินบำรุงขวัญ):
+                </span>
+                {selectedPersonnel.hospitalAdmissionDate && selectedPersonnel.hospitalDischargeDate ? (
+                  <div className="space-y-1">
+                    <p className="text-blue-700 dark:text-blue-300">
+                      วันที่เข้ารักษา: <strong>{selectedPersonnel.hospitalAdmissionDate}</strong> ถึง วันที่ออก: <strong>{selectedPersonnel.hospitalDischargeDate}</strong>
+                    </p>
+                    <p className="text-[11px] text-blue-600 dark:text-blue-400">
+                      ระยะเวลาพักรักษาจะถูกคำนวณอัตโนมัติเมื่อประมาณการสิทธิ
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-blue-700 dark:text-blue-300">ไม่ได้ระบุวันที่พักรักษาพยาบาล</p>
+                )}
+              </div>
+
               {/* Family Snapshot */}
               <div className="space-y-2 pt-1">
                 <span className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
@@ -582,7 +606,31 @@ export function PersonnelTable() {
                 <option value="KIA_COMBAT_DEATH">เสียชีวิตจากการสู้รบ (KIA)</option>
                 <option value="DUTY_DEATH">เสียชีวิตขณะปฏิบัติหน้าที่สนาม</option>
                 <option value="TOTAL_PERMANENT_DISABILITY">ทุพพลภาพถาวรจากการรบ</option>
+                <option value="SEVERE_WOUND_WIA">บาดเจ็บสาหัสจากการสู้รบ (WIA)</option>
+                <option value="MODERATE_INJURY">บาดเจ็บปานกลาง</option>
+                <option value="MINOR_INJURY">บาดเจ็บเล็กน้อย</option>
               </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">วันที่เข้ารักษาพยาบาล</Label>
+                <Input
+                  type="date"
+                  value={newHospitalAdmissionDate}
+                  onChange={(e) => setNewHospitalAdmissionDate(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">วันที่ออกจากโรงพยาบาล</Label>
+                <Input
+                  type="date"
+                  value={newHospitalDischargeDate}
+                  onChange={(e) => setNewHospitalDischargeDate(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
             </div>
           </div>
 

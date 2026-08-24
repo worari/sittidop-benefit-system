@@ -191,10 +191,10 @@ export function ExcelImportWizard() {
           </p>
         </div>
 
-        <a href="/api/import/excel?action=template" download="sittidop_import_template.xlsx">
+        <a href="/api/import/excel?action=template" download="rta_personnel_import_template.xlsx">
           <Button variant="outline" size="sm" className="text-xs gap-1.5 shadow-xs">
             <Download className="h-4 w-4 text-emerald-600" />
-            ดาวน์โหลดไฟล์แม่แบบ Excel Template
+            ดาวน์โหลดไฟล์แม่แบบ Excel Template (ทบ.)
           </Button>
         </a>
       </div>

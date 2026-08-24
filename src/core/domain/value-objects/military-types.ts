@@ -13,6 +13,22 @@ export interface MilitaryPersonnelInput {
   firstName: string;
   lastName: string;
   militaryBranch: string; // e.g. "ROYAL_THAI_ARMY"
+
+  // 1. ประเภทสิทธิ (Benefit Scope)
+  benefitScope?: "IN_ARMY" | "OUTSIDE_ARMY" | "BOTH";
+
+  // 2. ถูกกระทำ (Action Cause / Perpetrator)
+  actionCause?: "ENEMY_ACTION" | "NON_ENEMY_ACTION" | "BOTH";
+
+  // 3. ประเภทภารกิจ (Mission Type)
+  missionType: string; // e.g. "SOUTHERN_BORDER", "BORDER_DEFENSE", "INTERNAL_SECURITY", "COUNTER_INSURGENCY"
+
+  // 4. ประเภทกำลังพล (Personnel Category / Rank Group)
+  personnelCategory?: string; // e.g. "COMMISSIONED_OFFICER", "NON_COMMISSIONED_OFFICER", "VOLUNTEER_RANGER", "CONSCRIPT_SOLDIER"
+
+  // 5. ประเภทการสูญเสีย (Loss / Casualty Type)
+  lossType: string; // e.g. "KIA_COMBAT_DEATH", "TOTAL_PERMANENT_DISABILITY", "SEVERE_WOUND_WIA", "DUTY_DEATH"
+
   abbreviatedPosition: string; // e.g. "ผบ.พัน.ร.1911"
   normalUnit: string; // e.g. "ร.19 พัน.1"
   fieldPosition?: string; // e.g. "ผบ.ฉก.นราธิวาส 30"
@@ -28,15 +44,18 @@ export interface MilitaryPersonnelInput {
   serviceYearsNormal: number;
   serviceYearsMultiplier: number;
   totalServiceYears: number;
-  missionType: string; // e.g. "COUNTER_INSURGENCY"
   actionType: string; // e.g. "DIRECT_COMBAT"
   incidentType: string; // e.g. "COMBAT_ENGAGEMENT"
   incidentDate?: string;
-  lossType: string; // e.g. "KIA_COMBAT_DEATH"
   promotionSteps: number; // e.g. 7 or 8 steps
   promotedRank?: string;
   promotedRankAbbr?: string;
   promotedSalary?: number;
+
+  // Hospitalization / Inpatient Stay
+  hospitalAdmissionDate?: string;
+  hospitalDischargeDate?: string;
+  hospitalStayDays?: number;
 
   // Family Info
   spouse?: {
@@ -77,6 +96,16 @@ export interface RuleFormulaContext {
   studyingChildrenCount: number;
   multiplierFactor: number;
   baseAmount: number;
+
+  // 5 Dimensions context
+  benefitScope?: string;
+  actionCause?: string;
+  missionType?: string;
+  personnelCategory?: string;
+  lossType?: string;
+
+  // Hospital Stay Days
+  hospitalStayDays?: number;
 }
 
 export interface EvaluatedBenefitItem {

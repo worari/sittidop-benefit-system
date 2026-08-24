@@ -10,10 +10,144 @@ import { BenefitRuleDefinition } from "@/core/domain/entities/BenefitRule";
 
 export class MilitaryRuleEngine {
   /**
+   * Derives personnel category from rank if not explicitly provided
+   */
+  public static derivePersonnelCategory(rank: string, rankAbbr: string): string {
+    const r = (rank || "").toUpperCase();
+    const abbr = (rankAbbr || "").toLowerCase();
+
+    if (
+      r.includes("GENERAL") ||
+      r.includes("COLONEL") ||
+      r.includes("MAJOR") ||
+      r.includes("CAPTAIN") ||
+      r.includes("LIEUTENANT") ||
+      abbr.includes("พล.") ||
+      abbr.includes("พ.อ.") ||
+      abbr.includes("พ.ท.") ||
+      abbr.includes("พ.ต.") ||
+      abbr.includes("ร.อ.") ||
+      abbr.includes("ร.ท.") ||
+      abbr.includes("ร.ต.")
+    ) {
+      return "COMMISSIONED_OFFICER";
+    }
+
+    if (
+      r.includes("SERGEANT") ||
+      r.includes("CORPORAL") ||
+      abbr.includes("จ.ส.อ.") ||
+      abbr.includes("จ.ส.ท.") ||
+      abbr.includes("จ.ส.ต.") ||
+      abbr.includes("ส.อ.") ||
+      abbr.includes("ส.ท.") ||
+      abbr.includes("ส.ต.")
+    ) {
+      return "NON_COMMISSIONED_OFFICER";
+    }
+
+    if (r.includes("RANGER") || abbr.includes("อส.ทพ") || abbr.includes("ทพ.")) {
+      return "VOLUNTEER_RANGER";
+    }
+
+    if (r.includes("PRIVATE") || r.includes("CONSCRIPT") || abbr.includes("พลฯ") || abbr.includes("พลทหาร")) {
+      return "CONSCRIPT_SOLDIER";
+    }
+
+    return "COMMISSIONED_OFFICER";
+  }
+
+  /**
    * Safely evaluates mathematical formula expression with substituted tokens
    */
-  public static evaluateFormula(expression: string, context: RuleFormulaContext): number {
-    if (!expression || expression.trim() === "" || expression.includes("สิทธิ") || expression.includes("อัตรา")) return context.baseAmount || 0;
+  public static evaluateFormula(
+    expression: string,
+    context: RuleFormulaContext,
+    rule?: BenefitRuleDefinition
+  ): number {
+    if (!expression || expression.trim() === "" || expression.includes("สิทธิ") || expression.includes("อัตรา")) {
+      return context.baseAmount || 0;
+    }
+
+    // Special logic for Insurance rule (RULE-LUMP-INSURANCE)
+    if (rule?.ruleCode === "RULE-LUMP-INSURANCE") {
+      let insuranceBase = rule.baseAmount || 2000000;
+
+      // Check Insurance Matrix if defined
+      if (rule.insuranceMatrix && rule.insuranceMatrix.length > 0) {
+        const matched = rule.insuranceMatrix.find((tier) => {
+          const matchScope = tier.scope === "BOTH" || !context.benefitScope || tier.scope === context.benefitScope;
+          const matchCause = tier.cause === "BOTH" || !context.actionCause || tier.cause === context.actionCause;
+          const matchLoss = !tier.lossType || tier.lossType === context.lossType;
+          return matchScope && matchCause && matchLoss;
+        });
+        if (matched) return matched.amount;
+      }
+
+      // Dynamic calculation based on 5 Dimensions:
+      const isEnemyAction = context.actionCause === "ENEMY_ACTION" || context.lossType?.includes("KIA") || context.lossType?.includes("COMBAT");
+      const isSouthernBorder = context.missionType === "SOUTHERN_BORDER" || context.missionType === "COUNTER_INSURGENCY";
+      const isInjury = context.lossType === "SEVERE_WOUND_WIA" || context.lossType === "MODERATE_INJURY" || context.lossType === "INJURY";
+      const isDisability = context.lossType === "TOTAL_PERMANENT_DISABILITY" || context.lossType === "PARTIAL_DISABILITY";
+
+      if (isEnemyAction) {
+        if (isInjury) {
+          insuranceBase = context.lossType === "SEVERE_WOUND_WIA" ? 500000 : 250000;
+        } else if (isDisability) {
+          insuranceBase = isSouthernBorder ? 2000000 : 1800000;
+        } else {
+          // Death by Enemy Action in Field/Border
+          insuranceBase = isSouthernBorder ? 2000000 : 1800000;
+        }
+      } else {
+        // Non-Enemy Action (e.g. duty accident / illness)
+        if (isInjury) {
+          insuranceBase = 150000;
+        } else if (isDisability) {
+          insuranceBase = 1200000;
+        } else {
+          insuranceBase = 1000000;
+        }
+      }
+
+      // Benefit scope multiplier adjustment if outside army co-insurance applies
+      if (context.benefitScope === "OUTSIDE_ARMY") {
+        insuranceBase = Math.round(insuranceBase * 0.5);
+      }
+
+      return insuranceBase;
+    }
+
+    // Special logic for Hospital Stay / Morale Grant rule (RULE-LUMP-HOSPITAL-STAY)
+    if (rule?.ruleCode === "RULE-LUMP-HOSPITAL-STAY") {
+      const isDeath =
+        context.lossType === "KIA_COMBAT_DEATH" ||
+        context.lossType === "DUTY_DEATH" ||
+        (context.lossType || "").includes("DEATH");
+
+      // Death case: เงินบำรุงขวัญกรณีเสียชีวิต 40,000 บาท
+      if (isDeath) return 40000;
+
+      const isInjury =
+        context.lossType === "SEVERE_WOUND_WIA" ||
+        context.lossType === "MODERATE_INJURY" ||
+        context.lossType === "MINOR_INJURY" ||
+        context.lossType === "TOTAL_PERMANENT_DISABILITY" ||
+        context.lossType === "PARTIAL_DISABILITY" ||
+        (context.lossType || "").includes("INJURY") ||
+        (context.lossType || "").includes("DISABILITY") ||
+        (context.lossType || "").includes("WOUND");
+
+      const days = context.hospitalStayDays || 0;
+
+      // Injury + hospitalized case
+      if (isInjury && days > 0) {
+        if (days <= 20) return 10000; // บาดเจ็บพักรักษาไม่เกิน 20 วัน รับ 10,000 บาท
+        return 20000; // บาดเจ็บพักรักษาเกิน 20 วัน รับเพิ่ม 10,000 บาท รวม 20,000 บาท
+      }
+
+      return 0;
+    }
 
     let parsed = expression
       .replace(/{salary}/g, String(context.salary))
@@ -26,13 +160,24 @@ export class MilitaryRuleEngine {
       .replace(/{promotionSteps}/g, String(context.promotionSteps))
       .replace(/{childrenCount}/g, String(context.childrenCount))
       .replace(/{studyingChildrenCount}/g, String(context.studyingChildrenCount))
+      .replace(/{hospitalStayDays}/g, String(context.hospitalStayDays || 0))
       .replace(/{multiplierFactor}/g, String(context.multiplierFactor))
       .replace(/{baseAmount}/g, String(context.baseAmount));
+
+    // Handle ternary / conditional operators safely
+    if (parsed.includes("?") && parsed.includes(":")) {
+      try {
+        const condResult = new Function(`return (${parsed});`)();
+        return isNaN(condResult) ? 0 : Math.round(condResult);
+      } catch {
+        return context.baseAmount || 0;
+      }
+    }
 
     const sanitized = parsed.replace(/[^0-9+\-*/().\s]/g, "");
 
     try {
-      // Safe arithmetic calculation using Function constructor with no scope access
+      // Safe arithmetic calculation
       const result = new Function(`return (${sanitized});`)();
       return isNaN(result) ? 0 : Math.round(result);
     } catch {
@@ -41,19 +186,63 @@ export class MilitaryRuleEngine {
   }
 
   /**
-   * Evaluates eligibility of a rule for given personnel
+   * Evaluates eligibility of a rule for given personnel across the 5 dimensions
    */
-  public static checkEligibility(rule: BenefitRuleDefinition, personnel: MilitaryPersonnelInput): { isEligible: boolean; notes: string[] } {
+  public static checkEligibility(
+    rule: BenefitRuleDefinition,
+    personnel: MilitaryPersonnelInput
+  ): { isEligible: boolean; notes: string[] } {
     if (!rule.isActive) {
       return { isEligible: false, notes: ["กฎเกณฑ์ปิดใช้งานอยู่"] };
     }
 
     const notes: string[] = [];
 
-    // Check Loss Type
+    // 1. Check Benefit Scope (ใน ทบ. / นอก ทบ.)
+    if (rule.benefitScope && rule.benefitScope !== "BOTH" && personnel.benefitScope) {
+      if (personnel.benefitScope !== "BOTH" && rule.benefitScope !== personnel.benefitScope) {
+        const scopeLabel = rule.benefitScope === "IN_ARMY" ? "ใน ทบ." : "นอก ทบ.";
+        return { isEligible: false, notes: [`ใช้สำหรับสิทธิเฉพาะ ${scopeLabel}`] };
+      }
+    }
+
+    // 2. Check Action Cause (ข้าศึก / มิใช่ข้าศึก)
+    if (rule.causeType && rule.causeType !== "BOTH" && personnel.actionCause) {
+      if (personnel.actionCause !== "BOTH" && rule.causeType !== personnel.actionCause) {
+        const causeLabel = rule.causeType === "ENEMY_ACTION" ? "การกระทำของข้าศึก" : "มิใช่การกระทำของข้าศึก";
+        return { isEligible: false, notes: [`ใช้สำหรับกรณี ${causeLabel}`] };
+      }
+    }
+
+    // 3. Check Mission Type
+    if (rule.conditions?.allowedMissions && rule.conditions.allowedMissions.length > 0) {
+      if (personnel.missionType && !rule.conditions.allowedMissions.includes("ALL")) {
+        if (!rule.conditions.allowedMissions.includes(personnel.missionType)) {
+          return { isEligible: false, notes: [`ไม่ตรงตามประเภทภารกิจที่กำหนด (${personnel.missionType})`] };
+        }
+      }
+    }
+
+    // 4. Check Personnel Category
+    const derivedCategory = personnel.personnelCategory || this.derivePersonnelCategory(personnel.rank, personnel.rankAbbr);
+    if (rule.conditions?.allowedPersonnelCategories && rule.conditions.allowedPersonnelCategories.length > 0) {
+      if (!rule.conditions.allowedPersonnelCategories.includes("ALL")) {
+        if (!rule.conditions.allowedPersonnelCategories.includes(derivedCategory)) {
+          return { isEligible: false, notes: [`ไม่ตรงตามกลุ่มประเภทกำลังพล (${derivedCategory})`] };
+        }
+      }
+    }
+
+    // 5. Check Loss Type
     if (rule.conditions?.allowedLossTypes && rule.conditions.allowedLossTypes.length > 0) {
-      if (!rule.conditions.allowedLossTypes.includes(personnel.lossType)) {
-        return { isEligible: false, notes: [`ไม่ตรงตามประเภทความสูญเสีย (${personnel.lossType})`] };
+      if (!rule.conditions.allowedLossTypes.includes("ALL")) {
+        const normLoss = personnel.lossType;
+        const isMatched = rule.conditions.allowedLossTypes.some(
+          (t) => t === normLoss || (normLoss.includes("KIA") && t.includes("DEATH")) || (normLoss.includes("DISABILITY") && t.includes("DISABILITY"))
+        );
+        if (!isMatched) {
+          return { isEligible: false, notes: [`ไม่ตรงตามประเภทความสูญเสีย (${personnel.lossType})`] };
+        }
       }
     }
 
@@ -69,6 +258,55 @@ export class MilitaryRuleEngine {
     if (rule.conditions?.requiresSpouse) {
       if (!personnel.spouse || !personnel.spouse.isLegallyMarried) {
         return { isEligible: false, notes: ["ไม่มีคู่สมรสจดทะเบียนตามกฎหมาย"] };
+      }
+    }
+
+    // Check Hospital Stay / Morale Grant Rule
+    if (rule.ruleCode === "RULE-LUMP-HOSPITAL-STAY") {
+      const isDeath =
+        personnel.lossType === "KIA_COMBAT_DEATH" ||
+        personnel.lossType === "DUTY_DEATH" ||
+        personnel.lossType?.includes("DEATH");
+
+      // Death case: เงินบำรุงขวัญกรณีเสียชีวิต 40,000 บาท
+      if (isDeath) {
+        return { isEligible: true, notes: ["กรณีเสียชีวิต ได้รับเงินบำรุงขวัญ 40,000 บาท"] };
+      }
+
+      const isInjury =
+        personnel.lossType === "SEVERE_WOUND_WIA" ||
+        personnel.lossType === "MODERATE_INJURY" ||
+        personnel.lossType === "MINOR_INJURY" ||
+        personnel.lossType === "TOTAL_PERMANENT_DISABILITY" ||
+        personnel.lossType === "PARTIAL_DISABILITY" ||
+        personnel.lossType?.includes("INJURY") ||
+        personnel.lossType?.includes("DISABILITY") ||
+        personnel.lossType?.includes("WOUND");
+
+      let days = personnel.hospitalStayDays || 0;
+      if (!days && personnel.hospitalAdmissionDate && personnel.hospitalDischargeDate) {
+        try {
+          const d1 = new Date(personnel.hospitalAdmissionDate);
+          const d2 = new Date(personnel.hospitalDischargeDate);
+          const diff = Math.abs(d2.getTime() - d1.getTime());
+          days = Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+        } catch {
+          days = 0;
+        }
+      }
+
+      if (!isInjury) {
+        return { isEligible: false, notes: ["กฎเกณฑ์นี้ใช้สำหรับกรณีเสียชีวิตหรือบาดเจ็บจากการปฏิบัติหน้าที่"] };
+      }
+
+      if (days <= 0) {
+        return { isEligible: false, notes: ["กรณีบาดเจ็บต้องมีประวัติหรือระยะเวลาพักรักษาตัวในโรงพยาบาล"] };
+      }
+
+      if (days <= 20) {
+        return { isEligible: true, notes: [`บาดเจ็บพักรักษาพยาบาล ${days} วัน (ไม่เกิน 20 วัน ได้รับ 10,000 บาท)`] };
+      } else {
+        return { isEligible: true, notes: [`บาดเจ็บพักรักษาพยาบาล ${days} วัน (เกิน 20 วัน รับเพิ่ม 10,000 บาท รวม 20,000 บาท)`] };
       }
     }
 
@@ -100,6 +338,10 @@ export class MilitaryRuleEngine {
     const studyingCount =
       personnel.children?.filter((c) => c.isStudying).length || 0;
 
+    const derivedCategory =
+      personnel.personnelCategory ||
+      this.derivePersonnelCategory(personnel.rank, personnel.rankAbbr);
+
     const categoryDefinitions: Record<
       BenefitCategoryCode,
       { name: string; thaiName: string; desc: string }
@@ -107,12 +349,12 @@ export class MilitaryRuleEngine {
       [BenefitCategoryCode.LUMP_SUM_PAYMENT]: {
         name: "One-Time Lump Sum Payment",
         thaiName: "หมวด 1: รับเงินครั้งเดียว",
-        desc: "เงินก้อนจ่ายครั้งเดียว เช่น บำเหน็จตกทอด, ชดเชย พ.ร.บ. สงเคราะห์ 30 เท่า, ประกันชีวิตทหาร, ปูนบำเหน็จ และเงินกองทุน",
+        desc: "เงินก้อนจ่ายครั้งเดียว เช่น บำเหน็จตกทอด, ชดเชย พ.ร.บ. สงเคราะห์ 30 เท่า, ประกันชีวิตทหาร, ปูนบำเหน็จ และเงินกองทุน ทบ.",
       },
       [BenefitCategoryCode.MONTHLY_PAYMENT]: {
         name: "Monthly Payment",
         thaiName: "หมวด 2: รับเงินรายเดือน",
-        desc: "เงินบำนาญพิเศษรายเดือนจ่ายตลอดชีพแก่ทายาท และเงินเลี้ยงชีพผู้ปลดพิการทุพพลภาพ",
+        desc: "เงินบำนาญพิเศษรายเดือนจ่ายตลอดชีพแก่ทายาท และเงินเลี้ยงชีพผู้ปลดพิการทุพพลภาพ ทบ.",
       },
       [BenefitCategoryCode.ANNUAL_PAYMENT]: {
         name: "Annual Payment",
@@ -122,7 +364,7 @@ export class MilitaryRuleEngine {
       [BenefitCategoryCode.NON_MONETARY_BENEFIT]: {
         name: "Non-Monetary Rights",
         thaiName: "หมวด 4: สิทธิมิใช่ตัวเงิน",
-        desc: "สิทธิการบรรจุทายาททดแทน 1 อัตรา, สิทธิโควตาสถาบันการศึกษาทหาร, สิทธิการรักษาพยาบาล และพิธีพระราชทานเพลิงศพ",
+        desc: "สิทธิการบรรจุทายาททดแทน 1 อัตรา, สิทธิการรักษาพยาบาล รพ.ค่าย, และสิทธิขอพระราชทานเหรียญเกียรติยศ",
       },
     };
 
@@ -165,35 +407,59 @@ export class MilitaryRuleEngine {
       },
     };
 
-    let grandTotalLumpSum = 0;
-    let grandTotalMonthlyPension = 0;
-    let grandTotalAnnualScholarship = 0;
-    let nonMonetaryRightsCount = 0;
+    let computedStayDays = personnel.hospitalStayDays || 0;
+    if (!computedStayDays && personnel.hospitalAdmissionDate && personnel.hospitalDischargeDate) {
+      try {
+        const d1 = new Date(personnel.hospitalAdmissionDate);
+        const d2 = new Date(personnel.hospitalDischargeDate);
+        const diff = Math.abs(d2.getTime() - d1.getTime());
+        computedStayDays = Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+      } catch {
+        computedStayDays = 0;
+      }
+    }
 
-    for (const rule of rules) {
+    const context: RuleFormulaContext = {
+      salary: personnel.salary,
+      promotedSalary: defaultPromotedSalary,
+      serviceYears: personnel.serviceYearsNormal,
+      serviceYearsMultiplier: personnel.serviceYearsMultiplier || 0,
+      totalServiceYears: totalYears,
+      compensationAmount: personnel.compensationAmount || 0,
+      additionalPay: personnel.additionalPay || 0,
+      promotionSteps: personnel.promotionSteps || 7,
+      childrenCount: personnel.children?.length || 0,
+      studyingChildrenCount: studyingCount,
+      multiplierFactor: 1,
+      baseAmount: 0,
+      benefitScope: personnel.benefitScope || "IN_ARMY",
+      actionCause: personnel.actionCause || (personnel.lossType?.includes("KIA") ? "ENEMY_ACTION" : "NON_ENEMY_ACTION"),
+      missionType: personnel.missionType,
+      personnelCategory: derivedCategory,
+      lossType: personnel.lossType,
+      hospitalStayDays: computedStayDays,
+    };
+
+    // Sort rules by priority
+    const sortedRules = [...rules].sort((a, b) => (a.priorityOrder || 0) - (b.priorityOrder || 0));
+
+    for (const rule of sortedRules) {
       const eligibility = this.checkEligibility(rule, personnel);
-      if (!eligibility.isEligible) continue;
+      let calculatedAmount = 0;
 
-      const context: RuleFormulaContext = {
-        salary: personnel.salary,
-        promotedSalary: defaultPromotedSalary,
-        serviceYears: personnel.serviceYearsNormal,
-        serviceYearsMultiplier: personnel.serviceYearsMultiplier || 0,
-        totalServiceYears: totalYears,
-        compensationAmount: personnel.compensationAmount || 0,
-        additionalPay: personnel.additionalPay || 0,
-        promotionSteps: personnel.promotionSteps || 7,
-        childrenCount: personnel.children?.length || 0,
-        studyingChildrenCount: studyingCount,
-        multiplierFactor: rule.multiplierFactor,
-        baseAmount: rule.baseAmount,
-      };
+      if (eligibility.isEligible) {
+        context.multiplierFactor = rule.multiplierFactor;
+        context.baseAmount = rule.baseAmount;
 
-      let amount = 0;
-      if (rule.formulaType !== "NON_MONETARY") {
-        amount = this.evaluateFormula(rule.formulaExpression, context);
-        if (rule.minAmount && amount < rule.minAmount) amount = rule.minAmount;
-        if (rule.maxAmount && amount > rule.maxAmount) amount = rule.maxAmount;
+        calculatedAmount = this.evaluateFormula(rule.formulaExpression, context, rule);
+
+        // Apply min/max thresholds
+        if (rule.minAmount !== undefined && calculatedAmount < rule.minAmount) {
+          calculatedAmount = rule.minAmount;
+        }
+        if (rule.maxAmount !== undefined && calculatedAmount > rule.maxAmount) {
+          calculatedAmount = rule.maxAmount;
+        }
       }
 
       const item: EvaluatedBenefitItem = {
@@ -201,109 +467,54 @@ export class MilitaryRuleEngine {
         ruleCode: rule.ruleCode,
         ruleName: rule.ruleName,
         category: rule.category,
-        categoryName: rule.categoryName,
-        isEligible: true,
-        amount,
+        categoryName: rule.categoryThaiName || rule.categoryName,
+        isEligible: eligibility.isEligible,
+        amount: calculatedAmount,
         paymentType: rule.paymentType,
         formulaUsed: rule.formulaExpression,
         legalBasis: rule.legalBasis,
         eligibilityNotes: eligibility.notes,
       };
 
-      // Put into category
       if (categories[rule.category]) {
         categories[rule.category].items.push(item);
-        categories[rule.category].itemCount += 1;
-        categories[rule.category].totalAmount += amount;
-      }
-
-      // Aggregate totals based on Category
-      if (rule.category === BenefitCategoryCode.LUMP_SUM_PAYMENT) {
-        grandTotalLumpSum += amount;
-      } else if (rule.category === BenefitCategoryCode.MONTHLY_PAYMENT) {
-        grandTotalMonthlyPension += amount;
-      } else if (rule.category === BenefitCategoryCode.ANNUAL_PAYMENT) {
-        grandTotalAnnualScholarship += amount;
-      } else if (rule.category === BenefitCategoryCode.NON_MONETARY_BENEFIT) {
-        nonMonetaryRightsCount += 1;
-      }
-    }
-
-    // Successor right check (Age 18 - 35)
-    let successorEligible = false;
-    let candidateName: string | undefined;
-
-    if (personnel.children && personnel.children.length > 0) {
-      const eligibleChild = personnel.children.find((c) => c.age >= 18 && c.age <= 35);
-      if (eligibleChild) {
-        successorEligible = true;
-        candidateName = `${eligibleChild.fullName} (บุตร อายุ ${eligibleChild.age} ปี)`;
-      }
-    }
-
-    if (!successorEligible && personnel.spouse?.isLegallyMarried) {
-      successorEligible = true;
-      candidateName = `${personnel.spouse.fullName} (คู่สมรส)`;
-    }
-
-    // Heir Distribution (Spouse 50%, Children 25%, Parents 25%)
-    const heirDistribution: {
-      heirName: string;
-      relationship: string;
-      sharePercentage: number;
-      allocatedLumpSum: number;
-      allocatedMonthlyPension: number;
-    }[] = [];
-
-    if (personnel.heirs && personnel.heirs.length > 0) {
-      for (const h of personnel.heirs) {
-        heirDistribution.push({
-          heirName: h.fullName,
-          relationship: h.relationship,
-          sharePercentage: h.allocationPercentage,
-          allocatedLumpSum: Math.round(grandTotalLumpSum * (h.allocationPercentage / 100)),
-          allocatedMonthlyPension: Math.round(grandTotalMonthlyPension * (h.allocationPercentage / 100)),
-        });
-      }
-    } else {
-      if (personnel.spouse?.isLegallyMarried) {
-        heirDistribution.push({
-          heirName: personnel.spouse.fullName,
-          relationship: "SPOUSE_LEGAL",
-          sharePercentage: 50,
-          allocatedLumpSum: Math.round(grandTotalLumpSum * 0.5),
-          allocatedMonthlyPension: Math.round(grandTotalMonthlyPension * 0.5),
-        });
-      }
-      if (personnel.children && personnel.children.length > 0) {
-        const perChild = 25 / personnel.children.length;
-        for (const c of personnel.children) {
-          heirDistribution.push({
-            heirName: c.fullName,
-            relationship: "CHILD_LEGITIMATE",
-            sharePercentage: Number(perChild.toFixed(1)),
-            allocatedLumpSum: Math.round(grandTotalLumpSum * (perChild / 100)),
-            allocatedMonthlyPension: Math.round(grandTotalMonthlyPension * (perChild / 100)),
-          });
+        if (eligibility.isEligible) {
+          categories[rule.category].totalAmount += calculatedAmount;
+          categories[rule.category].itemCount += 1;
         }
       }
-      heirDistribution.push({
-        heirName: "บิดา / มารดา ผู้ให้กำเนิด",
-        relationship: "PARENTS",
-        sharePercentage: 25,
-        allocatedLumpSum: Math.round(grandTotalLumpSum * 0.25),
-        allocatedMonthlyPension: Math.round(grandTotalMonthlyPension * 0.25),
-      });
     }
+
+    const grandTotalLumpSum = categories[BenefitCategoryCode.LUMP_SUM_PAYMENT].totalAmount;
+    const grandTotalMonthlyPension = categories[BenefitCategoryCode.MONTHLY_PAYMENT].totalAmount;
+    const grandTotalAnnualScholarship = categories[BenefitCategoryCode.ANNUAL_PAYMENT].totalAmount;
+    const nonMonetaryRightsCount = categories[BenefitCategoryCode.NON_MONETARY_BENEFIT].itemCount;
+
+    // Heir Distribution calculation
+    const heirDistribution = (personnel.heirs || []).map((heir) => {
+      const pct = (heir.allocationPercentage || 0) / 100;
+      return {
+        heirName: heir.fullName,
+        relationship: heir.relationship,
+        sharePercentage: heir.allocationPercentage || 0,
+        allocatedLumpSum: Math.round(grandTotalLumpSum * pct),
+        allocatedMonthlyPension: Math.round(grandTotalMonthlyPension * pct),
+      };
+    });
+
+    const isSuccessorEligible =
+      personnel.lossType === "KIA_COMBAT_DEATH" ||
+      personnel.lossType === "TOTAL_PERMANENT_DISABILITY" ||
+      personnel.lossType === "DUTY_DEATH";
 
     return {
       personnelSummary: {
         militaryId: personnel.militaryId,
         fullName: `${personnel.rankAbbr} ${personnel.firstName} ${personnel.lastName}`,
-        rankWithAbbr: `${personnel.rankAbbr} ${personnel.rank}`,
+        rankWithAbbr: `${personnel.rankAbbr} (${personnel.rank})`,
         promotedRankWithAbbr: personnel.promotedRankAbbr
-          ? `${personnel.promotedRankAbbr} (ปูนบำเหน็จ ${personnel.promotionSteps} ชั้น)`
-          : "พล.อ.",
+          ? `${personnel.promotedRankAbbr} (ปูนบำเหน็จพิเศษ ${personnel.promotionSteps || 7} ชั้น)`
+          : `ปูนบำเหน็จ ${personnel.promotionSteps || 7} ชั้น`,
         lossTypeDescription: personnel.lossType,
         normalUnit: personnel.normalUnit,
         fieldUnit: personnel.fieldUnit || personnel.normalUnit,
@@ -318,11 +529,11 @@ export class MilitaryRuleEngine {
       categories,
       heirDistribution,
       successorJobRight: {
-        isEligible: successorEligible,
-        candidateName,
-        conditionText: successorEligible
-          ? `มีสิทธิได้รับการบรรจุทดแทน 1 อัตรา ผู้มีคุณสมบัติ: ${candidateName || "ทายาทสายตรง"}`
-          : "ไม่มีทายาทที่อยู่ในเกณฑ์อายุ 18-35 ปี",
+        isEligible: isSuccessorEligible,
+        candidateName: personnel.children?.[0]?.fullName || personnel.spouse?.fullName || "ทายาทลำดับที่ 1",
+        conditionText: isSuccessorEligible
+          ? "มีสิทธิได้รับการบรรจุทดแทน 1 อัตรา ตามเกณฑ์เสียชีวิต/ทุพพลภาพจากการรบและปฏิบัติราชการสนาม (กองทัพบก)"
+          : "ไม่ตรงตามเงื่อนไขการปูนบำเหน็จบรรจุทายาททดแทน",
       },
       calculatedAt: new Date().toISOString(),
     };
