@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { ThemeToggle } from "../presentation/components/layout/ThemeToggle";
 import { Button } from "../presentation/components/ui/button";
 import { Badge } from "../presentation/components/ui/badge";
@@ -49,7 +50,7 @@ export default function LandingPage() {
   // Calculations
   const totalYears = normalYears + multiplierYears;
   const promotedSalary = Math.round(salary * 1.57); // Estimated 7-step promotion
-  
+
   // 1. One-time Lump Sum
   const insuranceAmount = lossType === "KIA_COMBAT" ? 2000000 : lossType === "DISABILITY" ? 1500000 : 1000000;
   const gratuityInheritance = Math.round(promotedSalary * totalYears * 1.5);
@@ -74,8 +75,14 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 w-full border-b bg-background/85 backdrop-blur-md border-emerald-800/20 dark:border-slate-800 shadow-xs">
         <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-emerald-700 via-emerald-800 to-slate-900 flex items-center justify-center shadow-md shadow-emerald-900/30 border border-emerald-600/40">
-              <Shield className="h-6 w-6 text-amber-400" />
+            <div className="relative h-11 w-11 rounded-xl overflow-hidden shadow-md shadow-emerald-900/30 border border-emerald-600/40 bg-white">
+              <Image
+                src="/images/logo.png"
+                alt="ตรากรมกำลังพลทหารบก"
+                fill
+                className="object-contain p-0.5"
+                priority
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -87,7 +94,7 @@ export default function LandingPage() {
                 </span>
               </div>
               <p className="text-[11px] text-muted-foreground hidden sm:block">
-                กรมกำลังพลทหารบก (กพ.ทบ.) • กรมสวัสดิการทหารบก (สก.ทบ.)
+                กรมกำลังพลทหารบก (กพ.ทบ.) • กองสิทธิกำลังพล สำนักปกครองและบริการกำลังพล
               </p>
             </div>
           </div>
@@ -127,7 +134,7 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-sm sm:text-base text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-            บริการตรวจสอบและประมาณการสิทธิประโยชน์ 4 หมวดหมู่ สำหรับกำลังพลและทายาทผู้สูญเสียจากการปฏิบัติหน้าที่ราชการสนาม 
+            บริการตรวจสอบและประมาณการสิทธิประโยชน์ 4 หมวดหมู่ สำหรับกำลังพลและทายาทผู้สูญเสียจากการปฏิบัติหน้าที่ราชการสนาม
             ครอบคลุมเงินสินไหมทดแทน บำนาญพิเศษ บำเหน็จตกทอด ทุนการศึกษาบุตร และสิทธิการบรรจุทายาททดแทนเข้ารับราชการในกองทัพบก
           </p>
 
@@ -221,11 +228,10 @@ export default function LandingPage() {
                             setSalary(14000);
                           }
                         }}
-                        className={`text-xs font-bold py-1.5 rounded-lg transition-all ${
-                          rankCategory === t.id
-                            ? "bg-emerald-800 text-white shadow-xs"
-                            : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                        }`}
+                        className={`text-xs font-bold py-1.5 rounded-lg transition-all ${rankCategory === t.id
+                          ? "bg-emerald-800 text-white shadow-xs"
+                          : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                          }`}
                       >
                         {t.label}
                       </button>
@@ -549,7 +555,7 @@ export default function LandingPage() {
             <div>
               <p className="font-bold text-slate-100 text-sm">กองทัพบก (Royal Thai Army)</p>
               <p className="text-slate-400 text-[11px]">
-                กรมกำลังพลทหารบก (กพ.ทบ.) • กรมสวัสดิการทหารบก (สก.ทบ.)
+                กรมกำลังพลทหารบก (กพ.ทบ.) • กองสิทธิกำลังพล สำนักปกครองและบริการกำลังพล
               </p>
             </div>
           </div>
@@ -557,7 +563,7 @@ export default function LandingPage() {
           <div className="text-center sm:text-right text-slate-400 text-[11px] space-y-1">
             <p className="flex items-center justify-center sm:justify-end gap-1.5 text-slate-300">
               <PhoneCall className="h-3.5 w-3.5 text-amber-400" />
-              สายด่วนสวัสดิการกำลังพล กองทัพบก โทร 1131 หรือ 02-225-7000
+              สายด่วนสวัสดิการกำลังพล กองทัพบก โทร.ทบ. 97106 หรือ 02-297-7106
             </p>
             <p>© 2569 กองทัพบก (Royal Thai Army). สงวนลิขสิทธิ์ตามระเบียบทางราชการ.</p>
           </div>

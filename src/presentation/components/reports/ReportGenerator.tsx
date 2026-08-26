@@ -76,7 +76,7 @@ export function ReportGenerator({ metrics }: ReportGeneratorProps) {
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({
       fiscalYear: selectedFiscalYear,
       militaryBranch: "ROYAL_THAI_ARMY",
-      department: "กรมกำลังพลทหารบก (กพ.ทบ.) / กรมสวัสดิการทหารบก (สก.ทบ.)",
+      department: "กรมกำลังพลทหารบก (กพ.ทบ.) / กองสิทธิกำลังพล สำนักปกครองและบริการกำลังพล",
       categories: armyCategories,
       totalBudget: 24850000,
       timestamp: new Date().toISOString(),
@@ -99,7 +99,7 @@ export function ReportGenerator({ metrics }: ReportGeneratorProps) {
             รายงานสถิติและหนังสือรับรองประมาณการสิทธิประโยชน์กำลังพล ทบ.
           </h2>
           <p className="text-xs text-muted-foreground">
-            ปีงบประมาณ พ.ศ. {selectedFiscalYear} • กรมกำลังพลทหารบก (กพ.ทบ.) • กรมสวัสดิการทหารบก (สก.ทบ.) กองทัพบก
+            ปีงบประมาณ พ.ศ. {selectedFiscalYear} • กรมกำลังพลทหารบก (กพ.ทบ.) • กองสิทธิกำลังพล สำนักปกครองและบริการกำลังพล กองทัพบก
           </p>
         </div>
 

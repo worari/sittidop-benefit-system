@@ -70,7 +70,7 @@ class EnterpriseStore {
         email: "staff@army.mod.go.th",
         passwordHash: hashedStaff,
         role: Role.STAFF,
-        department: "กรมสวัสดิการทหารบก (สก.ทบ.)",
+        department: "กองสิทธิกำลังพล สำนักปกครองและบริการกำลังพล",
         phone: "02-225-7003",
         avatarUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
         isActive: true,

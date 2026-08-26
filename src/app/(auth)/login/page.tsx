@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../../../presentation/components/ui/card";
 import { Button } from "../../../presentation/components/ui/button";
 import { Input } from "../../../presentation/components/ui/input";
@@ -11,7 +12,6 @@ import { Label } from "../../../presentation/components/ui/label";
 import { Badge } from "../../../presentation/components/ui/badge";
 import { ThemeToggle } from "../../../presentation/components/layout/ThemeToggle";
 import {
-  Shield,
   Lock,
   Mail,
   ArrowRight,
@@ -75,7 +75,7 @@ export default function LoginPage() {
       email: "staff@army.mod.go.th",
       pass: "staff1234",
       desc: "คำนวณและออกหนังสือรับรองสิทธิ",
-      badge: "สก.ทบ.",
+      badge: "กองสิทธิกำลังพล",
       color: "border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/30",
     },
     {
@@ -117,15 +117,21 @@ export default function LoginPage() {
         {/* Branding Logo */}
         <div className="text-center space-y-2">
           <Link href="/" className="inline-flex items-center gap-3">
-            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-emerald-700 via-emerald-800 to-slate-900 flex items-center justify-center shadow-lg shadow-emerald-900/30 border border-emerald-600/40">
-              <Shield className="h-7 w-7 text-amber-400" />
+            <div className="relative h-20 w-20 rounded-2xl overflow-hidden shadow-lg shadow-emerald-900/30 border border-emerald-600/40 bg-white mx-auto">
+              <Image
+                src="/images/logo.png"
+                alt="ตรากรมกำลังพลทหารบก"
+                fill
+                className="object-contain p-1"
+                priority
+              />
             </div>
           </Link>
           <h1 className="text-2xl font-black tracking-tight text-slate-100">
             ระบบสิทธิประโยชน์กำลังพล ทบ.
           </h1>
           <p className="text-xs text-slate-400">
-            กรมกำลังพลทหารบก (กพ.ทบ.) • กรมสวัสดิการทหารบก (สก.ทบ.) กองทัพบก
+            กรมกำลังพลทหารบก (กพ.ทบ.) • กองสิทธิกำลังพล สำนักปกครองและบริการกำลังพล กองทัพบก
           </p>
         </div>
 

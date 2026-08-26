@@ -1,11 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserNav } from "./UserNav";
 import {
-  Shield,
   Calculator,
   LayoutDashboard,
   FileText,
@@ -37,8 +37,14 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
           </Button>
 
           <Link href="/dashboard" className="flex items-center gap-3 group">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-700 via-emerald-800 to-slate-900 flex items-center justify-center shadow-md shadow-emerald-900/25 border border-emerald-600/40 group-hover:scale-105 transition-transform">
-              <Shield className="h-5 w-5 text-amber-400" />
+            <div className="relative h-10 w-10 rounded-xl overflow-hidden shadow-md shadow-emerald-900/25 border border-emerald-600/40 group-hover:scale-105 transition-transform bg-white">
+              <Image
+                src="/images/logo.png"
+                alt="ตรากรมกำลังพลทหารบก"
+                fill
+                className="object-contain p-0.5"
+                priority
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -50,7 +56,7 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
                 </span>
               </div>
               <p className="text-[11px] text-muted-foreground hidden sm:block">
-                กรมกำลังพลทหารบก (กพ.ทบ.) • กรมสวัสดิการทหารบก (สก.ทบ.)
+                กรมกำลังพลทหารบก (กพ.ทบ.) • กองสิทธิกำลังพล สำนักปกครองและบริการกำลังพล
               </p>
             </div>
           </Link>
