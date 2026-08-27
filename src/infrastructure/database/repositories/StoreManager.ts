@@ -2,6 +2,7 @@ import { initialBenefitPrograms, initialCitizens, initialApplications, initialAu
 import { CitizenEntity } from "@/core/domain/entities/Citizen";
 import { BenefitProgramEntity } from "@/core/domain/entities/BenefitProgram";
 import { ApplicationEntity, ApprovalRecordEntity } from "@/core/domain/entities/Application";
+import { BenefitTrackingEntity } from "@/core/domain/entities/BenefitTracking";
 import { UserEntity } from "@/core/domain/entities/User";
 import { AuditLogEntity } from "@/core/domain/entities/AuditLog";
 import { BenefitEstimateRecord } from "@/core/domain/repositories/IEstimateRepository";
@@ -15,6 +16,7 @@ class EnterpriseStore {
   public citizens: CitizenEntity[] = [];
   public programs: BenefitProgramEntity[] = [];
   public applications: ApplicationEntity[] = [];
+  public benefitTrackings: BenefitTrackingEntity[] = [];
   public users: (UserEntity & { passwordHash: string })[] = [];
   public estimates: BenefitEstimateRecord[] = [];
   public auditLogs: AuditLogEntity[] = [];
@@ -164,6 +166,58 @@ class EnterpriseStore {
         programCategory: program ? program.category : "LIVING_ALLOWANCE",
         assignedOfficerId: "usr-officer",
         assignedOfficerName: "น.ส.กนกพร พัฒนไพบูลย์",
+        createdAt: app.submissionDate,
+        updatedAt: new Date(),
+      };
+    });
+
+    // Initialize Benefit Tracking from applications
+    this.benefitTrackings = this.applications.slice(0, 6).map((app, idx) => {
+      const statuses = [
+        ApplicationStatus.APPROVED,
+        ApplicationStatus.DISBURSED,
+        ApplicationStatus.SUBMITTED,
+        ApplicationStatus.UNDER_REVIEW,
+        ApplicationStatus.REJECTED,
+        ApplicationStatus.APPROVED,
+      ];
+      const status = statuses[idx % statuses.length];
+      return {
+        id: `trk-${Date.now().toString().slice(-6)}-${idx}`,
+        trackingNumber: `TRK-${new Date().getFullYear() + 543}-${(idx + 1).toString().padStart(4, "0")}`,
+        applicationId: app.id,
+        applicationNumber: app.applicationNumber,
+        citizenId: app.citizenId,
+        citizenName: app.citizenName,
+        citizenNationalId: app.citizenNationalId,
+        citizenProvince: app.citizenProvince,
+        programId: app.programId,
+        programName: app.programName,
+        programCode: `PROG-${(idx + 1).toString().padStart(3, "0")}`,
+        benefitName: app.programName || "สิทธิประโยชน์",
+        benefitCategory: (app.programCategory as any) || "LIVING_ALLOWANCE",
+        requestedAmount: app.requestedAmount,
+        approvedAmount: status === ApplicationStatus.REJECTED ? null : app.requestedAmount * 0.9,
+        disbursedAmount: status === ApplicationStatus.DISBURSED ? app.requestedAmount * 0.9 : null,
+        status: status as any,
+        submissionDate: app.submissionDate,
+        approvalDate: [ApplicationStatus.APPROVED, ApplicationStatus.DISBURSED].includes(status) ? new Date() : null,
+        disbursementDate: status === ApplicationStatus.DISBURSED ? new Date() : null,
+        receivedDate: status === ApplicationStatus.DISBURSED ? new Date() : null,
+        rejectionDate: status === ApplicationStatus.REJECTED ? new Date() : null,
+        expectedReceiveDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        paymentReference: status === ApplicationStatus.DISBURSED ? `PAY-${idx + 1}` : null,
+        paymentMethod: "โอนเงินผ่านบัญชีธนาคาร",
+        bankName: "ธนาคารกรุงไทย",
+        bankAccountNumber: "123-4-56789-0",
+        recipientName: app.citizenName,
+        notes: "ติดตามสถานะรายการสิทธิประโยชน์",
+        officerNotes: null,
+        documentsJson: null,
+        createdByUserId: "usr-staff-army",
+        createdByUserName: "พันตรี นพดล สายสวัสดิการ",
+        updatedByUserId: null,
+        updatedByUserName: null,
         createdAt: app.submissionDate,
         updatedAt: new Date(),
       };

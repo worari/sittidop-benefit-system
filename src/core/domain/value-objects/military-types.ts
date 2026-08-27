@@ -34,20 +34,38 @@ export interface MilitaryPersonnelInput {
   fieldPosition?: string; // e.g. "ผบ.ฉก.นราธิวาส 30"
   fieldUnit?: string; // e.g. "ฉก.นราธิวาส"
   salary: number; // เงินเดือนพื้นฐาน
-  salaryLevel: string; // e.g. "น.3"
+  salaryLevel: string; // e.g. "น.3" (ระดับชั้นเงินเดือน)
   salaryStep: number; // e.g. 21.5
   compensation?: string; // e.g. "พ.ช.ท."
-  compensationAmount: number;
+  compensationLevel?: string; // ระดับเงินเยียวยา
+  compensationAmount: number; // จำนวนเงินเยียวยา
   additionalPay: number; // e.g. ค่าเสี่ยงภัยสนาม
-  appointmentDate: string;
-  multiplierDate?: string;
+
+  // Dates
+  appointmentDate: string; // วันบรรจุ
+  incidentDate?: string; // วันเกิดเหตุ
+  multiplierDate?: string; // วันทวีคูณ
+
+  // Service time breakdown (calculated from appointment/incident dates)
   serviceYearsNormal: number;
+  serviceMonthsNormal?: number;
+  serviceDaysNormal?: number;
   serviceYearsMultiplier: number;
+  serviceMonthsMultiplier?: number;
+  serviceDaysMultiplier?: number;
   totalServiceYears: number;
+  totalServiceMonths?: number;
+  totalServiceDays?: number;
+
   actionType: string; // e.g. "DIRECT_COMBAT"
   incidentType: string; // e.g. "COMBAT_ENGAGEMENT"
-  incidentDate?: string;
-  promotionSteps: number; // e.g. 7 or 8 steps
+
+  // Special pension / promotion details
+  specialPensionType?: "EMERGENCY_TIME" | "NORMAL_TIME"; // การปูนบำเหน็จพิเศษ: ในเวลาเหตุฉุกเฉิน / ในเวลาเหตุปกติ
+  specialPensionTier?: number; // ปูนบำเหน็จพิเศษกี่ชั้น
+  rankAppointmentTo?: string; // แต่งตั้ง/เลื่อนชั้นยศ เป็น
+  salaryLevelAdjustment?: string; // ปรับระดับ (ชั้นเงิน)
+  promotionSteps: number; // e.g. 7 or 8 steps (legacy alias for specialPensionTier)
   promotedRank?: string;
   promotedRankAbbr?: string;
   promotedSalary?: number;
@@ -120,6 +138,18 @@ export interface EvaluatedBenefitItem {
   formulaUsed: string;
   legalBasis: string;
   eligibilityNotes: string[];
+  benefitScope?: "IN_ARMY" | "OUTSIDE_ARMY" | "BOTH";
+}
+
+export interface BenefitScopeComparison {
+  scope: "IN_ARMY" | "OUTSIDE_ARMY";
+  scopeThaiName: string;
+  lumpSumTotal: number;
+  monthlyPensionTotal: number;
+  annualScholarshipTotal: number;
+  nonMonetaryCount: number;
+  categoryTotals: Record<BenefitCategoryCode, number>;
+  items: EvaluatedBenefitItem[];
 }
 
 export interface CategorySummaryResult {
@@ -144,6 +174,22 @@ export interface MilitaryBenefitCalculationResult {
     baseSalary: number;
     promotedSalary: number;
     totalServiceYears: number;
+    totalServiceMonths: number;
+    totalServiceDays: number;
+    serviceYearsNormal: number;
+    serviceMonthsNormal: number;
+    serviceDaysNormal: number;
+    serviceYearsMultiplier: number;
+    serviceMonthsMultiplier: number;
+    serviceDaysMultiplier: number;
+    appointmentDate: string;
+    incidentDate?: string;
+    multiplierDate?: string;
+    specialPensionType?: string;
+    specialPensionTier?: number;
+    rankAppointmentTo?: string;
+    salaryLevelAdjustment?: string;
+    compensationLevel?: string;
   };
   grandTotalLumpSum: number;
   grandTotalMonthlyPension: number;
@@ -161,6 +207,12 @@ export interface MilitaryBenefitCalculationResult {
     isEligible: boolean;
     candidateName?: string;
     conditionText: string;
+  };
+  scopeComparison?: {
+    inArmy: BenefitScopeComparison;
+    outsideArmy: BenefitScopeComparison;
+    recommendedScope: "IN_ARMY" | "OUTSIDE_ARMY" | "BOTH";
+    differenceLumpSum: number;
   };
   calculatedAt: string;
 }

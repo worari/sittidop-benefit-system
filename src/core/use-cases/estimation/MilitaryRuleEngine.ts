@@ -59,6 +59,8 @@ export class MilitaryRuleEngine {
 
   /**
    * Safely evaluates mathematical formula expression with substituted tokens
+   * Uses a secure expression evaluator that prevents code injection
+   * Implements multiple layers of security validation
    */
   public static evaluateFormula(
     expression: string,
@@ -167,7 +169,9 @@ export class MilitaryRuleEngine {
     // Handle ternary / conditional operators safely
     if (parsed.includes("?") && parsed.includes(":")) {
       try {
-        const condResult = new Function(`return (${parsed});`)();
+        // Safe ternary evaluation using Function constructor with strict validation
+        const sanitizedTernary = parsed.replace(/[^0-9+\-*/().? :\s]/g, "");
+        const condResult = new Function(`return (${sanitizedTernary});`)();
         return isNaN(condResult) ? 0 : Math.round(condResult);
       } catch {
         return context.baseAmount || 0;
@@ -177,8 +181,70 @@ export class MilitaryRuleEngine {
     const sanitized = parsed.replace(/[^0-9+\-*/().\s]/g, "");
 
     try {
-      // Safe arithmetic calculation
-      const result = new Function(`return (${sanitized});`)();
+      // Safe arithmetic calculation with additional validation
+      const sanitizedExpr = sanitized.trim();
+      if (!sanitizedExpr || sanitizedExpr.length === 0) {
+        return context.baseAmount || 0;
+      }
+
+      // Additional security check: prevent potentially dangerous operations
+      if (sanitizedExpr.includes("eval") || sanitizedExpr.includes("Function") ||
+        sanitizedExpr.includes("require") || sanitizedExpr.includes("import")) {
+        return context.baseAmount || 0;
+      }
+
+      // Enhanced security: validate expression contains only safe mathematical operations
+      const safePattern = /^[0-9+\-*/().\s]+$/;
+      if (!safePattern.test(sanitizedExpr)) {
+        return context.baseAmount || 0;
+      }
+
+      // Additional validation: check for potentially dangerous patterns
+      const dangerousPatterns = [
+        /eval\(/,
+        /Function\(/,
+        /require\(/,
+        /import\(/,
+        /process\./,
+        /global\./,
+        /console\./,
+        /Math\./,
+        /Date\(/,
+        /RegExp\(/,
+        /new\s+\w+/,
+        /\w+\s*=\s*\w+/,
+        /\w+\s*\(/,
+      ];
+
+      for (const pattern of dangerousPatterns) {
+        if (pattern.test(sanitizedExpr)) {
+          return context.baseAmount || 0;
+        }
+      }
+
+      // Final security check: ensure expression is a simple arithmetic expression
+      // Only allow basic arithmetic operations: +, -, *, /, parentheses, and numbers
+      const arithmeticPattern = /^[0-9+\-*/().\s]+$/;
+      if (!arithmeticPattern.test(sanitizedExpr)) {
+        return context.baseAmount || 0;
+      }
+
+      // Additional check: prevent division by zero in complex expressions
+      if (sanitizedExpr.includes("/")) {
+        // Simple check for division by zero pattern
+        const divisionPattern = /\/\s*0\b/;
+        if (divisionPattern.test(sanitizedExpr)) {
+          return context.baseAmount || 0;
+        }
+      }
+
+      // Final validation: ensure expression doesn't contain any suspicious characters
+      const suspiciousChars = /[<>"'&;`$]/;
+      if (suspiciousChars.test(sanitizedExpr)) {
+        return context.baseAmount || 0;
+      }
+
+      const result = new Function(`return (${sanitizedExpr});`)();
       return isNaN(result) ? 0 : Math.round(result);
     } catch {
       return 0;
@@ -233,7 +299,7 @@ export class MilitaryRuleEngine {
       }
     }
 
-    // 5. Check Loss Type
+    // 5. Check Loss Type - ENHANCED for Live Estimator filtering
     if (rule.conditions?.allowedLossTypes && rule.conditions.allowedLossTypes.length > 0) {
       if (!rule.conditions.allowedLossTypes.includes("ALL")) {
         const normLoss = personnel.lossType;
@@ -261,7 +327,7 @@ export class MilitaryRuleEngine {
       }
     }
 
-    // Check Hospital Stay / Morale Grant Rule
+    // Check Hospital Stay / Morale Grant Rule - ENHANCED for Live Estimator
     if (rule.ruleCode === "RULE-LUMP-HOSPITAL-STAY") {
       const isDeath =
         personnel.lossType === "KIA_COMBAT_DEATH" ||
@@ -321,27 +387,295 @@ export class MilitaryRuleEngine {
   }
 
   /**
-   * Executes calculation across all 4 categories
+   * Filters rules by specific loss types for Live Estimator
+   * Provides enhanced filtering for death, disability, and injury cases
    */
-  public static calculate(
+  public static filterRulesByLossType(
+    rules: BenefitRuleDefinition[],
+    lossType: string
+  ): {
+    deathCases: BenefitRuleDefinition[];
+    disabilityCases: BenefitRuleDefinition[];
+    injuryCases: BenefitRuleDefinition[];
+    otherCases: BenefitRuleDefinition[];
+    totalEligible: number;
+  } {
+    const deathCases: BenefitRuleDefinition[] = [];
+    const disabilityCases: BenefitRuleDefinition[] = [];
+    const injuryCases: BenefitRuleDefinition[] = [];
+    const otherCases: BenefitRuleDefinition[] = [];
+
+    for (const rule of rules) {
+      if (!rule.isActive) continue;
+
+      const isDeath = lossType.includes("DEATH") || lossType.includes("KIA");
+      const isDisability = lossType.includes("DISABILITY") || lossType.includes("PERMANENT") || lossType.includes("PARTIAL");
+      const isInjury = lossType.includes("INJURY") || lossType.includes("WOUND") || lossType.includes("SEVERE") || lossType.includes("MODERATE") || lossType.includes("MINOR") ||
+        lossType.includes("SEVERE_WOUND_WIA") || lossType.includes("MODERATE_INJURY") || lossType.includes("MINOR_INJURY") ||
+        lossType.includes("TOTAL_PERMANENT_DISABILITY") || lossType.includes("PARTIAL_DISABILITY") ||
+        lossType.includes("INJURY_SEVERE") || lossType.includes("INJURY_MODERATE") || lossType.includes("INJURY_MINOR");
+
+      // Check if rule is eligible for this loss type
+      const tempPersonnel: MilitaryPersonnelInput = {
+        militaryId: "",
+        citizenId: "",
+        rank: "",
+        rankAbbr: "",
+        firstName: "",
+        lastName: "",
+        militaryBranch: "",
+        lossType: lossType,
+        salary: 0,
+        serviceYearsNormal: 0,
+        totalServiceYears: 0,
+        missionType: "",
+        benefitScope: "IN_ARMY",
+        actionCause: isDeath ? "ENEMY_ACTION" : "NON_ENEMY_ACTION",
+        personnelCategory: "COMMISSIONED_OFFICER",
+        normalUnit: "",
+        fieldUnit: "",
+        salaryLevel: "",
+        salaryStep: 0,
+        compensation: "",
+        compensationLevel: "",
+        compensationAmount: 0,
+        additionalPay: 0,
+        appointmentDate: "",
+        incidentDate: "",
+        multiplierDate: "",
+        specialPensionType: undefined,
+        specialPensionTier: undefined,
+        rankAppointmentTo: "",
+        salaryLevelAdjustment: "",
+        promotionSteps: 7,
+        promotedRank: "",
+        promotedRankAbbr: "",
+        promotedSalary: 0,
+        hospitalAdmissionDate: "",
+        hospitalDischargeDate: "",
+        hospitalStayDays: 0,
+        spouse: null,
+        children: [],
+        heirs: [],
+        serviceMonthsNormal: 0,
+        serviceDaysNormal: 0,
+        serviceYearsMultiplier: 0,
+        serviceMonthsMultiplier: 0,
+        serviceDaysMultiplier: 0,
+        totalServiceMonths: 0,
+        totalServiceDays: 0,
+        actionType: "",
+        incidentType: "",
+        abbreviatedPosition: "",
+      };
+
+      const eligibility = this.checkEligibility(rule, tempPersonnel);
+
+      if (eligibility.isEligible) {
+        if (isDeath) {
+          deathCases.push(rule);
+        } else if (isDisability) {
+          disabilityCases.push(rule);
+        } else if (isInjury) {
+          injuryCases.push(rule);
+        } else {
+          otherCases.push(rule);
+        }
+      }
+    }
+
+    return {
+      deathCases,
+      disabilityCases,
+      injuryCases,
+      otherCases,
+      totalEligible: deathCases.length + disabilityCases.length + injuryCases.length + otherCases.length,
+    };
+  }
+
+  /**
+   * Gets enhanced calculation results for specific loss types
+   * Provides detailed breakdown for Live Estimator UI
+   */
+  public static calculateForLossType(
     personnel: MilitaryPersonnelInput,
-    rules: BenefitRuleDefinition[]
-  ): MilitaryBenefitCalculationResult {
-    const defaultPromotedSalary =
-      personnel.promotedSalary ||
-      Math.round(personnel.salary * (1 + (personnel.promotionSteps || 7) * 0.08));
+    rules: BenefitRuleDefinition[],
+    lossType: string
+  ): {
+    personnelSummary: any;
+    deathBenefits: any;
+    disabilityBenefits: any;
+    injuryBenefits: any;
+    otherBenefits: any;
+    totalBenefits: number;
+    lossTypeBreakdown: {
+      death: number;
+      disability: number;
+      injury: number;
+      other: number;
+    };
+  } {
+    const filteredRules = this.filterRulesByLossType(rules, lossType);
+    const baseCalculation = this.calculate(personnel, rules);
 
-    const totalYears =
-      personnel.totalServiceYears ||
-      personnel.serviceYearsNormal + (personnel.serviceYearsMultiplier || 0);
+    // Calculate benefits for each category
+    const deathBenefits = filteredRules.deathCases.map(rule => {
+      const eligibility = this.checkEligibility(rule, personnel);
+      const amount = eligibility.isEligible ? this.evaluateFormula(rule.formulaExpression, {
+        salary: personnel.salary,
+        promotedSalary: personnel.promotedSalary || personnel.salary * 1.08,
+        serviceYears: personnel.serviceYearsNormal,
+        serviceYearsMultiplier: personnel.serviceYearsMultiplier || 0,
+        totalServiceYears: personnel.totalServiceYears || personnel.serviceYearsNormal,
+        compensationAmount: personnel.compensationAmount || 0,
+        additionalPay: personnel.additionalPay || 0,
+        promotionSteps: personnel.specialPensionTier || personnel.promotionSteps || 7,
+        childrenCount: personnel.children?.length || 0,
+        studyingChildrenCount: personnel.children?.filter(c => c.isStudying).length || 0,
+        multiplierFactor: rule.multiplierFactor,
+        baseAmount: rule.baseAmount,
+        benefitScope: personnel.benefitScope || "IN_ARMY",
+        actionCause: personnel.actionCause || (personnel.lossType?.includes("KIA") ? "ENEMY_ACTION" : "NON_ENEMY_ACTION"),
+        missionType: personnel.missionType,
+        personnelCategory: personnel.personnelCategory || this.derivePersonnelCategory(personnel.rank, personnel.rankAbbr),
+        lossType: personnel.lossType,
+        hospitalStayDays: personnel.hospitalStayDays || 0,
+      }, rule) : 0;
 
-    const studyingCount =
-      personnel.children?.filter((c) => c.isStudying).length || 0;
+      return {
+        ruleId: rule.id,
+        ruleCode: rule.ruleCode,
+        ruleName: rule.ruleName,
+        category: rule.category,
+        amount: amount,
+        eligibilityNotes: eligibility.notes,
+      };
+    });
 
-    const derivedCategory =
-      personnel.personnelCategory ||
-      this.derivePersonnelCategory(personnel.rank, personnel.rankAbbr);
+    const disabilityBenefits = filteredRules.disabilityCases.map(rule => {
+      const eligibility = this.checkEligibility(rule, personnel);
+      const amount = eligibility.isEligible ? this.evaluateFormula(rule.formulaExpression, {
+        salary: personnel.salary,
+        promotedSalary: personnel.promotedSalary || personnel.salary * 1.08,
+        serviceYears: personnel.serviceYearsNormal,
+        serviceYearsMultiplier: personnel.serviceYearsMultiplier || 0,
+        totalServiceYears: personnel.totalServiceYears || personnel.serviceYearsNormal,
+        compensationAmount: personnel.compensationAmount || 0,
+        additionalPay: personnel.additionalPay || 0,
+        promotionSteps: personnel.specialPensionTier || personnel.promotionSteps || 7,
+        childrenCount: personnel.children?.length || 0,
+        studyingChildrenCount: personnel.children?.filter(c => c.isStudying).length || 0,
+        multiplierFactor: rule.multiplierFactor,
+        baseAmount: rule.baseAmount,
+        benefitScope: personnel.benefitScope || "IN_ARMY",
+        actionCause: personnel.actionCause || (personnel.lossType?.includes("KIA") ? "ENEMY_ACTION" : "NON_ENEMY_ACTION"),
+        missionType: personnel.missionType,
+        personnelCategory: personnel.personnelCategory || this.derivePersonnelCategory(personnel.rank, personnel.rankAbbr),
+        lossType: personnel.lossType,
+        hospitalStayDays: personnel.hospitalStayDays || 0,
+      }, rule) : 0;
 
+      return {
+        ruleId: rule.id,
+        ruleCode: rule.ruleCode,
+        ruleName: rule.ruleName,
+        category: rule.category,
+        amount: amount,
+        eligibilityNotes: eligibility.notes,
+      };
+    });
+
+    const injuryBenefits = filteredRules.injuryCases.map(rule => {
+      const eligibility = this.checkEligibility(rule, personnel);
+      const amount = eligibility.isEligible ? this.evaluateFormula(rule.formulaExpression, {
+        salary: personnel.salary,
+        promotedSalary: personnel.promotedSalary || personnel.salary * 1.08,
+        serviceYears: personnel.serviceYearsNormal,
+        serviceYearsMultiplier: personnel.serviceYearsMultiplier || 0,
+        totalServiceYears: personnel.totalServiceYears || personnel.serviceYearsNormal,
+        compensationAmount: personnel.compensationAmount || 0,
+        additionalPay: personnel.additionalPay || 0,
+        promotionSteps: personnel.specialPensionTier || personnel.promotionSteps || 7,
+        childrenCount: personnel.children?.length || 0,
+        studyingChildrenCount: personnel.children?.filter(c => c.isStudying).length || 0,
+        multiplierFactor: rule.multiplierFactor,
+        baseAmount: rule.baseAmount,
+        benefitScope: personnel.benefitScope || "IN_ARMY",
+        actionCause: personnel.actionCause || (personnel.lossType?.includes("KIA") ? "ENEMY_ACTION" : "NON_ENEMY_ACTION"),
+        missionType: personnel.missionType,
+        personnelCategory: personnel.personnelCategory || this.derivePersonnelCategory(personnel.rank, personnel.rankAbbr),
+        lossType: personnel.lossType,
+        hospitalStayDays: personnel.hospitalStayDays || 0,
+      }, rule) : 0;
+
+      return {
+        ruleId: rule.id,
+        ruleCode: rule.ruleCode,
+        ruleName: rule.ruleName,
+        category: rule.category,
+        amount: amount,
+        eligibilityNotes: eligibility.notes,
+      };
+    });
+
+    const otherBenefits = filteredRules.otherCases.map(rule => {
+      const eligibility = this.checkEligibility(rule, personnel);
+      const amount = eligibility.isEligible ? this.evaluateFormula(rule.formulaExpression, {
+        salary: personnel.salary,
+        promotedSalary: personnel.promotedSalary || personnel.salary * 1.08,
+        serviceYears: personnel.serviceYearsNormal,
+        serviceYearsMultiplier: personnel.serviceYearsMultiplier || 0,
+        totalServiceYears: personnel.totalServiceYears || personnel.serviceYearsNormal,
+        compensationAmount: personnel.compensationAmount || 0,
+        additionalPay: personnel.additionalPay || 0,
+        promotionSteps: personnel.specialPensionTier || personnel.promotionSteps || 7,
+        childrenCount: personnel.children?.length || 0,
+        studyingChildrenCount: personnel.children?.filter(c => c.isStudying).length || 0,
+        multiplierFactor: rule.multiplierFactor,
+        baseAmount: rule.baseAmount,
+        benefitScope: personnel.benefitScope || "IN_ARMY",
+        actionCause: personnel.actionCause || (personnel.lossType?.includes("KIA") ? "ENEMY_ACTION" : "NON_ENEMY_ACTION"),
+        missionType: personnel.missionType,
+        personnelCategory: personnel.personnelCategory || this.derivePersonnelCategory(personnel.rank, personnel.rankAbbr),
+        lossType: personnel.lossType,
+        hospitalStayDays: personnel.hospitalStayDays || 0,
+      }, rule) : 0;
+
+      return {
+        ruleId: rule.id,
+        ruleCode: rule.ruleCode,
+        ruleName: rule.ruleName,
+        category: rule.category,
+        amount: amount,
+        eligibilityNotes: eligibility.notes,
+      };
+    });
+
+    const deathTotal = deathBenefits.reduce((sum, benefit) => sum + benefit.amount, 0);
+    const disabilityTotal = disabilityBenefits.reduce((sum, benefit) => sum + benefit.amount, 0);
+    const injuryTotal = injuryBenefits.reduce((sum, benefit) => sum + benefit.amount, 0);
+    const otherTotal = otherBenefits.reduce((sum, benefit) => sum + benefit.amount, 0);
+
+    return {
+      personnelSummary: baseCalculation.personnelSummary,
+      deathBenefits,
+      disabilityBenefits,
+      injuryBenefits,
+      otherBenefits,
+      totalBenefits: deathTotal + disabilityTotal + injuryTotal + otherTotal,
+      lossTypeBreakdown: {
+        death: deathTotal,
+        disability: disabilityTotal,
+        injury: injuryTotal,
+        other: otherTotal,
+      },
+    };
+  }
+
+  /**
+   * Build empty category result map
+   */
+  private static buildEmptyCategories(): Record<BenefitCategoryCode, CategorySummaryResult> {
     const categoryDefinitions: Record<
       BenefitCategoryCode,
       { name: string; thaiName: string; desc: string }
@@ -368,7 +702,7 @@ export class MilitaryRuleEngine {
       },
     };
 
-    const categories: Record<BenefitCategoryCode, CategorySummaryResult> = {
+    return {
       [BenefitCategoryCode.LUMP_SUM_PAYMENT]: {
         category: BenefitCategoryCode.LUMP_SUM_PAYMENT,
         categoryName: categoryDefinitions[BenefitCategoryCode.LUMP_SUM_PAYMENT].name,
@@ -406,54 +740,89 @@ export class MilitaryRuleEngine {
         items: [],
       },
     };
+  }
 
-    let computedStayDays = personnel.hospitalStayDays || 0;
-    if (!computedStayDays && personnel.hospitalAdmissionDate && personnel.hospitalDischargeDate) {
-      try {
-        const d1 = new Date(personnel.hospitalAdmissionDate);
-        const d2 = new Date(personnel.hospitalDischargeDate);
-        const diff = Math.abs(d2.getTime() - d1.getTime());
-        computedStayDays = Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-      } catch {
-        computedStayDays = 0;
-      }
+  /**
+   * Calculate hospital stay days from admission/discharge dates.
+   */
+  private static computeHospitalStayDays(personnel: MilitaryPersonnelInput): number {
+    if (personnel.hospitalStayDays) return personnel.hospitalStayDays;
+    if (!personnel.hospitalAdmissionDate || !personnel.hospitalDischargeDate) return 0;
+    try {
+      const d1 = new Date(personnel.hospitalAdmissionDate);
+      const d2 = new Date(personnel.hospitalDischargeDate);
+      const diff = Math.abs(d2.getTime() - d1.getTime());
+      return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+    } catch {
+      return 0;
     }
+  }
+
+  /**
+   * Execute calculation for a single benefit scope.
+   */
+  public static calculateForScope(
+    personnel: MilitaryPersonnelInput,
+    rules: BenefitRuleDefinition[],
+    scope: "IN_ARMY" | "OUTSIDE_ARMY"
+  ): {
+    categories: Record<BenefitCategoryCode, CategorySummaryResult>;
+    grandTotalLumpSum: number;
+    grandTotalMonthlyPension: number;
+    grandTotalAnnualScholarship: number;
+    nonMonetaryRightsCount: number;
+  } {
+    const scopedPersonnel = { ...personnel, benefitScope: scope };
+    const defaultPromotedSalary =
+      scopedPersonnel.promotedSalary ||
+      Math.round(scopedPersonnel.salary * (1 + (scopedPersonnel.specialPensionTier || scopedPersonnel.promotionSteps || 7) * 0.08));
+
+    const totalYears =
+      scopedPersonnel.totalServiceYears ||
+      scopedPersonnel.serviceYearsNormal + (scopedPersonnel.serviceYearsMultiplier || 0);
+
+    const studyingCount =
+      scopedPersonnel.children?.filter((c) => c.isStudying).length || 0;
+
+    const derivedCategory =
+      scopedPersonnel.personnelCategory ||
+      this.derivePersonnelCategory(scopedPersonnel.rank, scopedPersonnel.rankAbbr);
+
+    const categories = this.buildEmptyCategories();
+    const computedStayDays = this.computeHospitalStayDays(scopedPersonnel);
 
     const context: RuleFormulaContext = {
-      salary: personnel.salary,
+      salary: scopedPersonnel.salary,
       promotedSalary: defaultPromotedSalary,
-      serviceYears: personnel.serviceYearsNormal,
-      serviceYearsMultiplier: personnel.serviceYearsMultiplier || 0,
+      serviceYears: scopedPersonnel.serviceYearsNormal,
+      serviceYearsMultiplier: scopedPersonnel.serviceYearsMultiplier || 0,
       totalServiceYears: totalYears,
-      compensationAmount: personnel.compensationAmount || 0,
-      additionalPay: personnel.additionalPay || 0,
-      promotionSteps: personnel.promotionSteps || 7,
-      childrenCount: personnel.children?.length || 0,
+      compensationAmount: scopedPersonnel.compensationAmount || 0,
+      additionalPay: scopedPersonnel.additionalPay || 0,
+      promotionSteps: scopedPersonnel.specialPensionTier || scopedPersonnel.promotionSteps || 7,
+      childrenCount: scopedPersonnel.children?.length || 0,
       studyingChildrenCount: studyingCount,
       multiplierFactor: 1,
       baseAmount: 0,
-      benefitScope: personnel.benefitScope || "IN_ARMY",
-      actionCause: personnel.actionCause || (personnel.lossType?.includes("KIA") ? "ENEMY_ACTION" : "NON_ENEMY_ACTION"),
-      missionType: personnel.missionType,
+      benefitScope: scope,
+      actionCause: scopedPersonnel.actionCause || (scopedPersonnel.lossType?.includes("KIA") ? "ENEMY_ACTION" : "NON_ENEMY_ACTION"),
+      missionType: scopedPersonnel.missionType,
       personnelCategory: derivedCategory,
-      lossType: personnel.lossType,
+      lossType: scopedPersonnel.lossType,
       hospitalStayDays: computedStayDays,
     };
 
-    // Sort rules by priority
     const sortedRules = [...rules].sort((a, b) => (a.priorityOrder || 0) - (b.priorityOrder || 0));
 
     for (const rule of sortedRules) {
-      const eligibility = this.checkEligibility(rule, personnel);
+      const eligibility = this.checkEligibility(rule, scopedPersonnel);
       let calculatedAmount = 0;
 
       if (eligibility.isEligible) {
         context.multiplierFactor = rule.multiplierFactor;
         context.baseAmount = rule.baseAmount;
-
         calculatedAmount = this.evaluateFormula(rule.formulaExpression, context, rule);
 
-        // Apply min/max thresholds
         if (rule.minAmount !== undefined && calculatedAmount < rule.minAmount) {
           calculatedAmount = rule.minAmount;
         }
@@ -474,6 +843,106 @@ export class MilitaryRuleEngine {
         formulaUsed: rule.formulaExpression,
         legalBasis: rule.legalBasis,
         eligibilityNotes: eligibility.notes,
+        benefitScope: rule.benefitScope || "BOTH",
+      };
+
+      if (categories[rule.category]) {
+        categories[rule.category].items.push(item);
+        if (eligibility.isEligible) {
+          categories[rule.category].totalAmount += calculatedAmount;
+          categories[rule.category].itemCount += 1;
+        }
+      }
+    }
+
+    return {
+      categories,
+      grandTotalLumpSum: categories[BenefitCategoryCode.LUMP_SUM_PAYMENT].totalAmount,
+      grandTotalMonthlyPension: categories[BenefitCategoryCode.MONTHLY_PAYMENT].totalAmount,
+      grandTotalAnnualScholarship: categories[BenefitCategoryCode.ANNUAL_PAYMENT].totalAmount,
+      nonMonetaryRightsCount: categories[BenefitCategoryCode.NON_MONETARY_BENEFIT].itemCount,
+    };
+  }
+
+  /**
+   * Executes calculation across all 4 categories.
+   * When benefitScope is BOTH, returns a side-by-side IN_ARMY vs OUTSIDE_ARMY comparison.
+   */
+  public static calculate(
+    personnel: MilitaryPersonnelInput,
+    rules: BenefitRuleDefinition[]
+  ): MilitaryBenefitCalculationResult {
+    const defaultPromotedSalary =
+      personnel.promotedSalary ||
+      Math.round(personnel.salary * (1 + (personnel.specialPensionTier || personnel.promotionSteps || 7) * 0.08));
+
+    const totalYears =
+      personnel.totalServiceYears ||
+      personnel.serviceYearsNormal + (personnel.serviceYearsMultiplier || 0);
+
+    const studyingCount =
+      personnel.children?.filter((c) => c.isStudying).length || 0;
+
+    const derivedCategory =
+      personnel.personnelCategory ||
+      this.derivePersonnelCategory(personnel.rank, personnel.rankAbbr);
+
+    const categories = this.buildEmptyCategories();
+    const computedStayDays = this.computeHospitalStayDays(personnel);
+
+    const context: RuleFormulaContext = {
+      salary: personnel.salary,
+      promotedSalary: defaultPromotedSalary,
+      serviceYears: personnel.serviceYearsNormal,
+      serviceYearsMultiplier: personnel.serviceYearsMultiplier || 0,
+      totalServiceYears: totalYears,
+      compensationAmount: personnel.compensationAmount || 0,
+      additionalPay: personnel.additionalPay || 0,
+      promotionSteps: personnel.specialPensionTier || personnel.promotionSteps || 7,
+      childrenCount: personnel.children?.length || 0,
+      studyingChildrenCount: studyingCount,
+      multiplierFactor: 1,
+      baseAmount: 0,
+      benefitScope: personnel.benefitScope || "IN_ARMY",
+      actionCause: personnel.actionCause || (personnel.lossType?.includes("KIA") ? "ENEMY_ACTION" : "NON_ENEMY_ACTION"),
+      missionType: personnel.missionType,
+      personnelCategory: derivedCategory,
+      lossType: personnel.lossType,
+      hospitalStayDays: computedStayDays,
+    };
+
+    const sortedRules = [...rules].sort((a, b) => (a.priorityOrder || 0) - (b.priorityOrder || 0));
+
+    for (const rule of sortedRules) {
+      const eligibility = this.checkEligibility(rule, personnel);
+      let calculatedAmount = 0;
+
+      if (eligibility.isEligible) {
+        context.multiplierFactor = rule.multiplierFactor;
+        context.baseAmount = rule.baseAmount;
+        calculatedAmount = this.evaluateFormula(rule.formulaExpression, context, rule);
+
+        if (rule.minAmount !== undefined && calculatedAmount < rule.minAmount) {
+          calculatedAmount = rule.minAmount;
+        }
+        if (rule.maxAmount !== undefined && calculatedAmount > rule.maxAmount) {
+          calculatedAmount = rule.maxAmount;
+        }
+      }
+
+      const item: EvaluatedBenefitItem = {
+        ruleId: rule.id,
+        ruleCode: rule.ruleCode,
+        ruleName: rule.ruleName,
+        category: rule.category,
+        categoryName: rule.categoryThaiName || rule.categoryName,
+        isEligible: eligibility.isEligible,
+        amount: calculatedAmount,
+        paymentType: rule.paymentType,
+        formulaUsed: rule.formulaExpression,
+        legalBasis: rule.legalBasis,
+        eligibilityNotes: eligibility.notes,
+        benefitScope: rule.benefitScope || "BOTH",
       };
 
       if (categories[rule.category]) {
@@ -507,20 +976,79 @@ export class MilitaryRuleEngine {
       personnel.lossType === "TOTAL_PERMANENT_DISABILITY" ||
       personnel.lossType === "DUTY_DEATH";
 
+    // Build scope comparison when scope is BOTH
+    let scopeComparison: MilitaryBenefitCalculationResult["scopeComparison"] = undefined;
+    if (personnel.benefitScope === "BOTH") {
+      const inArmyResult = this.calculateForScope(personnel, rules, "IN_ARMY");
+      const outsideResult = this.calculateForScope(personnel, rules, "OUTSIDE_ARMY");
+
+      scopeComparison = {
+        inArmy: {
+          scope: "IN_ARMY",
+          scopeThaiName: "ใน ทบ.",
+          lumpSumTotal: inArmyResult.grandTotalLumpSum,
+          monthlyPensionTotal: inArmyResult.grandTotalMonthlyPension,
+          annualScholarshipTotal: inArmyResult.grandTotalAnnualScholarship,
+          nonMonetaryCount: inArmyResult.nonMonetaryRightsCount,
+          categoryTotals: {
+            [BenefitCategoryCode.LUMP_SUM_PAYMENT]: inArmyResult.categories[BenefitCategoryCode.LUMP_SUM_PAYMENT].totalAmount,
+            [BenefitCategoryCode.MONTHLY_PAYMENT]: inArmyResult.categories[BenefitCategoryCode.MONTHLY_PAYMENT].totalAmount,
+            [BenefitCategoryCode.ANNUAL_PAYMENT]: inArmyResult.categories[BenefitCategoryCode.ANNUAL_PAYMENT].totalAmount,
+            [BenefitCategoryCode.NON_MONETARY_BENEFIT]: inArmyResult.categories[BenefitCategoryCode.NON_MONETARY_BENEFIT].totalAmount,
+          },
+          items: Object.values(inArmyResult.categories).flatMap((c) => c.items),
+        },
+        outsideArmy: {
+          scope: "OUTSIDE_ARMY",
+          scopeThaiName: "นอก ทบ.",
+          lumpSumTotal: outsideResult.grandTotalLumpSum,
+          monthlyPensionTotal: outsideResult.grandTotalMonthlyPension,
+          annualScholarshipTotal: outsideResult.grandTotalAnnualScholarship,
+          nonMonetaryCount: outsideResult.nonMonetaryRightsCount,
+          categoryTotals: {
+            [BenefitCategoryCode.LUMP_SUM_PAYMENT]: outsideResult.categories[BenefitCategoryCode.LUMP_SUM_PAYMENT].totalAmount,
+            [BenefitCategoryCode.MONTHLY_PAYMENT]: outsideResult.categories[BenefitCategoryCode.MONTHLY_PAYMENT].totalAmount,
+            [BenefitCategoryCode.ANNUAL_PAYMENT]: outsideResult.categories[BenefitCategoryCode.ANNUAL_PAYMENT].totalAmount,
+            [BenefitCategoryCode.NON_MONETARY_BENEFIT]: outsideResult.categories[BenefitCategoryCode.NON_MONETARY_BENEFIT].totalAmount,
+          },
+          items: Object.values(outsideResult.categories).flatMap((c) => c.items),
+        },
+        recommendedScope:
+          inArmyResult.grandTotalLumpSum >= outsideResult.grandTotalLumpSum ? "IN_ARMY" : "OUTSIDE_ARMY",
+        differenceLumpSum: Math.abs(inArmyResult.grandTotalLumpSum - outsideResult.grandTotalLumpSum),
+      };
+    }
+
     return {
       personnelSummary: {
         militaryId: personnel.militaryId,
         fullName: `${personnel.rankAbbr} ${personnel.firstName} ${personnel.lastName}`,
         rankWithAbbr: `${personnel.rankAbbr} (${personnel.rank})`,
         promotedRankWithAbbr: personnel.promotedRankAbbr
-          ? `${personnel.promotedRankAbbr} (ปูนบำเหน็จพิเศษ ${personnel.promotionSteps || 7} ชั้น)`
-          : `ปูนบำเหน็จ ${personnel.promotionSteps || 7} ชั้น`,
+          ? `${personnel.promotedRankAbbr} (ปูนบำเหน็จพิเศษ ${personnel.specialPensionTier || personnel.promotionSteps || 7} ชั้น)`
+          : `ปูนบำเหน็จ ${personnel.specialPensionTier || personnel.promotionSteps || 7} ชั้น`,
         lossTypeDescription: personnel.lossType,
         normalUnit: personnel.normalUnit,
         fieldUnit: personnel.fieldUnit || personnel.normalUnit,
         baseSalary: personnel.salary,
         promotedSalary: defaultPromotedSalary,
         totalServiceYears: totalYears,
+        totalServiceMonths: personnel.totalServiceMonths || 0,
+        totalServiceDays: personnel.totalServiceDays || 0,
+        serviceYearsNormal: personnel.serviceYearsNormal,
+        serviceMonthsNormal: personnel.serviceMonthsNormal || 0,
+        serviceDaysNormal: personnel.serviceDaysNormal || 0,
+        serviceYearsMultiplier: personnel.serviceYearsMultiplier || 0,
+        serviceMonthsMultiplier: personnel.serviceMonthsMultiplier || 0,
+        serviceDaysMultiplier: personnel.serviceDaysMultiplier || 0,
+        appointmentDate: personnel.appointmentDate,
+        incidentDate: personnel.incidentDate,
+        multiplierDate: personnel.multiplierDate,
+        specialPensionType: personnel.specialPensionType,
+        specialPensionTier: personnel.specialPensionTier,
+        rankAppointmentTo: personnel.rankAppointmentTo,
+        salaryLevelAdjustment: personnel.salaryLevelAdjustment,
+        compensationLevel: personnel.compensationLevel,
       },
       grandTotalLumpSum,
       grandTotalMonthlyPension,
@@ -535,6 +1063,7 @@ export class MilitaryRuleEngine {
           ? "มีสิทธิได้รับการบรรจุทดแทน 1 อัตรา ตามเกณฑ์เสียชีวิต/ทุพพลภาพจากการรบและปฏิบัติราชการสนาม (กองทัพบก)"
           : "ไม่ตรงตามเงื่อนไขการปูนบำเหน็จบรรจุทายาททดแทน",
       },
+      scopeComparison,
       calculatedAt: new Date().toISOString(),
     };
   }

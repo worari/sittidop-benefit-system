@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -95,6 +95,11 @@ enum LossType {
   MINOR_INJURY
 }
 
+enum SpecialPensionType {
+  EMERGENCY_TIME
+  NORMAL_TIME
+}
+
 enum RelationshipType {
   SPOUSE_LEGAL
   SPOUSE_DE_FACTO
@@ -148,6 +153,16 @@ enum ApprovalDecision {
   FORWARD
 }
 
+enum BenefitTrackingStatus {
+  PENDING
+  APPROVED
+  DISBURSED
+  RECEIVED
+  REJECTED
+  CANCELLED
+  UNDER_REVIEW
+}
+
 enum VulnerabilityLevel {
   LOW
   MODERATE
@@ -160,31 +175,34 @@ enum VulnerabilityLevel {
 // ------------------------------------------------------------------------------
 
 model User {
-  id               String            @id @default(cuid())
-  name             String
-  email            String            @unique
-  passwordHash     String
-  role             Role              @default(OFFICER)
-  militaryBranch   MilitaryBranch?
-  rank             MilitaryRank?
-  unit             String?
-  department       String?
-  phone            String?
-  avatarUrl        String?
-  isActive         Boolean           @default(true)
-  citizenId        String?           @unique
-  personnelId      String?           @unique
-  citizen          Citizen?          @relation(fields: [citizenId], references: [id], onDelete: SetNull)
-  personnel        MilitaryPersonnel? @relation(fields: [personnelId], references: [id], onDelete: SetNull)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  id             String             @id @default(cuid())
+  name           String
+  email          String             @unique
+  passwordHash   String
+  role           Role               @default(OFFICER)
+  militaryBranch MilitaryBranch?
+  rank           MilitaryRank?
+  unit           String?
+  department     String?
+  phone          String?
+  avatarUrl      String?
+  isActive       Boolean            @default(true)
+  citizenId      String?            @unique
+  personnelId    String?            @unique
+  citizen        Citizen?           @relation(fields: [citizenId], references: [id], onDelete: SetNull)
+  personnel      MilitaryPersonnel? @relation(fields: [personnelId], references: [id], onDelete: SetNull)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
-  createdApplications Application[]   @relation("CreatedByUser")
-  assignedApplications Application[]  @relation("AssignedToOfficer")
-  approvalRecords     ApprovalRecord[]
-  estimatesCreated    MilitaryBenefitEstimate[] @relation("EstimatesCreated")
-  claimsReviewed      BenefitClaimApplication[] @relation("ClaimsReviewed")
-  auditLogs           AuditLog[]
+  createdApplications  Application[]             @relation("CreatedByUser")
+  assignedApplications Application[]             @relation("AssignedToOfficer")
+  approvalRecords      ApprovalRecord[]
+  trackings            BenefitTracking[]
+  estimatesCreated     MilitaryBenefitEstimate[] @relation("EstimatesCreated")
+  claimsReviewed       BenefitClaimApplication[] @relation("ClaimsReviewed")
+  createdTrackings     BenefitTracking[]         @relation("TrackingCreatedBy")
+  updatedTrackings     BenefitTracking[]         @relation("TrackingUpdatedBy")
+  auditLogs            AuditLog[]
 
   @@index([email])
   @@index([role])
@@ -195,14 +213,14 @@ model User {
 // ------------------------------------------------------------------------------
 
 model MilitaryPersonnel {
-  id                  String         @id @default(cuid())
-  militaryId          String         @unique
-  citizenId           String         @unique
-  rank                MilitaryRank
-  rankAbbr            String
-  firstName           String
-  lastName            String
-  militaryBranch      MilitaryBranch @default(ROYAL_THAI_ARMY)
+  id             String         @id @default(cuid())
+  militaryId     String         @unique
+  citizenId      String         @unique
+  rank           MilitaryRank
+  rankAbbr       String
+  firstName      String
+  lastName       String
+  militaryBranch MilitaryBranch @default(ROYAL_THAI_ARMY)
 
   abbreviatedPosition String
   fullPosition        String?
@@ -210,43 +228,62 @@ model MilitaryPersonnel {
   fieldPosition       String?
   fieldUnit           String?
 
-  salary              Float
-  salaryLevel         String
-  salaryStep          Float
-  compensation        String?
-  compensationAmount  Float          @default(0.00)
-  additionalPay       Float          @default(0.00)
+  salary             Float
+  salaryLevel        String
+  salaryStep         Float
+  compensation       String?
+  compensationLevel  String?
+  compensationAmount Float   @default(0.00)
+  additionalPay      Float   @default(0.00)
 
-  appointmentDate     DateTime
-  multiplierDate      DateTime?
-  serviceYearsNormal  Float          @default(0.00)
-  serviceYearsMultiplier Float       @default(0.00)
-  totalServiceYears   Float          @default(0.00)
+  appointmentDate DateTime
+  incidentDate    DateTime?
 
-  missionType         MissionType    @default(COUNTER_INSURGENCY)
-  actionType          ActionType     @default(DIRECT_COMBAT)
-  incidentType        IncidentType   @default(COMBAT_ENGAGEMENT)
-  incidentDate        DateTime?
+  // Service time breakdown (normal service from appointment date)
+  serviceYearsNormal  Float @default(0.00)
+  serviceMonthsNormal Float @default(0.00)
+  serviceDaysNormal   Float @default(0.00)
+
+  // Multiplier service (field/war service)
+  multiplierDate          DateTime?
+  serviceYearsMultiplier  Float     @default(0.00)
+  serviceMonthsMultiplier Float     @default(0.00)
+  serviceDaysMultiplier   Float     @default(0.00)
+
+  // Total service time
+  totalServiceYears  Float @default(0.00)
+  totalServiceMonths Float @default(0.00)
+  totalServiceDays   Float @default(0.00)
+
+  missionType         MissionType  @default(COUNTER_INSURGENCY)
+  actionType          ActionType   @default(DIRECT_COMBAT)
+  incidentType        IncidentType @default(COMBAT_ENGAGEMENT)
   incidentLocation    String?
-  lossType            LossType       @default(KIA_COMBAT_DEATH)
-  incidentDescription String?        @db.Text
+  lossType            LossType     @default(KIA_COMBAT_DEATH)
+  incidentDescription String?      @db.Text
 
-  hospitalAdmissionDate  DateTime?
-  hospitalDischargeDate  DateTime?
+  hospitalAdmissionDate DateTime?
+  hospitalDischargeDate DateTime?
 
-  promotedRank        MilitaryRank?
-  promotedRankAbbr    String?
-  promotionSteps      Int            @default(7)
+  // Special pension / promotion details
+  specialPensionType    SpecialPensionType @default(NORMAL_TIME)
+  specialPensionTier    Int                @default(7)
+  rankAppointmentTo     String?
+  salaryLevelAdjustment String?
 
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  promotedRank     MilitaryRank?
+  promotedRankAbbr String?
+  promotionSteps   Int           @default(7)
 
-  user                User?
-  spouse              Spouse?
-  children            Child[]
-  heirs               Heir[]
-  estimates           MilitaryBenefitEstimate[]
-  claimApplications   BenefitClaimApplication[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user              User?
+  spouse            Spouse?
+  children          Child[]
+  heirs             Heir[]
+  estimates         MilitaryBenefitEstimate[]
+  claimApplications BenefitClaimApplication[]
 
   @@index([militaryId])
   @@index([rank])
@@ -295,24 +332,24 @@ model Child {
 }
 
 model Heir {
-  id                   String            @id @default(cuid())
-  personnelId          String
-  personnel            MilitaryPersonnel @relation(fields: [personnelId], references: [id], onDelete: Cascade)
-  nationalId           String
-  title                String
-  firstName            String
-  lastName             String
-  relationship         RelationshipType
-  phone                String?
-  address              String?           @db.Text
-  bankName             String?
-  bankAccountNumber    String?
-  allocationPercentage Float             @default(0.00)
-  calculatedAmount     Float             @default(0.00)
-  isDesignatedSuccessor Boolean          @default(false)
-  documentsVerified    Boolean           @default(false)
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
+  id                    String            @id @default(cuid())
+  personnelId           String
+  personnel             MilitaryPersonnel @relation(fields: [personnelId], references: [id], onDelete: Cascade)
+  nationalId            String
+  title                 String
+  firstName             String
+  lastName              String
+  relationship          RelationshipType
+  phone                 String?
+  address               String?           @db.Text
+  bankName              String?
+  bankAccountNumber     String?
+  allocationPercentage  Float             @default(0.00)
+  calculatedAmount      Float             @default(0.00)
+  isDesignatedSuccessor Boolean           @default(false)
+  documentsVerified     Boolean           @default(false)
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
 
   @@index([personnelId])
 }
@@ -346,9 +383,10 @@ model Citizen {
   createdAt              DateTime           @default(now())
   updatedAt              DateTime           @updatedAt
 
-  user                   User?
-  applications           Application[]
-  estimates              BenefitEstimate[]
+  user         User?
+  applications Application[]
+  estimates    BenefitEstimate[]
+  trackings    BenefitTracking[]
 
   @@index([nationalId])
   @@index([province])
@@ -360,64 +398,65 @@ model Citizen {
 // ------------------------------------------------------------------------------
 
 model BenefitCategoryRef {
-  id                   String               @id @default(cuid())
-  code                 String               @unique
-  name                 String
-  thaiName             String
-  categoryType         BenefitCategory
-  description          String?              @db.Text
-  legalReference       String?              @db.Text
-  isActive             Boolean              @default(true)
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime             @updatedAt
+  id             String          @id @default(cuid())
+  code           String          @unique
+  name           String
+  thaiName       String
+  categoryType   BenefitCategory
+  description    String?         @db.Text
+  legalReference String?         @db.Text
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 
-  programs             BenefitProgram[]
+  programs BenefitProgram[]
 }
 
 model BenefitProgram {
-  id                   String              @id @default(cuid())
-  categoryId           String?
-  categoryRef          BenefitCategoryRef? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  code                 String              @unique
-  name                 String
-  thaiName             String
-  category             BenefitCategory     @default(LIVING_ALLOWANCE)
-  targetGroup          String?
-  description          String              @db.Text
-  paymentFrequency     PaymentFrequency    @default(MONTHLY)
-  baseAmount           Float               @default(0.00)
-  maxAmount            Float               @default(0.00)
-  totalBudgetYear      Float               @default(0.00)
-  allocatedBudget      Float               @default(0.00)
-  budgetTotal          Float               @default(0.00)
-  budgetDisbursed      Float               @default(0.00)
-  fundingSource        String?
-  legalBasis           String?             @db.Text
-  isActive             Boolean             @default(true)
-  createdAt            DateTime            @default(now())
-  updatedAt            DateTime            @updatedAt
+  id               String              @id @default(cuid())
+  categoryId       String?
+  categoryRef      BenefitCategoryRef? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  code             String              @unique
+  name             String
+  thaiName         String
+  category         BenefitCategory     @default(LIVING_ALLOWANCE)
+  targetGroup      String?
+  description      String              @db.Text
+  paymentFrequency PaymentFrequency    @default(MONTHLY)
+  baseAmount       Float               @default(0.00)
+  maxAmount        Float               @default(0.00)
+  totalBudgetYear  Float               @default(0.00)
+  allocatedBudget  Float               @default(0.00)
+  budgetTotal      Float               @default(0.00)
+  budgetDisbursed  Float               @default(0.00)
+  fundingSource    String?
+  legalBasis       String?             @db.Text
+  isActive         Boolean             @default(true)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
-  rules                BenefitRule[]
-  applications         Application[]
+  rules        BenefitRule[]
+  applications Application[]
+  trackings    BenefitTracking[]
 
   @@index([category])
 }
 
 model BenefitRule {
-  id                   String            @id @default(cuid())
-  programId            String
-  program              BenefitProgram    @relation(fields: [programId], references: [id], onDelete: Cascade)
-  ruleCode             String
-  ruleName             String
-  applicableLossType   LossType?
-  applicableMission    MissionType?
-  formulaType          String            @default("MILITARY_FORMULA")
-  multiplierFactor     Float             @default(1.0)
-  baseAmount           Float             @default(0.00)
-  conditionsJson       String?           @db.Text
-  isActive             Boolean           @default(true)
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
+  id                 String         @id @default(cuid())
+  programId          String
+  program            BenefitProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  ruleCode           String
+  ruleName           String
+  applicableLossType LossType?
+  applicableMission  MissionType?
+  formulaType        String         @default("MILITARY_FORMULA")
+  multiplierFactor   Float          @default(1.0)
+  baseAmount         Float          @default(0.00)
+  conditionsJson     String?        @db.Text
+  isActive           Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
 
   @@index([programId])
 }
@@ -427,73 +466,90 @@ model BenefitRule {
 // ------------------------------------------------------------------------------
 
 model MilitaryBenefitEstimate {
-  id                       String            @id @default(cuid())
-  estimateNumber           String            @unique
-  personnelId              String
-  personnel                MilitaryPersonnel @relation(fields: [personnelId], references: [id], onDelete: Cascade)
-  calculationDate          DateTime          @default(now())
-  status                   ApplicationStatus @default(SUBMITTED)
+  id              String            @id @default(cuid())
+  estimateNumber  String            @unique
+  personnelId     String
+  personnel       MilitaryPersonnel @relation(fields: [personnelId], references: [id], onDelete: Cascade)
+  calculationDate DateTime          @default(now())
+  status          ApplicationStatus @default(SUBMITTED)
 
-  calculatedRank           MilitaryRank
-  promotedRank             MilitaryRank?
-  baseSalarySnapshot       Float
-  promotedSalarySnapshot   Float
+  calculatedRank            MilitaryRank
+  promotedRank              MilitaryRank?
+  baseSalarySnapshot        Float
+  promotedSalarySnapshot    Float
   totalServiceYearsSnapshot Float
 
-  monthlyPensionEstimate   Float             @default(0.00)
-  lumpSumTotalEstimate     Float             @default(0.00)
-  insuranceTotalEstimate   Float             @default(0.00)
-  funeralAssistanceEstimate Float            @default(0.00)
-  royalFuneralAidEstimate  Float             @default(0.00)
-  grandTotalLumpSum        Float             @default(0.00)
+  // Service time snapshots
+  serviceYearsNormalSnapshot      Float @default(0.00)
+  serviceMonthsNormalSnapshot     Float @default(0.00)
+  serviceDaysNormalSnapshot       Float @default(0.00)
+  serviceYearsMultiplierSnapshot  Float @default(0.00)
+  serviceMonthsMultiplierSnapshot Float @default(0.00)
+  serviceDaysMultiplierSnapshot   Float @default(0.00)
+  totalServiceMonthsSnapshot      Float @default(0.00)
+  totalServiceDaysSnapshot        Float @default(0.00)
 
-  heirJobSuccessorEligible Boolean           @default(true)
-  childrenScholarshipTotal Float             @default(0.00)
+  // Special pension / compensation snapshots
+  specialPensionTypeSnapshot    String?
+  specialPensionTierSnapshot    Int     @default(7)
+  compensationLevelSnapshot     String?
+  rankAppointmentToSnapshot     String?
+  salaryLevelAdjustmentSnapshot String?
 
-  breakdownJson            String            @db.Text
-  heirDistributionJson     String            @db.Text
-  calculationNotes         String?           @db.Text
+  monthlyPensionEstimate    Float @default(0.00)
+  lumpSumTotalEstimate      Float @default(0.00)
+  insuranceTotalEstimate    Float @default(0.00)
+  funeralAssistanceEstimate Float @default(0.00)
+  royalFuneralAidEstimate   Float @default(0.00)
+  grandTotalLumpSum         Float @default(0.00)
 
-  createdById              String?
-  createdBy                User?             @relation("EstimatesCreated", fields: [createdById], references: [id], onDelete: SetNull)
-  createdAt                DateTime          @default(now())
-  updatedAt                DateTime          @updatedAt
+  heirJobSuccessorEligible Boolean @default(true)
+  childrenScholarshipTotal Float   @default(0.00)
 
-  reports                  BenefitReport[]
+  breakdownJson        String  @db.Text
+  heirDistributionJson String  @db.Text
+  calculationNotes     String? @db.Text
+
+  createdById String?
+  createdBy   User?    @relation("EstimatesCreated", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  reports BenefitReport[]
 
   @@index([personnelId])
   @@index([estimateNumber])
 }
 
 model BenefitEstimate {
-  id                    String            @id @default(cuid())
-  nationalId            String?
-  citizenId             String?
-  citizen               Citizen?          @relation(fields: [citizenId], references: [id], onDelete: SetNull)
-  estimateNumber        String?           @unique
-  age                   Int?
-  calculatedAge         Int               @default(60)
-  monthlyIncome         Float             @default(0.00)
-  inputMonthlyIncome    Float             @default(0.00)
-  hasDisability         Boolean           @default(false)
-  hasStateWelfareCard   Boolean           @default(false)
-  isDisabilityRegistered Boolean          @default(false)
-  disabilityType        String?
-  livingCondition       String?
-  hardshipScore         Int               @default(0)
-  vulnerabilityScore    Int               @default(0)
-  vulnerabilityLevel    VulnerabilityLevel @default(LOW)
-  eligibleProgramsCount Int               @default(0)
-  totalMonthlyEstimate  Float             @default(0.00)
-  totalOneTimeEstimate  Float             @default(0.00)
-  totalAnnualEstimate   Float             @default(0.00)
-  annualTotalEstimate   Float             @default(0.00)
-  breakdownJson         String            @db.Text
-  summaryNotes          String?           @db.Text
-  estimateBreakdownJson String?           @db.Text
-  recommendationsJson   String?           @db.Text
-  ipAddress             String?
-  createdAt             DateTime          @default(now())
+  id                     String             @id @default(cuid())
+  nationalId             String?
+  citizenId              String?
+  citizen                Citizen?           @relation(fields: [citizenId], references: [id], onDelete: SetNull)
+  estimateNumber         String?            @unique
+  age                    Int?
+  calculatedAge          Int                @default(60)
+  monthlyIncome          Float              @default(0.00)
+  inputMonthlyIncome     Float              @default(0.00)
+  hasDisability          Boolean            @default(false)
+  hasStateWelfareCard    Boolean            @default(false)
+  isDisabilityRegistered Boolean            @default(false)
+  disabilityType         String?
+  livingCondition        String?
+  hardshipScore          Int                @default(0)
+  vulnerabilityScore     Int                @default(0)
+  vulnerabilityLevel     VulnerabilityLevel @default(LOW)
+  eligibleProgramsCount  Int                @default(0)
+  totalMonthlyEstimate   Float              @default(0.00)
+  totalOneTimeEstimate   Float              @default(0.00)
+  totalAnnualEstimate    Float              @default(0.00)
+  annualTotalEstimate    Float              @default(0.00)
+  breakdownJson          String             @db.Text
+  summaryNotes           String?            @db.Text
+  estimateBreakdownJson  String?            @db.Text
+  recommendationsJson    String?            @db.Text
+  ipAddress              String?
+  createdAt              DateTime           @default(now())
 
   @@index([citizenId])
 }
@@ -503,32 +559,33 @@ model BenefitEstimate {
 // ------------------------------------------------------------------------------
 
 model Application {
-  id                  String            @id @default(cuid())
-  applicationNumber   String            @unique
-  citizenId           String
-  citizen             Citizen           @relation(fields: [citizenId], references: [id], onDelete: Cascade)
-  programId           String
-  program             BenefitProgram    @relation(fields: [programId], references: [id], onDelete: Cascade)
-  requestedAmount     Float
-  approvedAmount      Float?
-  status              ApplicationStatus @default(SUBMITTED)
-  submissionDate      DateTime          @default(now())
-  reviewDate          DateTime?
-  approvalDate        DateTime?
-  decisionDate        DateTime?
-  disbursementDate    DateTime?
-  documentsJson       String?           @db.Text
-  applicantRemarks    String?           @db.Text
-  officerRemarks      String?           @db.Text
-  officerNotes        String?           @db.Text
-  assignedOfficerId   String?
-  assignedOfficer     User?             @relation("AssignedToOfficer", fields: [assignedOfficerId], references: [id], onDelete: SetNull)
-  createdByUserId     String?
-  createdByUser       User?             @relation("CreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
+  id                String            @id @default(cuid())
+  applicationNumber String            @unique
+  citizenId         String
+  citizen           Citizen           @relation(fields: [citizenId], references: [id], onDelete: Cascade)
+  programId         String
+  program           BenefitProgram    @relation(fields: [programId], references: [id], onDelete: Cascade)
+  requestedAmount   Float
+  approvedAmount    Float?
+  status            ApplicationStatus @default(SUBMITTED)
+  submissionDate    DateTime          @default(now())
+  reviewDate        DateTime?
+  approvalDate      DateTime?
+  decisionDate      DateTime?
+  disbursementDate  DateTime?
+  documentsJson     String?           @db.Text
+  applicantRemarks  String?           @db.Text
+  officerRemarks    String?           @db.Text
+  officerNotes      String?           @db.Text
+  assignedOfficerId String?
+  assignedOfficer   User?             @relation("AssignedToOfficer", fields: [assignedOfficerId], references: [id], onDelete: SetNull)
+  createdByUserId   String?
+  createdByUser     User?             @relation("CreatedByUser", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
-  approvalRecords     ApprovalRecord[]
+  approvalRecords ApprovalRecord[]
+  BenefitTracking BenefitTracking[]
 
   @@index([citizenId])
   @@index([programId])
@@ -537,18 +594,18 @@ model Application {
 }
 
 model ApprovalRecord {
-  id                String            @id @default(cuid())
-  applicationId     String
-  application       Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  approverId        String
-  approver          User              @relation(fields: [approverId], references: [id], onDelete: Cascade)
-  approverName      String
-  previousStatus    ApplicationStatus
-  newStatus         ApplicationStatus
-  decision          ApprovalDecision
-  comments          String?           @db.Text
-  approvedAmount    Float?
-  actionTimestamp   DateTime          @default(now())
+  id              String            @id @default(cuid())
+  applicationId   String
+  application     Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  approverId      String
+  approver        User              @relation(fields: [approverId], references: [id], onDelete: Cascade)
+  approverName    String
+  previousStatus  ApplicationStatus
+  newStatus       ApplicationStatus
+  decision        ApprovalDecision
+  comments        String?           @db.Text
+  approvedAmount  Float?
+  actionTimestamp DateTime          @default(now())
 
   @@index([applicationId])
   @@index([approverId])
@@ -576,39 +633,84 @@ model BenefitClaimApplication {
   @@index([applicationNumber])
 }
 
+model BenefitTracking {
+  id                  String                @id @default(cuid())
+  trackingNumber      String                @unique
+  applicationId       String?
+  application         Application?          @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  citizenId           String
+  citizen             Citizen               @relation(fields: [citizenId], references: [id], onDelete: Cascade)
+  programId           String
+  program             BenefitProgram        @relation(fields: [programId], references: [id], onDelete: Cascade)
+  benefitName         String
+  benefitCategory     BenefitCategory
+  requestedAmount     Float                 @default(0.00)
+  approvedAmount      Float?
+  disbursedAmount     Float?
+  status              BenefitTrackingStatus @default(PENDING)
+  submissionDate      DateTime              @default(now())
+  approvalDate        DateTime?
+  disbursementDate    DateTime?
+  receivedDate        DateTime?
+  rejectionDate       DateTime?
+  expectedReceiveDate DateTime?
+  paymentReference    String?
+  paymentMethod       String?
+  bankName            String?
+  bankAccountNumber   String?
+  recipientName       String?
+  notes               String?               @db.Text
+  officerNotes        String?               @db.Text
+  documentsJson       String?               @db.Text
+  createdByUserId     String?
+  createdByUser       User?                 @relation("TrackingCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedByUserId     String?
+  updatedByUser       User?                 @relation("TrackingUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+  User                User?                 @relation(fields: [userId], references: [id])
+  userId              String?
+
+  @@index([citizenId])
+  @@index([programId])
+  @@index([status])
+  @@index([trackingNumber])
+  @@index([applicationId])
+}
+
 // ------------------------------------------------------------------------------
 // 7. Reports & Audit
 // ------------------------------------------------------------------------------
 
 model BenefitReport {
-  id                   String                  @id @default(cuid())
-  reportNumber         String                  @unique
-  estimateId           String
-  estimate             MilitaryBenefitEstimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
-  title                String
-  issuedDate           DateTime                @default(now())
-  commandingOfficer    String
-  officerPosition      String
-  qrCodeVerifyToken    String?
-  contentJson          String                  @db.Text
-  createdAt            DateTime                @default(now())
+  id                String                  @id @default(cuid())
+  reportNumber      String                  @unique
+  estimateId        String
+  estimate          MilitaryBenefitEstimate @relation(fields: [estimateId], references: [id], onDelete: Cascade)
+  title             String
+  issuedDate        DateTime                @default(now())
+  commandingOfficer String
+  officerPosition   String
+  qrCodeVerifyToken String?
+  contentJson       String                  @db.Text
+  createdAt         DateTime                @default(now())
 
   @@index([estimateId])
 }
 
 model AuditLog {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   userId      String?
-  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   userName    String?
   role        String?
   action      String
   resource    String
   resourceId  String?
-  detailsJson String?   @db.Text
+  detailsJson String?  @db.Text
   ipAddress   String?
   userAgent   String?
-  timestamp   DateTime  @default(now())
+  timestamp   DateTime @default(now())
 
   @@index([userId])
   @@index([action])
@@ -616,9 +718,9 @@ model AuditLog {
 }
 
 model SystemSetting {
-  id          String    @id @default(cuid())
-  key         String    @unique
-  value       String    @db.Text
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   @db.Text
   description String?
-  updatedAt   DateTime  @updatedAt
+  updatedAt   DateTime @updatedAt
 }

@@ -21,6 +21,7 @@ import {
   Calendar,
   CalendarDays,
   Gift,
+  ClipboardList,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -164,6 +165,30 @@ export default function DashboardPage() {
           <p className="text-[11px] text-muted-foreground">บรรจุทายาท / รักษาพยาบาล / โควตา</p>
         </Card>
       </div>
+
+
+      {/* Benefit Tracking Summary */}
+      <Card className="border border-emerald-200 dark:border-emerald-900/60 bg-gradient-to-br from-emerald-500/5 to-transparent p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 shrink-0">
+              <ClipboardList className="h-5 w-5" />
+            </div>
+            <div>
+              <CardTitle className="text-sm font-bold">ติดตามสถานะรายการสิทธิและเงินสงเคราะห์</CardTitle>
+              <CardDescription className="text-xs mt-0.5">
+                ตรวจสอบรายการที่ได้รับ อนุมัติแล้ว หรืออยู่ระหว่างดำเนินการแบบเรียลไทม์
+              </CardDescription>
+            </div>
+          </div>
+          <Link href="/benefit-tracking">
+            <Button size="sm" variant="outline" className="text-xs gap-1.5 border-emerald-600 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
+              <ClipboardList className="h-4 w-4" />
+              เปิดระบบติดตาม
+            </Button>
+          </Link>
+        </div>
+      </Card>
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

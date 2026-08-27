@@ -2,19 +2,18 @@ version: '3.8'
 
 services:
   db:
-    image: mysql:8.0
-    container_name: sittidop-mysql-dev
+    image: postgres:15-alpine
+    container_name: sittidop-postgres-dev
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: "V@radorn7887"
-      MYSQL_DATABASE: "sittidop"
-      MYSQL_USER: "sitti"
-      MYSQL_PASSWORD: "V@radorn7887"
+      POSTGRES_USER: "sitti"
+      POSTGRES_PASSWORD: "V@radorn7887"
+      POSTGRES_DB: "sittidop"
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - mysql_dev_data:/var/lib/mysql
+      - postgres_dev_data:/var/lib/postgresql/data
 
 volumes:
-  mysql_dev_data:
+  postgres_dev_data:
     driver: local

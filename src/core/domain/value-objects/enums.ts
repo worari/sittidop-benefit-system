@@ -41,6 +41,16 @@ export enum ApprovalDecision {
   FORWARD = "FORWARD",
 }
 
+export enum BenefitTrackingStatus {
+  PENDING = "PENDING",
+  UNDER_REVIEW = "UNDER_REVIEW",
+  APPROVED = "APPROVED",
+  DISBURSED = "DISBURSED",
+  RECEIVED = "RECEIVED",
+  REJECTED = "REJECTED",
+  CANCELLED = "CANCELLED",
+}
+
 export enum VulnerabilityLevel {
   LOW = "LOW",
   MODERATE = "MODERATE",

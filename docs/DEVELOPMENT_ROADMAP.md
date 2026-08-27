@@ -28,7 +28,7 @@
 │  [Security Layer]       NextAuth.js (JWT) + RBAC Engine (6 Roles) + Rate Limiter + Audit Logger │
 │  [Business Core]        Rule Engine (4 Categories) + Expression Evaluator + Checksum Validator  │
 │  [Document & I/O]       SheetJS (Excel Multi-Sheet) + DOCX Packer + QRCode + Native PDF Print   │
-│  [Data Layer]           Prisma ORM + MySQL 8.0 (InnoDB, Foreign Keys, Indexing, Transactions)  │
+│  [Data Layer]           Prisma ORM + PostgreSQL 15 (Foreign Keys, Indexing, Transactions)     │
 │  [Infrastructure]       Docker Compose Multi-Container + Healthchecks + Volume Persistence      │
 └─────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -201,7 +201,7 @@ erDiagram
 
 ```prisma
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -456,23 +456,22 @@ model AuditLog {
 version: "3.8"
 
 services:
-  # MySQL 8.0 Database
+  # PostgreSQL 15 Database
   db:
-    image: mysql:8.0
-    container_name: sittidop_mysql
+    image: postgres:15-alpine
+    container_name: sittidop_postgres
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: V@radorn7887
-      MYSQL_DATABASE: sittidop
-      MYSQL_USER: sitti
-      MYSQL_PASSWORD: V@radorn7887
+      POSTGRES_USER: sitti
+      POSTGRES_PASSWORD: V@radorn7887
+      POSTGRES_DB: sittidop
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - postgres_data:/var/lib/postgresql/data
       - ./prisma/seed.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "sitti", "-pV@radorn7887"]
+      test: ["CMD-SHELL", "pg_isready -U sitti -d sittidop"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -485,7 +484,7 @@ services:
     container_name: sittidop_app
     restart: always
     environment:
-      DATABASE_URL: "mysql://sitti:V@radorn7887@db:3306/sittidop"
+      DATABASE_URL: "postgresql://sitti:V@radorn7887@db:5432/sittidop"
       NEXTAUTH_URL: "http://localhost:3000"
       NEXTAUTH_SECRET: "sittidop_enterprise_secret_key_2026_super_secure_mod"
       NODE_ENV: "production"
@@ -496,7 +495,7 @@ services:
         condition: service_healthy
 
 volumes:
-  mysql_data:
+  postgres_data:
     driver: local
 ```
 
@@ -521,7 +520,7 @@ volumes:
 
 #### 🚀 Sprint 1: Core Foundation & Registry Engine
 - [x] Initializing Next.js 15 App Router + TypeScript + Tailwind CSS + Shadcn UI
-- [x] Setup Docker Compose with MySQL 8.0 & Prisma ORM
+- [x] Setup Docker Compose with PostgreSQL 15 & Prisma ORM
 - [x] Create Military Personnel Management Table & Details Dialog
 - [x] Create Family & Legal Heir Information Pages
 

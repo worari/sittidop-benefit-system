@@ -17,6 +17,7 @@ import {
   UserCog,
   History,
   ShieldCheck,
+  ClipboardList,
 } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Role } from "../../../core/domain/value-objects/enums";
@@ -65,6 +66,13 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
       href: "/calculator",
       icon: Calculator,
       badge: "4 หมวด",
+      roles: [Role.SUPERADMIN, Role.ADMIN, Role.STAFF, Role.COMMANDER, Role.AUDITOR, Role.READONLY],
+    },
+    {
+      title: "ติดตามสถานะสิทธิและเงินสงเคราะห์",
+      href: "/benefit-tracking",
+      icon: ClipboardList,
+      badge: "Tracking",
       roles: [Role.SUPERADMIN, Role.ADMIN, Role.STAFF, Role.COMMANDER, Role.AUDITOR, Role.READONLY],
     },
     {

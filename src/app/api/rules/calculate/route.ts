@@ -18,9 +18,14 @@ export async function POST(req: NextRequest) {
       details: {
         rank: input.rank,
         lossType: input.lossType,
+        specialPensionType: input.specialPensionType,
+        specialPensionTier: input.specialPensionTier,
+        totalServiceYears: input.totalServiceYears,
+        benefitScope: input.benefitScope,
         grandTotalLumpSum: result.grandTotalLumpSum,
         grandTotalMonthlyPension: result.grandTotalMonthlyPension,
         grandTotalAnnualScholarship: result.grandTotalAnnualScholarship,
+        hasScopeComparison: !!result.scopeComparison,
       },
     });
 

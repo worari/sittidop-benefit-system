@@ -1,15 +1,27 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { MilitaryPersonnelRecord } from "@/infrastructure/database/repositories/MilitaryStoreManager";
-import { MilitaryBenefitCalculationResult, BenefitCategoryCode } from "@/core/domain/value-objects/military-types";
+import {
+  MilitaryBenefitCalculationResult,
+  BenefitCategoryCode,
+  BenefitScopeComparison,
+} from "@/core/domain/value-objects/military-types";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/presentation/components/ui/card";
 import { Button } from "@/presentation/components/ui/button";
 import { Badge } from "@/presentation/components/ui/badge";
 import { Input } from "@/presentation/components/ui/input";
 import { Label } from "@/presentation/components/ui/label";
 import { Progress } from "@/presentation/components/ui/progress";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/presentation/components/ui/tabs";
 import { formatCurrency } from "@/presentation/lib/utils";
+import {
+  calculateServiceTime,
+  calculateTotalServiceTime,
+  formatServiceTime,
+  formatThaiBE,
+} from "@/presentation/lib/military-date-utils";
+import { ThaiBuddhistDatePicker } from "./ThaiBuddhistDatePicker";
 import {
   Calculator,
   Shield,
@@ -30,8 +42,34 @@ import {
   CalendarDays,
   Gift,
   Activity,
+  Scale,
+  Building2,
+  Landmark,
 } from "lucide-react";
 import Link from "next/link";
+
+const RANK_OPTIONS = [
+  { value: "GENERAL", label: "พลเอก (พล.อ.)" },
+  { value: "LIEUTENANT_GENERAL", label: "พลโท (พล.ท.)" },
+  { value: "MAJOR_GENERAL", label: "พลตรี (พล.ต.)" },
+  { value: "COLONEL", label: "พันเอก (พ.อ.)" },
+  { value: "COLONEL_SPECIAL", label: "พันเอกพิเศษ (พ.อ.พิเศษ)" },
+  { value: "LIEUTENANT_COLONEL", label: "พันโท (พ.ท.)" },
+  { value: "MAJOR", label: "พันตรี (พ.ต.)" },
+  { value: "CAPTAIN", label: "ร้อยเอก (ร.อ.)" },
+  { value: "FIRST_LIEUTENANT", label: "ร้อยโท (ร.ท.)" },
+  { value: "SECOND_LIEUTENANT", label: "ร้อยตรี (ร.ต.)" },
+  { value: "MASTER_SERGEANT_1ST", label: "จ่าสิบเอก (จ.ส.อ.)" },
+  { value: "MASTER_SERGEANT_2ND", label: "จ่าสิบโท (จ.ส.ท.)" },
+  { value: "MASTER_SERGEANT_3RD", label: "จ่าสิบตรี (จ.ส.ต.)" },
+  { value: "SERGEANT", label: "สิบเอก (ส.อ.)" },
+  { value: "CORPORAL", label: "สิบโท (ส.ท.)" },
+  { value: "LANCE_CORPORAL", label: "สิบตรี (ส.ต.)" },
+  { value: "PRIVATE", label: "พลทหาร (พลฯ)" },
+  { value: "VOLUNTEER_RANGER", label: "อาสาสมัครทหารพราน (อส.)" },
+];
+
+const SPECIAL_PENSION_TIERS = [9, 8, 7, 5];
 
 export function MilitaryBenefitCalculator() {
   const [step, setStep] = useState(1);
@@ -48,20 +86,39 @@ export function MilitaryBenefitCalculator() {
   const [salary, setSalary] = useState(43500);
   const [salaryLevel, setSalaryLevel] = useState("น.3");
   const [salaryStep, setSalaryStep] = useState(21.5);
+  const [compensationLevel, setCompensationLevel] = useState("");
   const [compensationAmount, setCompensationAmount] = useState(5000);
   const [additionalPay, setAdditionalPay] = useState(2500);
 
+  // Dates
+  const [appointmentDate, setAppointmentDate] = useState<string>("2010-05-01");
+  const [incidentDate, setIncidentDate] = useState<string | undefined>("2026-03-12");
+  const [multiplierDate, setMultiplierDate] = useState<string | undefined>("2016-10-01");
+
+  // Service time (auto-calculated)
   const [serviceYearsNormal, setServiceYearsNormal] = useState(16);
+  const [serviceMonthsNormal, setServiceMonthsNormal] = useState(0);
+  const [serviceDaysNormal, setServiceDaysNormal] = useState(0);
   const [serviceYearsMultiplier, setServiceYearsMultiplier] = useState(8);
-  const totalServiceYears = serviceYearsNormal + serviceYearsMultiplier;
+  const [serviceMonthsMultiplier, setServiceMonthsMultiplier] = useState(0);
+  const [serviceDaysMultiplier, setServiceDaysMultiplier] = useState(0);
+  const [totalServiceYears, setTotalServiceYears] = useState(24);
+  const [totalServiceMonths, setTotalServiceMonths] = useState(0);
+  const [totalServiceDays, setTotalServiceDays] = useState(0);
+
+  // Special pension / promotion
+  const [specialPensionType, setSpecialPensionType] = useState<"EMERGENCY_TIME" | "NORMAL_TIME">("NORMAL_TIME");
+  const [specialPensionTier, setSpecialPensionTier] = useState(7);
+  const [rankAppointmentTo, setRankAppointmentTo] = useState("พลเอก");
+  const [salaryLevelAdjustment, setSalaryLevelAdjustment] = useState("");
 
   const [missionType, setMissionType] = useState("COUNTER_INSURGENCY");
   const [lossType, setLossType] = useState("KIA_COMBAT_DEATH");
-  const [promotionSteps, setPromotionSteps] = useState(7);
+  const [promotedRank, setPromotedRank] = useState("GENERAL");
   const [promotedRankAbbr, setPromotedRankAbbr] = useState("พล.อ.");
   const [promotedSalary, setPromotedSalary] = useState(68500);
 
-  const [benefitScope, setBenefitScope] = useState<"IN_ARMY" | "OUTSIDE_ARMY" | "BOTH">("IN_ARMY");
+  const [benefitScope, setBenefitScope] = useState<"IN_ARMY" | "OUTSIDE_ARMY" | "BOTH">("BOTH");
   const [actionCause, setActionCause] = useState<"ENEMY_ACTION" | "NON_ENEMY_ACTION" | "BOTH">("ENEMY_ACTION");
   const [personnelCategory, setPersonnelCategory] = useState<string>("COMMISSIONED_OFFICER");
 
@@ -76,6 +133,7 @@ export function MilitaryBenefitCalculator() {
 
   const [calculationResult, setCalculationResult] = useState<MilitaryBenefitCalculationResult | null>(null);
   const [calculating, setCalculating] = useState(false);
+  const [activeComparisonTab, setActiveComparisonTab] = useState<"IN_ARMY" | "OUTSIDE_ARMY">("IN_ARMY");
 
   useEffect(() => {
     fetch("/api/personnel")
@@ -88,6 +146,38 @@ export function MilitaryBenefitCalculator() {
       });
   }, []);
 
+  // Auto-calculate service time when dates change
+  useEffect(() => {
+    const endDate = incidentDate;
+    const normal = calculateServiceTime(appointmentDate, endDate);
+    const multiplier = calculateServiceTime(multiplierDate, endDate);
+    const total = calculateTotalServiceTime(normal, multiplier, { multiplierFactor: 2 });
+
+    setServiceYearsNormal(normal.years);
+    setServiceMonthsNormal(normal.months);
+    setServiceDaysNormal(normal.days);
+    setServiceYearsMultiplier(multiplier.years);
+    setServiceMonthsMultiplier(multiplier.months);
+    setServiceDaysMultiplier(multiplier.days);
+    setTotalServiceYears(total.years);
+    setTotalServiceMonths(total.months);
+    setTotalServiceDays(total.days);
+  }, [appointmentDate, incidentDate, multiplierDate]);
+
+  // Auto-update promoted salary when tier changes
+  useEffect(() => {
+    setPromotedSalary(Math.round(salary * (1 + specialPensionTier * 0.08)));
+  }, [salary, specialPensionTier]);
+
+  // Auto-update rank abbreviation when rank changes
+  useEffect(() => {
+    const found = RANK_OPTIONS.find((r) => r.value === rank);
+    if (found) {
+      const abbrMatch = found.label.match(/\(([^)]+)\)/);
+      setRankAbbr(abbrMatch ? abbrMatch[1] : found.value);
+    }
+  }, [rank]);
+
   const loadPersonnelData = (p: MilitaryPersonnelRecord) => {
     setSelectedPersonnelId(p.id);
     setMilitaryId(p.militaryId);
@@ -99,15 +189,31 @@ export function MilitaryBenefitCalculator() {
     setSalary(p.salary);
     setSalaryLevel(p.salaryLevel);
     setSalaryStep(p.salaryStep);
+    setCompensationLevel(p.compensationLevel || "");
     setCompensationAmount(p.compensationAmount || 0);
     setAdditionalPay(p.additionalPay || 0);
+    setAppointmentDate(p.appointmentDate);
+    setIncidentDate(p.incidentDate);
+    setMultiplierDate(p.multiplierDate);
     setServiceYearsNormal(p.serviceYearsNormal);
+    setServiceMonthsNormal(p.serviceMonthsNormal || 0);
+    setServiceDaysNormal(p.serviceDaysNormal || 0);
     setServiceYearsMultiplier(p.serviceYearsMultiplier);
+    setServiceMonthsMultiplier(p.serviceMonthsMultiplier || 0);
+    setServiceDaysMultiplier(p.serviceDaysMultiplier || 0);
+    setTotalServiceYears(p.totalServiceYears);
+    setTotalServiceMonths(p.totalServiceMonths || 0);
+    setTotalServiceDays(p.totalServiceDays || 0);
+    setSpecialPensionType(p.specialPensionType || "NORMAL_TIME");
+    setSpecialPensionTier(p.specialPensionTier || p.promotionSteps || 7);
+    setRankAppointmentTo(p.rankAppointmentTo || "");
+    setSalaryLevelAdjustment(p.salaryLevelAdjustment || "");
     setMissionType(p.missionType);
     setLossType(p.lossType);
-    setBenefitScope(p.benefitScope || "IN_ARMY");
+    setBenefitScope(p.benefitScope || "BOTH");
     setActionCause(p.actionCause || "ENEMY_ACTION");
-    setPromotionSteps(p.promotionSteps || 7);
+    setSpecialPensionTier(p.specialPensionTier || p.promotionSteps || 7);
+    setPromotedRank(p.promotedRank || "GENERAL");
     setPromotedRankAbbr(p.promotedRankAbbr || "พล.อ.");
     setPromotedSalary(p.promotedSalary || Math.round(p.salary * 1.55));
     setHasSpouse(!!p.spouse);
@@ -134,13 +240,18 @@ export function MilitaryBenefitCalculator() {
     setCalculating(true);
     try {
       const stayDays = calculateStayDays(hospitalAdmissionDate, hospitalDischargeDate);
+      const nameParts = fullName.trim().split(/\s+/);
+      const rankPart = nameParts[0] || rankAbbr;
+      const firstName = nameParts[1] || "กำลังพล";
+      const lastName = nameParts[2] || "ไทย";
+
       const payload = {
         militaryId,
         citizenId: "3100600492811",
         rank,
-        rankAbbr,
-        firstName: fullName.split(" ")[1] || "กำลังพล",
-        lastName: fullName.split(" ")[2] || "ไทย",
+        rankAbbr: rankPart,
+        firstName,
+        lastName,
         militaryBranch: "ROYAL_THAI_ARMY",
         abbreviatedPosition: "ผบ.พัน.สน.",
         normalUnit,
@@ -149,22 +260,35 @@ export function MilitaryBenefitCalculator() {
         salary: Number(salary),
         salaryLevel,
         salaryStep: Number(salaryStep),
+        compensationLevel,
         compensationAmount: Number(compensationAmount),
         additionalPay: Number(additionalPay),
-        appointmentDate: "2010-05-01",
+        appointmentDate,
+        incidentDate,
+        multiplierDate,
         serviceYearsNormal: Number(serviceYearsNormal),
+        serviceMonthsNormal: Number(serviceMonthsNormal),
+        serviceDaysNormal: Number(serviceDaysNormal),
         serviceYearsMultiplier: Number(serviceYearsMultiplier),
-        totalServiceYears,
+        serviceMonthsMultiplier: Number(serviceMonthsMultiplier),
+        serviceDaysMultiplier: Number(serviceDaysMultiplier),
+        totalServiceYears: Number(totalServiceYears),
+        totalServiceMonths: Number(totalServiceMonths),
+        totalServiceDays: Number(totalServiceDays),
         benefitScope,
         actionCause,
         missionType,
         personnelCategory,
         lossType,
+        specialPensionType,
+        specialPensionTier: Number(specialPensionTier),
+        rankAppointmentTo,
+        salaryLevelAdjustment,
         hospitalAdmissionDate,
         hospitalDischargeDate,
         hospitalStayDays: stayDays,
-        promotionSteps: Number(promotionSteps),
-        promotedRank: "GENERAL",
+        promotionSteps: Number(specialPensionTier),
+        promotedRank,
         promotedRankAbbr,
         promotedSalary: Number(promotedSalary),
         spouse: hasSpouse
@@ -221,6 +345,42 @@ export function MilitaryBenefitCalculator() {
     { num: 5, title: "สรุป 4 หมวดสิทธิประโยชน์" },
   ];
 
+  const renderScopeComparison = (comparison: BenefitScopeComparison) => {
+    const isInArmy = comparison.scope === "IN_ARMY";
+    return (
+      <div className={`rounded-xl border p-4 space-y-3 ${isInArmy ? "border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/20" : "border-blue-200 bg-blue-50/40 dark:bg-blue-950/20"}`}>
+        <div className="flex items-center gap-2">
+          {isInArmy ? <Building2 className="h-4 w-4 text-emerald-600" /> : <Landmark className="h-4 w-4 text-blue-600" />}
+          <h4 className={`text-sm font-bold ${isInArmy ? "text-emerald-800 dark:text-emerald-300" : "text-blue-800 dark:text-blue-300"}`}>
+            {comparison.scopeThaiName}
+          </h4>
+        </div>
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div>
+            <p className="text-muted-foreground">หมวด 1 รับเงินครั้งเดียว</p>
+            <p className="font-bold font-mono">{formatCurrency(comparison.categoryTotals[BenefitCategoryCode.LUMP_SUM_PAYMENT])}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">หมวด 2 รายเดือน</p>
+            <p className="font-bold font-mono">{formatCurrency(comparison.categoryTotals[BenefitCategoryCode.MONTHLY_PAYMENT])}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">หมวด 3 รายปี</p>
+            <p className="font-bold font-mono">{formatCurrency(comparison.categoryTotals[BenefitCategoryCode.ANNUAL_PAYMENT])}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">หมวด 4 สิทธิมิใช่ตัวเงิน</p>
+            <p className="font-bold font-mono">{comparison.nonMonetaryCount} สิทธิ</p>
+          </div>
+        </div>
+        <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+          <p className="text-xs text-muted-foreground">รวมเงินก้อน (หมวด 1)</p>
+          <p className="text-xl font-black text-slate-900 dark:text-slate-100">{formatCurrency(comparison.lumpSumTotal)}</p>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
@@ -262,10 +422,10 @@ export function MilitaryBenefitCalculator() {
             <div
               key={s.num}
               className={`text-[10px] truncate ${step === s.num
-                  ? "font-bold text-emerald-600"
-                  : step > s.num
-                    ? "text-slate-700 dark:text-slate-300"
-                    : "text-muted-foreground"
+                ? "font-bold text-emerald-600"
+                : step > s.num
+                  ? "text-slate-700 dark:text-slate-300"
+                  : "text-muted-foreground"
                 }`}
             >
               {s.num}. {s.title}
@@ -338,19 +498,33 @@ export function MilitaryBenefitCalculator() {
               />
             </div>
             <div className="space-y-1.5">
+              <Label className="text-xs">ระดับชั้นเงินเดือน (เช่น น.3)</Label>
+              <Input
+                value={salaryLevel}
+                onChange={(e) => setSalaryLevel(e.target.value)}
+                className="text-xs font-mono"
+              />
+            </div>
+            <div className="space-y-1.5">
               <Label className="text-xs">เงินเดือนปัจจุบัน (บาท)</Label>
               <Input
                 type="number"
                 value={salary}
-                onChange={(e) => {
-                  setSalary(Number(e.target.value));
-                  setPromotedSalary(Math.round(Number(e.target.value) * 1.55));
-                }}
+                onChange={(e) => setSalary(Number(e.target.value))}
                 className="text-xs font-mono font-bold"
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">ค่าตอบแทนพิเศษ พ.ช.ท. / พ.ส.ร. (บาท)</Label>
+              <Label className="text-xs">ระดับเงินเยียวยา</Label>
+              <Input
+                value={compensationLevel}
+                onChange={(e) => setCompensationLevel(e.target.value)}
+                className="text-xs"
+                placeholder="เช่น ระดับ 1"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">จำนวนเงินเยียวยา (บาท)</Label>
               <Input
                 type="number"
                 value={compensationAmount}
@@ -377,40 +551,53 @@ export function MilitaryBenefitCalculator() {
         <Card className="border border-slate-200 dark:border-slate-800 p-6 space-y-5">
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-              ขั้นตอนที่ 2: เวลาราชการปกติและเวลาราชการทวีคูณ
+              ขั้นตอนที่ 2: วันบรรจุ เวลาราชการปกติ และเวลาราชการทวีคูณ
             </h2>
             <p className="text-xs text-muted-foreground">
-              ระบุจำนวนปีเวลาราชการปกติและเวลาราชการทวีคูณจากการปฏิบัติราชการสงคราม/ปราบปราม
+              ระบุวันบรรจุ วันเกิดเหตุ และวันทวีคูณ ระบบจะคำนวณเวลาราชการอัตโนมัติ
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <ThaiBuddhistDatePicker
+              label="วัน เดือน ปี บรรจุ"
+              value={appointmentDate}
+              onChange={(v) => setAppointmentDate(v || "")}
+              required
+            />
+            <ThaiBuddhistDatePicker
+              label="วันเกิดเหตุ"
+              value={incidentDate}
+              onChange={setIncidentDate}
+            />
+            <ThaiBuddhistDatePicker
+              label="วันทวีคูณ"
+              value={multiplierDate}
+              onChange={setMultiplierDate}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-              <Label className="text-xs font-bold">เวลาราชการปกติ (ปี)</Label>
-              <Input
-                type="number"
-                value={serviceYearsNormal}
-                onChange={(e) => setServiceYearsNormal(Number(e.target.value))}
-                className="text-sm font-bold mt-1"
-              />
-              <p className="text-[10px] text-muted-foreground">นับจากวันบรรจุเข้ารับราชการ</p>
+              <Label className="text-xs font-bold">เวลาราชการปกติ</Label>
+              <p className="text-lg font-black text-slate-700 dark:text-slate-300 pt-1">
+                {formatServiceTime({ years: serviceYearsNormal, months: serviceMonthsNormal, days: serviceDaysNormal })}
+              </p>
+              <p className="text-[10px] text-muted-foreground">นับจากวันบรรจุถึงวันเกิดเหตุ</p>
             </div>
 
             <div className="space-y-1.5 p-4 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/30">
-              <Label className="text-xs font-bold text-emerald-800 dark:text-emerald-300">เวลาราชการทวีคูณ (ปี)</Label>
-              <Input
-                type="number"
-                value={serviceYearsMultiplier}
-                onChange={(e) => setServiceYearsMultiplier(Number(e.target.value))}
-                className="text-sm font-bold mt-1 text-emerald-600"
-              />
+              <Label className="text-xs font-bold text-emerald-800 dark:text-emerald-300">เวลาราชการทวีคูณ</Label>
+              <p className="text-lg font-black text-emerald-700 dark:text-emerald-400 pt-1">
+                {formatServiceTime({ years: serviceYearsMultiplier, months: serviceMonthsMultiplier, days: serviceDaysMultiplier })}
+              </p>
               <p className="text-[10px] text-emerald-700 dark:text-emerald-400">ราชการสนาม / ปราบปราม</p>
             </div>
 
             <div className="space-y-1.5 p-4 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/30">
-              <Label className="text-xs font-bold text-amber-800 dark:text-amber-300">รวมเวลาราชการคำนวณ (ปี)</Label>
-              <p className="text-2xl font-black text-amber-700 dark:text-amber-400 pt-1">
-                {totalServiceYears} ปี
+              <Label className="text-xs font-bold text-amber-800 dark:text-amber-300">รวมเวลาราชการคำนวณ</Label>
+              <p className="text-lg font-black text-amber-700 dark:text-amber-400 pt-1">
+                {formatServiceTime({ years: totalServiceYears, months: totalServiceMonths, days: totalServiceDays })}
               </p>
               <p className="text-[10px] text-amber-700 dark:text-amber-400">ใช้คำนวณบำเหน็จบำนาญพิเศษ</p>
             </div>
@@ -437,10 +624,10 @@ export function MilitaryBenefitCalculator() {
         <Card className="border border-slate-200 dark:border-slate-800 p-6 space-y-5">
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-              ขั้นตอนที่ 3: เหตุการณ์ความสูญเสียและชั้นยศปูนบำเหน็จ
+              ขั้นตอนที่ 3: เหตุการณ์ความสูญเสีย ปูนบำเหน็จพิเศษ และชั้นยศ
             </h2>
             <p className="text-xs text-muted-foreground">
-              กำหนดประเภทความสูญเสีย จำนวนชั้นยศที่ได้รับการปูนบำเหน็จ และเงินเดือนหลังเลื่อนชั้นยศ
+              กำหนดประเภทความสูญเสีย การปูนบำเหน็จพิเศษ แต่งตั้ง/เลื่อนชั้นยศ และเงินเดือนหลังเลื่อนชั้นยศ
             </p>
           </div>
 
@@ -455,7 +642,7 @@ export function MilitaryBenefitCalculator() {
               >
                 <option value="IN_ARMY">ใน ทบ. (สิทธิและเงินกองทุนภายในกองทัพบก)</option>
                 <option value="OUTSIDE_ARMY">นอก ทบ. (ประกันภัยร่วม กห., กรมบัญชีกลาง, มูลนิธิสายใจไทย)</option>
-                <option value="BOTH">ทั้งในและนอก ทบ.</option>
+                <option value="BOTH">ทั้งในและนอก ทบ. (เปรียบเทียบ)</option>
               </select>
             </div>
 
@@ -469,6 +656,7 @@ export function MilitaryBenefitCalculator() {
               >
                 <option value="ENEMY_ACTION">การกระทำของข้าศึก / ผู้ก่อความไม่สงบ / การสู้รบ</option>
                 <option value="NON_ENEMY_ACTION">มิใช่การกระทำของข้าศึก (อุบัติเหตุสนาม, ปฏิบัติงานปกติ)</option>
+                <option value="BOTH">ทั้งสองกรณี</option>
               </select>
             </div>
 
@@ -502,17 +690,62 @@ export function MilitaryBenefitCalculator() {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">จำนวนชั้นยศปูนบำเหน็จพิเศษ</Label>
+              <Label className="text-xs font-bold">การปูนบำเหน็จพิเศษ</Label>
               <select
-                value={promotionSteps}
-                onChange={(e) => setPromotionSteps(Number(e.target.value))}
+                value={specialPensionType}
+                onChange={(e) => setSpecialPensionType(e.target.value as any)}
                 className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
               >
-                <option value={9}>ปูนบำเหน็จพิเศษ 9 ชั้นยศ</option>
-                <option value={8}>ปูนบำเหน็จพิเศษ 8 ชั้นยศ</option>
-                <option value={7}>ปูนบำเหน็จพิเศษ 7 ชั้นยศ</option>
-                <option value={5}>ปูนบำเหน็จพิเศษ 5 ชั้นยศ</option>
+                <option value="EMERGENCY_TIME">1. ในเวลาเหตุฉุกเฉิน</option>
+                <option value="NORMAL_TIME">2. ในเวลาเหตุปกติ</option>
               </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">ปูนบำเหน็จพิเศษ (จำนวนชั้นยศ)</Label>
+              <select
+                value={specialPensionTier}
+                onChange={(e) => setSpecialPensionTier(Number(e.target.value))}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
+              >
+                {SPECIAL_PENSION_TIERS.map((tier) => (
+                  <option key={tier} value={tier}>
+                    ปูนบำเหน็จพิเศษ {tier} ชั้นยศ
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">แต่งตั้ง/เลื่อนชั้นยศ เป็น</Label>
+              <select
+                value={promotedRank}
+                onChange={(e) => {
+                  setPromotedRank(e.target.value);
+                  const found = RANK_OPTIONS.find((r) => r.value === e.target.value);
+                  if (found) {
+                    const abbrMatch = found.label.match(/\(([^)]+)\)/);
+                    setPromotedRankAbbr(abbrMatch ? abbrMatch[1] : found.value);
+                  }
+                }}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
+              >
+                {RANK_OPTIONS.map((r) => (
+                  <option key={r.value} value={r.value}>
+                    {r.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">ปรับระดับ (ชั้นเงิน)</Label>
+              <Input
+                value={salaryLevelAdjustment}
+                onChange={(e) => setSalaryLevelAdjustment(e.target.value)}
+                className="text-xs"
+                placeholder="เช่น น.3 ขั้น 27.5"
+              />
             </div>
 
             <div className="space-y-1.5">
@@ -666,6 +899,57 @@ export function MilitaryBenefitCalculator() {
       {/* Step 5: Calculation Results Breakdown across 4 Categories */}
       {step === 5 && calculationResult && (
         <div className="space-y-6">
+          {/* Personnel Summary Card */}
+          <Card className="border border-slate-200 dark:border-slate-800 p-5">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 mb-3 flex items-center gap-2">
+              <Shield className="h-4 w-4 text-emerald-600" />
+              สรุปข้อมูลกำลังพลและเวลาราชการ
+            </h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+              <div>
+                <p className="text-muted-foreground">ยศ/ชื่อ-สกุล</p>
+                <p className="font-semibold">{calculationResult.personnelSummary.fullName}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">วันบรรจุ</p>
+                <p className="font-semibold">{formatThaiBE(calculationResult.personnelSummary.appointmentDate)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">วันเกิดเหตุ</p>
+                <p className="font-semibold">{formatThaiBE(calculationResult.personnelSummary.incidentDate)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">รวมเวลาราชการ</p>
+                <p className="font-semibold text-emerald-700 dark:text-emerald-400">
+                  {formatServiceTime({
+                    years: calculationResult.personnelSummary.totalServiceYears,
+                    months: calculationResult.personnelSummary.totalServiceMonths,
+                    days: calculationResult.personnelSummary.totalServiceDays,
+                  })}
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">ปูนบำเหน็จพิเศษ</p>
+                <p className="font-semibold">
+                  {calculationResult.personnelSummary.specialPensionType === "EMERGENCY_TIME" ? "ในเวลาเหตุฉุกเฉิน" : "ในเวลาเหตุปกติ"} {" "}
+                  {calculationResult.personnelSummary.specialPensionTier} ชั้นยศ
+                </p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">เลื่อนชั้นยศเป็น</p>
+                <p className="font-semibold">{calculationResult.personnelSummary.rankAppointmentTo || "-"}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">เงินเดือนหลังเลื่อนยศ</p>
+                <p className="font-semibold">{formatCurrency(calculationResult.personnelSummary.promotedSalary)}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">ระดับเงินเยียวยา</p>
+                <p className="font-semibold">{calculationResult.personnelSummary.compensationLevel || "-"}</p>
+              </div>
+            </div>
+          </Card>
+
           {/* Top 4 Categories Metric Banner */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Cat 1: Lump Sum */}
@@ -716,6 +1000,65 @@ export function MilitaryBenefitCalculator() {
               <p className="text-[10px] text-purple-100">บรรจุทายาท / รักษาพยาบาล</p>
             </div>
           </div>
+
+          {/* Scope Comparison (ใน ทบ. vs นอก ทบ.) */}
+          {calculationResult.scopeComparison && (
+            <Card className="border border-slate-200 dark:border-slate-800 p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                  <Scale className="h-4 w-4 text-emerald-600" />
+                  เปรียบเทียบสิทธิประโยชน์ ใน ทบ. vs นอก ทบ.
+                </h3>
+                <Badge variant="outline" className="text-[10px]">
+                  หมวด 1 รับเงินครั้งเดียว
+                </Badge>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {renderScopeComparison(calculationResult.scopeComparison.inArmy)}
+                {renderScopeComparison(calculationResult.scopeComparison.outsideArmy)}
+              </div>
+
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs">
+                <p className="font-semibold text-slate-900 dark:text-slate-100">
+                  ข้อแนะนำ: {" "}
+                  {calculationResult.scopeComparison.recommendedScope === "IN_ARMY" ? (
+                    <span className="text-emerald-600">สิทธิใน ทบ. ให้มูลค่ารวมสูงกว่า</span>
+                  ) : (
+                    <span className="text-blue-600">สิทธินอก ทบ. ให้มูลค่ารวมสูงกว่า</span>
+                  )}
+                  {" "}(ต่างกัน {formatCurrency(calculationResult.scopeComparison.differenceLumpSum)})
+                </p>
+              </div>
+
+              <Tabs value={activeComparisonTab} onValueChange={(v) => setActiveComparisonTab(v as any)} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="IN_ARMY" className="text-xs">รายละเอียดใน ทบ.</TabsTrigger>
+                  <TabsTrigger value="OUTSIDE_ARMY" className="text-xs">รายละเอียดนอก ทบ.</TabsTrigger>
+                </TabsList>
+                <TabsContent value="IN_ARMY" className="space-y-2 pt-2">
+                  {calculationResult.scopeComparison.inArmy.items
+                    .filter((i) => i.category === BenefitCategoryCode.LUMP_SUM_PAYMENT && i.isEligible)
+                    .map((item) => (
+                      <div key={item.ruleId} className="flex justify-between text-xs p-2 rounded bg-slate-50 dark:bg-slate-900">
+                        <span>{item.ruleName}</span>
+                        <span className="font-mono font-bold">{formatCurrency(item.amount)}</span>
+                      </div>
+                    ))}
+                </TabsContent>
+                <TabsContent value="OUTSIDE_ARMY" className="space-y-2 pt-2">
+                  {calculationResult.scopeComparison.outsideArmy.items
+                    .filter((i) => i.category === BenefitCategoryCode.LUMP_SUM_PAYMENT && i.isEligible)
+                    .map((item) => (
+                      <div key={item.ruleId} className="flex justify-between text-xs p-2 rounded bg-slate-50 dark:bg-slate-900">
+                        <span>{item.ruleName}</span>
+                        <span className="font-mono font-bold">{formatCurrency(item.amount)}</span>
+                      </div>
+                    ))}
+                </TabsContent>
+              </Tabs>
+            </Card>
+          )}
 
           {/* 4 Category Detailed Tables */}
           <div className="space-y-4">

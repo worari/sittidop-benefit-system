@@ -223,7 +223,7 @@ flowchart TB
         M8[Notification Service]
     end
     subgraph DT[Data and Integration Layer]
-        D1[(MySQL 8 - Prisma ORM)]
+        D1[(PostgreSQL 15 - Prisma ORM)]
         D2[(Object Storage - เอกสารแนบ)]
         D3[Audit Log Store]
         D4[Integration Adapter - ทะเบียนราษฎร์ / กรมบัญชีกลาง / ระบบเงินเดือน]
@@ -238,9 +238,9 @@ flowchart LR
     U[ผู้ใช้งานผ่านเครือข่าย ทบ.] --> LB[Load Balancer + WAF]
     LB --> APP1[App Container 1]
     LB --> APP2[App Container 2]
-    APP1 --> DB[(MySQL Primary)]
+    APP1 --> DB[(PostgreSQL Primary)]
     APP2 --> DB
-    DB --> DBR[(MySQL Replica - Read / Report)]
+    DB --> DBR[(PostgreSQL Replica - Read / Report)]
     APP1 --> OS[(Object Storage)]
     APP1 --> LOGQ[Log Pipeline] --> SIEM[SIEM / Audit Archive - WORM]
     BATCH[Batch Scheduler - งวดจ่าย / Proof of Life / Forecast] --> DB

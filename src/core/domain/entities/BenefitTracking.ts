@@ -1,0 +1,41 @@
+import { BenefitTrackingStatus, BenefitCategory } from "../value-objects/enums";
+
+export interface BenefitTrackingEntity {
+    id: string;
+    trackingNumber: string;
+    applicationId?: string | null;
+    applicationNumber?: string | null;
+    citizenId: string;
+    citizenName?: string | null;
+    citizenNationalId?: string | null;
+    citizenProvince?: string | null;
+    programId: string;
+    programName?: string | null;
+    programCode?: string | null;
+    benefitName: string;
+    benefitCategory: BenefitCategory;
+    requestedAmount: number;
+    approvedAmount?: number | null;
+    disbursedAmount?: number | null;
+    status: BenefitTrackingStatus;
+    submissionDate: Date;
+    approvalDate?: Date | null;
+    disbursementDate?: Date | null;
+    receivedDate?: Date | null;
+    rejectionDate?: Date | null;
+    expectedReceiveDate?: Date | null;
+    paymentReference?: string | null;
+    paymentMethod?: string | null;
+    bankName?: string | null;
+    bankAccountNumber?: string | null;
+    recipientName?: string | null;
+    notes?: string | null;
+    officerNotes?: string | null;
+    documentsJson?: string | null;
+    createdByUserId?: string | null;
+    createdByUserName?: string | null;
+    updatedByUserId?: string | null;
+    updatedByUserName?: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+}
