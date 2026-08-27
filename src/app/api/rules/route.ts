@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
       maxAmount: body.maxAmount !== undefined ? Number(body.maxAmount) : undefined,
       conditions: body.conditions || {},
       insuranceMatrix: body.insuranceMatrix || undefined,
+      formulaTiers: Array.isArray(body.formulaTiers) ? body.formulaTiers : undefined,
       isActive: body.isActive !== undefined ? body.isActive : true,
       priorityOrder: Number(body.priorityOrder) || 10,
     });

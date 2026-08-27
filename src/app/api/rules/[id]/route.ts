@@ -40,6 +40,8 @@ export async function PUT(
       resourceId: updated.ruleCode,
       details: {
         ruleCode: updated.ruleCode,
+        category: updated.category,
+        categoryThaiName: updated.categoryThaiName,
         formula: updated.formulaExpression,
         multiplierFactor: updated.multiplierFactor,
         baseAmount: updated.baseAmount,

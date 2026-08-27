@@ -1,7 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { BenefitRuleDefinition, BenefitScopeType, ActionCauseType } from "@/core/domain/entities/BenefitRule";
+import {
+  BenefitRuleDefinition,
+  BenefitScopeType,
+  ActionCauseType,
+  DimensionOption,
+  DimensionType,
+  FormulaTierConfig,
+} from "@/core/domain/entities/BenefitRule";
+import { MilitaryRuleEngine } from "@/core/use-cases/estimation/MilitaryRuleEngine";
 import { BenefitCategoryCode, MilitaryBenefitCalculationResult } from "@/core/domain/value-objects/military-types";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/presentation/components/ui/card";
 import { Button } from "@/presentation/components/ui/button";
@@ -25,6 +33,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/presentation/components/ui/dialog";
+import { Search, X } from "lucide-react";
+import { DimensionChipsEditor } from "@/presentation/components/rules/DimensionChipsEditor";
 import { formatCurrency } from "@/presentation/lib/utils";
 import {
   Sliders,
@@ -57,12 +67,50 @@ import {
   Landmark,
 } from "lucide-react";
 
+// ============================================================================
+// Centralized Benefit Category Metadata (หมวดหมู่สิทธิและสวัสดิการ กองทัพบก)
+// หมวด 1: รับเงินครั้งเดียว | หมวด 2: รับเงินรายเดือน | หมวด 3: รับเงินรายปี | หมวด 4: สิทธิมิใช่ตัวเงิน
+// ============================================================================
+type PaymentType = "ONE_TIME_LUMP_SUM" | "MONTHLY_PENSION" | "ANNUAL_GRANT" | "NON_MONETARY";
+
+export const BENEFIT_CATEGORY_META: Record<
+  BenefitCategoryCode,
+  { label: string; thaiName: string; englishName: string; paymentType: PaymentType }
+> = {
+  [BenefitCategoryCode.LUMP_SUM_PAYMENT]: {
+    label: "หมวด 1: รับเงินครั้งเดียว (Lump Sum)",
+    thaiName: "หมวด 1: รับเงินครั้งเดียว",
+    englishName: "One-Time Lump Sum",
+    paymentType: "ONE_TIME_LUMP_SUM",
+  },
+  [BenefitCategoryCode.MONTHLY_PAYMENT]: {
+    label: "หมวด 2: รับเงินรายเดือน (Monthly)",
+    thaiName: "หมวด 2: รับเงินรายเดือน",
+    englishName: "Monthly Payment",
+    paymentType: "MONTHLY_PENSION",
+  },
+  [BenefitCategoryCode.ANNUAL_PAYMENT]: {
+    label: "หมวด 3: รับเงินรายปี (Annual)",
+    thaiName: "หมวด 3: รับเงินรายปี",
+    englishName: "Annual Payment",
+    paymentType: "ANNUAL_GRANT",
+  },
+  [BenefitCategoryCode.NON_MONETARY_BENEFIT]: {
+    label: "หมวด 4: สิทธิมิใช่ตัวเงิน (Non-Monetary)",
+    thaiName: "หมวด 4: สิทธิมิใช่ตัวเงิน",
+    englishName: "Non-Monetary Rights",
+    paymentType: "NON_MONETARY",
+  },
+};
+
 export function RuleManager() {
   const [rules, setRules] = useState<BenefitRuleDefinition[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<BenefitCategoryCode>(
     BenefitCategoryCode.LUMP_SUM_PAYMENT
   );
   const [loading, setLoading] = useState(true);
+  // Search box for the rules table (รหัส / ชื่อสิทธิ / ข้อกฎหมาย / คำอธิบาย)
+  const [searchQuery, setSearchQuery] = useState("");
   const [editingRule, setEditingRule] = useState<BenefitRuleDefinition | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -72,33 +120,25 @@ export function RuleManager() {
   const [scopeFilter, setScopeFilter] = useState<string>("ALL");
   const [causeFilter, setCauseFilter] = useState<string>("ALL");
 
-  // Extensible Options Lists (with memory / state so user can add more in future)
-  const [missionOptions, setMissionOptions] = useState<{ id: string; label: string }[]>([
-    { id: "SOUTHERN_BORDER", label: "จชต. (จังหวัดชายแดนภาคใต้ / กอ.รมน.ภาค 4 สน.)" },
-    { id: "BORDER_DEFENSE", label: "แผนป้องกันประเทศ (กองกำลังชายแดน ทภ.1-4)" },
-    { id: "INTERNAL_SECURITY", label: "รักษาความสงบเรียบร้อยภายในราชอาณาจักร" },
-    { id: "DISASTER_RELIEF", label: "บรรเทาสาธารณภัย / ช่วยเหลือประชาชน" },
-    { id: "PEACEKEEPING_UN", label: "รักษาสันติภาพสหประชาชาติ (UN Peacekeeping)" },
-    { id: "COUNTER_INSURGENCY", label: "ปราบปรามความไม่สงบและการก่อการร้าย" },
-    { id: "ROUTINE_SERVICE", label: "ราชการประจำ / งานในที่ตั้งปกติ" },
-  ]);
+  // Master dimension options loaded from the server (extensible via API CRUD)
+  const [missionOptions, setMissionOptions] = useState<DimensionOption[]>([]);
+  const [personnelCategoryOptions, setPersonnelCategoryOptions] = useState<DimensionOption[]>([]);
+  const [lossTypeOptions, setLossTypeOptions] = useState<DimensionOption[]>([]);
 
-  const [personnelCategoryOptions, setPersonnelCategoryOptions] = useState<{ id: string; label: string }[]>([
-    { id: "COMMISSIONED_OFFICER", label: "นายทหารสัญญาบัตร (พล.อ. - ร.ต.)" },
-    { id: "NON_COMMISSIONED_OFFICER", label: "นายทหารประทวน (จ.ส.อ. - ส.ต.)" },
-    { id: "VOLUNTEER_RANGER", label: "อาสาสมัครทหารพราน (อส.ทพ.)" },
-    { id: "CONSCRIPT_SOLDIER", label: "ทหารกองประจำการ (พลทหาร)" },
-    { id: "CIVILIAN_STAFF", label: "พนักงานราชการ / ลูกจ้าง ทบ." },
-  ]);
-
-  const [lossTypeOptions] = useState<{ id: string; label: string }[]>([
-    { id: "KIA_COMBAT_DEATH", label: "เสียชีวิตจากการสู้รบ/การปะทะ (KIA)" },
-    { id: "DUTY_DEATH", label: "เสียชีวิตขณะปฏิบัติหน้าที่ราชการสนาม" },
-    { id: "TOTAL_PERMANENT_DISABILITY", label: "พิการทุพพลภาพถาวรสมบูรณ์ (TPD)" },
-    { id: "PARTIAL_DISABILITY", label: "พิการทุพพลภาพบางส่วน" },
-    { id: "SEVERE_WOUND_WIA", label: "บาดเจ็บสาหัสจากการสู้รบ (WIA)" },
-    { id: "MODERATE_INJURY", label: "บาดเจ็บปานกลาง / เล็กน้อย" },
-  ]);
+  const fetchDimensionOptions = async () => {
+    try {
+      const res = await fetch("/api/rules/dimensions");
+      const json = await res.json();
+      if (json.success) {
+        const all: DimensionOption[] = json.data;
+        setMissionOptions(all.filter((o) => o.type === "MISSION_TYPE"));
+        setPersonnelCategoryOptions(all.filter((o) => o.type === "PERSONNEL_CATEGORY"));
+        setLossTypeOptions(all.filter((o) => o.type === "LOSS_TYPE"));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   // Edit form state
   const [formFormula, setFormFormula] = useState("");
@@ -108,13 +148,17 @@ export function RuleManager() {
   const [formMaxAmount, setFormMaxAmount] = useState<number | undefined>(undefined);
   const [formIsActive, setFormIsActive] = useState(true);
   const [formDescription, setFormDescription] = useState("");
-  
+  const [formCategory, setFormCategory] = useState<BenefitCategoryCode>(BenefitCategoryCode.LUMP_SUM_PAYMENT);
+
   // 5 Dimension state in Editor
   const [formBenefitScope, setFormBenefitScope] = useState<BenefitScopeType>("IN_ARMY");
   const [formCauseType, setFormCauseType] = useState<ActionCauseType>("BOTH");
   const [formMissions, setFormMissions] = useState<string[]>([]);
   const [formPersonnelCategories, setFormPersonnelCategories] = useState<string[]>([]);
   const [formLossTypes, setFormLossTypes] = useState<string[]>([]);
+
+  // Configurable Benefit Tiers (สูตร & กฎเกณฑ์ระดับเงินตอบแทน เช่น เงินบำรุงขวัญ)
+  const [formTiers, setFormTiers] = useState<FormulaTierConfig[]>([]);
 
   // Create Form State
   const [newRuleCode, setNewRuleCode] = useState("");
@@ -133,13 +177,8 @@ export function RuleManager() {
   const [newMissions, setNewMissions] = useState<string[]>(["SOUTHERN_BORDER", "COUNTER_INSURGENCY"]);
   const [newPersonnelCategories, setNewPersonnelCategories] = useState<string[]>(["COMMISSIONED_OFFICER", "NON_COMMISSIONED_OFFICER", "VOLUNTEER_RANGER", "CONSCRIPT_SOLDIER"]);
   const [newLossTypes, setNewLossTypes] = useState<string[]>(["KIA_COMBAT_DEATH", "TOTAL_PERMANENT_DISABILITY"]);
+  const [newTiers, setNewTiers] = useState<FormulaTierConfig[]>([]);
   const [creating, setCreating] = useState(false);
-
-  // Inline "Add New Type" form inputs
-  const [newMissionInput, setNewMissionInput] = useState("");
-  const [showAddMission, setShowAddMission] = useState(false);
-  const [newCategoryInput, setNewCategoryInput] = useState("");
-  const [showAddCategory, setShowAddCategory] = useState(false);
 
   // Sandbox simulation interactive state (5 dimensions tester)
   const [sbScope, setSbScope] = useState<"IN_ARMY" | "OUTSIDE_ARMY">("IN_ARMY");
@@ -167,6 +206,170 @@ export function RuleManager() {
     }
   };
 
+  // Estimate เงินบำรุงขวัญ from configurable tiers defined on RULE-LUMP-HOSPITAL-STAY (single source of truth = engine)
+  const getMoraleEstimate = (): number => {
+    const days = calculateStayDays(sbAdmissionDate, sbDischargeDate);
+    const moraleRule = rules.find((r) => r.ruleCode === "RULE-LUMP-HOSPITAL-STAY");
+    if (moraleRule?.formulaTiers && moraleRule.formulaTiers.length > 0) {
+      return MilitaryRuleEngine.evaluateFormulaTiers(moraleRule.formulaTiers, sbLossType, days);
+    }
+    const lt = (sbLossType || "").toUpperCase();
+    if (lt.includes("DEATH") || lt.includes("KIA")) return 40000;
+    return days <= 20 ? 10000 : 20000;
+  };
+
+  // Reusable Benefit Tiers editor (used in Create modal and Edit dialog)
+  const renderTierEditor = (
+    tiers: FormulaTierConfig[],
+    setTiers: React.Dispatch<React.SetStateAction<FormulaTierConfig[]>>
+  ) => (
+    <div className="space-y-2 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <Label className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+            <Layers className="h-3.5 w-3.5 text-emerald-600" />
+            สูตร & กฎเกณฑ์ระดับเงินตอบแทน (Benefit Tiers)
+          </Label>
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            {"กำหนดเงื่อนไขและจำนวนเงินแต่ละระดับ เช่น เสียชีวิต/ทุพพลภาพ 40,000 | บาดเจ็บพักรักษา ≤20 วัน 10,000 | >20 วัน รับเพิ่มอีก 10,000"}
+          </p>
+        </div>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          onClick={() =>
+            setTiers([...tiers, { id: `tier-${Date.now()}`, label: "", amount: 10000 }])
+          }
+          className="text-[11px] h-7 gap-1 shrink-0"
+        >
+          <Plus className="h-3 w-3" />
+          เพิ่มระดับเงิน
+        </Button>
+      </div>
+
+      {tiers.length > 0 && (
+        <>
+          <div className="hidden sm:grid grid-cols-12 gap-2 px-2 text-[10px] font-bold text-muted-foreground">
+            <span className="col-span-4">เงื่อนไข / ชื่อระดับ</span>
+            <span className="col-span-2">กลุ่มความสูญเสีย</span>
+            <span className="col-span-1">วัน ≥</span>
+            <span className="col-span-1">วัน ≤</span>
+            <span className="col-span-2">จำนวนเงิน (บาท)</span>
+            <span className="col-span-1 text-center">เพิ่มเติม</span>
+            <span className="col-span-1"></span>
+          </div>
+
+          {tiers.map((tier, idx) => (
+            <div
+              key={tier.id}
+              className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg border border-slate-200 dark:border-slate-800 bg-background"
+            >
+              <div className="col-span-12 sm:col-span-4">
+                <Input
+                  value={tier.label}
+                  onChange={(e) => {
+                    const next = [...tiers];
+                    next[idx] = { ...tier, label: e.target.value };
+                    setTiers(next);
+                  }}
+                  placeholder="เช่น กรณีเสียชีวิตหรือพิการทุพพลภาพ"
+                  className="text-xs h-8"
+                />
+              </div>
+
+              <div className="col-span-6 sm:col-span-2">
+                <select
+                  value={(tier.lossTypes && tier.lossTypes[0]) || "ALL"}
+                  onChange={(e) => {
+                    const next = [...tiers];
+                    next[idx] = { ...tier, lossTypes: [e.target.value] };
+                    setTiers(next);
+                  }}
+                  aria-label="กลุ่มประเภทความสูญเสียของระดับเงิน"
+                  className="w-full h-8 rounded border border-input bg-background px-1.5 text-xs"
+                >
+                  <option value="DEATH">เสียชีวิต</option>
+                  <option value="DISABILITY">ทุพพลภาพ</option>
+                  <option value="INJURY">บาดเจ็บ</option>
+                  <option value="ALL">ทุกกรณี</option>
+                </select>
+              </div>
+
+              <div className="col-span-3 sm:col-span-1">
+                <Input
+                  type="number"
+                  value={tier.minDays ?? ""}
+                  onChange={(e) => {
+                    const next = [...tiers];
+                    next[idx] = { ...tier, minDays: e.target.value ? Number(e.target.value) : undefined };
+                    setTiers(next);
+                  }}
+                  placeholder="≥"
+                  className="text-xs h-8"
+                />
+              </div>
+
+              <div className="col-span-3 sm:col-span-1">
+                <Input
+                  type="number"
+                  value={tier.maxDays ?? ""}
+                  onChange={(e) => {
+                    const next = [...tiers];
+                    next[idx] = { ...tier, maxDays: e.target.value ? Number(e.target.value) : undefined };
+                    setTiers(next);
+                  }}
+                  placeholder="≤"
+                  className="text-xs h-8"
+                />
+              </div>
+
+              <div className="col-span-6 sm:col-span-2">
+                <Input
+                  type="number"
+                  value={tier.amount}
+                  onChange={(e) => {
+                    const next = [...tiers];
+                    next[idx] = { ...tier, amount: Number(e.target.value) };
+                    setTiers(next);
+                  }}
+                  className="font-mono text-xs h-8 font-bold text-emerald-600"
+                />
+              </div>
+
+              <div className="col-span-4 sm:col-span-1 flex items-center justify-center">
+                <Switch
+                  checked={!!tier.isAdditional}
+                  onCheckedChange={(v) => {
+                    const next = [...tiers];
+                    next[idx] = { ...tier, isAdditional: v };
+                    setTiers(next);
+                  }}
+                />
+              </div>
+
+              <div className="col-span-2 sm:col-span-1 flex justify-end">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setTiers(tiers.filter((_, i) => i !== idx))}
+                  className="h-8 w-8 p-0 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+
+          <p className="text-[10px] text-muted-foreground">
+            💡 เปิดสวิตช์ "เพิ่มเติม" เพื่อให้จำนวนเงินของระดับนั้นถูก<strong>บวกเพิ่ม</strong>จากระดับฐาน (เช่น เกิน 20 วัน รับเพิ่มอีก 10,000 บาท) มิฉะนั้นระบบจะเลือกใช้ระดับเงินที่สูงที่สุดที่ตรงเงื่อนไข
+          </p>
+        </>
+      )}
+    </div>
+  );
+
   const fetchRules = async () => {
     try {
       setLoading(true);
@@ -184,6 +387,7 @@ export function RuleManager() {
 
   useEffect(() => {
     fetchRules();
+    fetchDimensionOptions();
   }, []);
 
   const openEditor = (rule: BenefitRuleDefinition) => {
@@ -195,6 +399,7 @@ export function RuleManager() {
     setFormMaxAmount(rule.maxAmount);
     setFormIsActive(rule.isActive);
     setFormDescription(rule.description);
+    setFormCategory(rule.category);
 
     // 5 Dimensions
     setFormBenefitScope(rule.benefitScope || "IN_ARMY");
@@ -202,7 +407,10 @@ export function RuleManager() {
     setFormMissions(rule.conditions?.allowedMissions || ["SOUTHERN_BORDER", "BORDER_DEFENSE", "INTERNAL_SECURITY"]);
     setFormPersonnelCategories(rule.conditions?.allowedPersonnelCategories || ["COMMISSIONED_OFFICER", "NON_COMMISSIONED_OFFICER", "VOLUNTEER_RANGER", "CONSCRIPT_SOLDIER"]);
     setFormLossTypes(rule.conditions?.allowedLossTypes || ["KIA_COMBAT_DEATH", "TOTAL_PERMANENT_DISABILITY"]);
-    
+
+    // Configurable Benefit Tiers
+    setFormTiers(rule.formulaTiers ? rule.formulaTiers.map((t) => ({ ...t })) : []);
+
     setIsEditorOpen(true);
   };
 
@@ -212,15 +420,7 @@ export function RuleManager() {
     setNewCategory(selectedCategory);
     setNewDescription("");
     setNewLegalBasis("");
-    setNewPaymentType(
-      selectedCategory === BenefitCategoryCode.LUMP_SUM_PAYMENT
-        ? "ONE_TIME_LUMP_SUM"
-        : selectedCategory === BenefitCategoryCode.MONTHLY_PAYMENT
-        ? "MONTHLY_PENSION"
-        : selectedCategory === BenefitCategoryCode.ANNUAL_PAYMENT
-        ? "ANNUAL_GRANT"
-        : "NON_MONETARY"
-    );
+    setNewPaymentType(BENEFIT_CATEGORY_META[selectedCategory].paymentType);
     setNewBenefitScope("OUTSIDE_ARMY");
     setNewCauseType("ENEMY_ACTION");
     setNewFormula("{baseAmount}");
@@ -231,6 +431,7 @@ export function RuleManager() {
     setNewMissions(["SOUTHERN_BORDER", "BORDER_DEFENSE", "COUNTER_INSURGENCY"]);
     setNewPersonnelCategories(["COMMISSIONED_OFFICER", "NON_COMMISSIONED_OFFICER", "VOLUNTEER_RANGER", "CONSCRIPT_SOLDIER", "CIVILIAN_STAFF"]);
     setNewLossTypes(["KIA_COMBAT_DEATH", "TOTAL_PERMANENT_DISABILITY", "SEVERE_WOUND_WIA"]);
+    setNewTiers([]);
     setIsCreateModalOpen(true);
   };
 
@@ -280,14 +481,20 @@ export function RuleManager() {
       setNewRuleName("เงินช่วยเหลือการพักรักษาพยาบาล (Hospital Stay Benefit)");
       setNewCategory(BenefitCategoryCode.LUMP_SUM_PAYMENT);
       setNewPaymentType("ONE_TIME_LUMP_SUM");
-      setNewDescription("เงินช่วยเหลือบำรุงขวัญกำลังพลที่ได้รับบาดเจ็บและเข้ารับการรักษาพยาบาล (ไม่เกิน 10 วัน รับ 10,000 บาท, เกิน 10 วันแต่ไม่เกิน 20 วัน รับเพิ่มอีก 10,000 บาท เป็น 20,000 บาท, เกิน 20 วัน รับ 30,000 บาท)");
+      setNewDescription("เงินบำรุงขวัญกำลังพล: กรณีเสียชีวิตหรือพิการทุพพลภาพรับ 40,000 บาท; กรณีบาดเจ็บและพักรักษาตัวในโรงพยาบาลไม่เกิน 20 วันรับ 10,000 บาท; กรณีบาดเจ็บพักรักษาตัวเกิน 20 วันรับเพิ่มอีก 10,000 บาท รวม 20,000 บาท");
       setNewLegalBasis("ระเบียบกองทัพบกว่าด้วยการสงเคราะห์กำลังพลที่ได้รับบาดเจ็บจากการปฏิบัติราชการสนาม พ.ศ. 2562");
       setNewBenefitScope("IN_ARMY");
       setNewCauseType("BOTH");
-      setNewFormula("{hospitalStayDays} <= 10 ? 10000 : {hospitalStayDays} <= 20 ? 20000 : 30000");
+      setNewFormula("{hospitalStayDays} <= 20 ? 10000 : 20000");
       setNewBaseAmount(10000);
       setNewMissions(["SOUTHERN_BORDER", "BORDER_DEFENSE", "INTERNAL_SECURITY", "ALL"]);
-      setNewLossTypes(["SEVERE_WOUND_WIA", "MODERATE_INJURY", "TOTAL_PERMANENT_DISABILITY", "PARTIAL_DISABILITY", "ALL"]);
+      setNewLossTypes(["KIA_COMBAT_DEATH", "DUTY_DEATH", "TOTAL_PERMANENT_DISABILITY", "PARTIAL_DISABILITY", "SEVERE_WOUND_WIA", "MODERATE_INJURY", "MINOR_INJURY", "ALL"]);
+      // เงินบำรุงขวัญ: เสียชีวิต/ทุพพลภาพ 40,000 | บาดเจ็บ ≤20 วัน 10,000 | >20 วัน +10,000
+      setNewTiers([
+        { id: "tier-morale-death-disability", label: "กรณีเสียชีวิตหรือพิการทุพพลภาพ", lossTypes: ["DEATH", "DISABILITY"], amount: 40000 },
+        { id: "tier-morale-injury-base", label: "กรณีบาดเจ็บและพักรักษาตัวในโรงพยาบาล (ฐาน)", lossTypes: ["INJURY"], amount: 10000 },
+        { id: "tier-morale-injury-over20", label: "กรณีบาดเจ็บพักรักษาตัวเกิน 20 วัน (รับเพิ่มเติม)", lossTypes: ["INJURY"], minDays: 21, amount: 10000, isAdditional: true },
+      ]);
     } else if (type === "ARMY_SPECIAL_FUND") {
       setNewRuleCode("RULE-LUMP-ARMY-HERO-FUND");
       setNewRuleName("เงินกองทุนเชิดชูเกียรติวีรชน ทบ. พิทักษ์ชาติ");
@@ -318,22 +525,8 @@ export function RuleManager() {
           ruleCode: newRuleCode,
           ruleName: newRuleName,
           category: newCategory,
-          categoryName:
-            newCategory === BenefitCategoryCode.LUMP_SUM_PAYMENT
-              ? "One-Time Lump Sum"
-              : newCategory === BenefitCategoryCode.MONTHLY_PAYMENT
-              ? "Monthly Payment"
-              : newCategory === BenefitCategoryCode.ANNUAL_PAYMENT
-              ? "Annual Grants"
-              : "Non-Monetary Rights",
-          categoryThaiName:
-            newCategory === BenefitCategoryCode.LUMP_SUM_PAYMENT
-              ? "หมวด 1: รับเงินครั้งเดียว"
-              : newCategory === BenefitCategoryCode.MONTHLY_PAYMENT
-              ? "หมวด 2: รับเงินรายเดือน"
-              : newCategory === BenefitCategoryCode.ANNUAL_PAYMENT
-              ? "หมวด 3: รับเงินรายปี"
-              : "หมวด 4: สิทธิมิใช่ตัวเงิน",
+          categoryName: BENEFIT_CATEGORY_META[newCategory].englishName,
+          categoryThaiName: BENEFIT_CATEGORY_META[newCategory].thaiName,
           description: newDescription,
           legalBasis: newLegalBasis,
           paymentType: newPaymentType,
@@ -350,6 +543,7 @@ export function RuleManager() {
             allowedPersonnelCategories: newPersonnelCategories,
             allowedLossTypes: newLossTypes,
           },
+          formulaTiers: newTiers.length > 0 ? newTiers : undefined,
           isActive: true,
           priorityOrder: rules.length + 1,
         }),
@@ -375,6 +569,10 @@ export function RuleManager() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          category: formCategory,
+          categoryName: BENEFIT_CATEGORY_META[formCategory].englishName,
+          categoryThaiName: BENEFIT_CATEGORY_META[formCategory].thaiName,
+          paymentType: BENEFIT_CATEGORY_META[formCategory].paymentType,
           formulaExpression: formFormula,
           multiplierFactor: Number(formFactor),
           baseAmount: Number(formBaseAmount),
@@ -390,6 +588,7 @@ export function RuleManager() {
             allowedPersonnelCategories: formPersonnelCategories,
             allowedLossTypes: formLossTypes,
           },
+          formulaTiers: formTiers.length > 0 ? formTiers : [],
         }),
       });
       const json = await res.json();
@@ -413,28 +612,6 @@ export function RuleManager() {
     } catch (err) {
       console.error(err);
     }
-  };
-
-  const handleAddCustomMission = () => {
-    if (!newMissionInput.trim()) return;
-    const id = `MISSION_${Date.now()}`;
-    const newM = { id, label: newMissionInput.trim() };
-    setMissionOptions([...missionOptions, newM]);
-    setFormMissions([...formMissions, id]);
-    setNewMissions([...newMissions, id]);
-    setNewMissionInput("");
-    setShowAddMission(false);
-  };
-
-  const handleAddCustomPersonnelCategory = () => {
-    if (!newCategoryInput.trim()) return;
-    const id = `CAT_${Date.now()}`;
-    const newC = { id, label: newCategoryInput.trim() };
-    setPersonnelCategoryOptions([...personnelCategoryOptions, newC]);
-    setFormPersonnelCategories([...formPersonnelCategories, id]);
-    setNewPersonnelCategories([...newPersonnelCategories, id]);
-    setNewCategoryInput("");
-    setShowAddCategory(false);
   };
 
   const runSimulation = async () => {
@@ -574,7 +751,17 @@ export function RuleManager() {
     const matchCat = r.category === selectedCategory;
     const matchScope = scopeFilter === "ALL" || !r.benefitScope || r.benefitScope === "BOTH" || r.benefitScope === scopeFilter;
     const matchCause = causeFilter === "ALL" || !r.causeType || r.causeType === "BOTH" || r.causeType === causeFilter;
-    return matchCat && matchScope && matchCause;
+
+    // Search box: รหัสกฎเกณฑ์ / ชื่อสิทธิ / ข้อกฎหมาย / คำอธิบาย
+    const q = searchQuery.trim().toLowerCase();
+    const matchSearch =
+      !q ||
+      r.ruleCode?.toLowerCase().includes(q) ||
+      r.ruleName?.toLowerCase().includes(q) ||
+      r.legalBasis?.toLowerCase().includes(q) ||
+      r.description?.toLowerCase().includes(q);
+
+    return matchCat && matchScope && matchCause && matchSearch;
   });
 
   return (
@@ -626,11 +813,10 @@ export function RuleManager() {
               key={cat.code}
               type="button"
               onClick={() => setSelectedCategory(cat.code)}
-              className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden ${
-                isSelected
-                  ? "bg-gradient-to-br border-emerald-600 dark:border-emerald-500 shadow-md ring-2 ring-emerald-500/20"
-                  : "bg-card hover:border-slate-300 dark:hover:border-slate-700 shadow-xs"
-              }`}
+              className={`p-4 rounded-2xl border text-left transition-all relative overflow-hidden ${isSelected
+                ? "bg-gradient-to-br border-emerald-600 dark:border-emerald-500 shadow-md ring-2 ring-emerald-500/20"
+                : "bg-card hover:border-slate-300 dark:hover:border-slate-700 shadow-xs"
+                }`}
             >
               <div className="flex items-center justify-between">
                 <div className={`p-2 rounded-xl bg-slate-100 dark:bg-slate-800 ${isSelected ? "text-emerald-700 dark:text-amber-400" : "text-slate-600"}`}>
@@ -666,11 +852,10 @@ export function RuleManager() {
                 key={t.id}
                 type="button"
                 onClick={() => setScopeFilter(t.id)}
-                className={`py-1 rounded font-bold transition-all ${
-                  scopeFilter === t.id
-                    ? "bg-emerald-800 text-white shadow-xs"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                }`}
+                className={`py-1 rounded font-bold transition-all ${scopeFilter === t.id
+                  ? "bg-emerald-800 text-white shadow-xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                  }`}
               >
                 {t.label}
               </button>
@@ -693,11 +878,10 @@ export function RuleManager() {
                 key={t.id}
                 type="button"
                 onClick={() => setCauseFilter(t.id)}
-                className={`py-1 rounded font-bold transition-all ${
-                  causeFilter === t.id
-                    ? "bg-emerald-800 text-white shadow-xs"
-                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
-                }`}
+                className={`py-1 rounded font-bold transition-all ${causeFilter === t.id
+                  ? "bg-emerald-800 text-white shadow-xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                  }`}
               >
                 {t.label}
               </button>
@@ -709,7 +893,7 @@ export function RuleManager() {
       {/* Rules Table */}
       <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
         <CardHeader className="py-3 px-4 bg-slate-50/50 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
               <CardTitle className="text-sm font-bold">
                 รายการสูตรและกฎเกณฑ์สิทธิประโยชน์
@@ -717,6 +901,27 @@ export function RuleManager() {
               <CardDescription className="text-xs">
                 แสดงผล {filteredRules.length} กฎเกณฑ์ที่ตรงตามเงื่อนไข
               </CardDescription>
+            </div>
+
+            {/* Search Box: ค้นหาสิทธิและสวัสดิการ */}
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="ค้นหาสิทธิและสวัสดิการ (รหัส, ชื่อ, ข้อกฎหมาย)..."
+                className="h-9 text-xs pl-8 pr-8"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  title="ล้างการค้นหา"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -753,9 +958,8 @@ export function RuleManager() {
                   return (
                     <TableRow
                       key={rule.id}
-                      className={`hover:bg-slate-50/60 dark:hover:bg-slate-900/30 ${
-                        isInsurance ? "bg-amber-500/5 dark:bg-amber-950/20" : isPM ? "bg-blue-500/5 dark:bg-blue-950/20" : ""
-                      }`}
+                      className={`hover:bg-slate-50/60 dark:hover:bg-slate-900/30 ${isInsurance ? "bg-amber-500/5 dark:bg-amber-950/20" : isPM ? "bg-blue-500/5 dark:bg-blue-950/20" : ""
+                        }`}
                     >
                       <TableCell className="font-mono text-xs font-bold text-emerald-800 dark:text-amber-400">
                         {rule.ruleCode}
@@ -796,6 +1000,19 @@ export function RuleManager() {
                             <p className="text-[10px] text-muted-foreground">
                               ฐานวงเงิน: {formatCurrency(rule.baseAmount)}
                             </p>
+                          )}
+                          {rule.formulaTiers && rule.formulaTiers.length > 0 && (
+                            <div className="pt-1 space-y-0.5">
+                              <Badge className="bg-emerald-700 text-white text-[9px] px-1 py-0">
+                                {rule.formulaTiers.length} ระดับเงิน (Tiers)
+                              </Badge>
+                              {rule.formulaTiers.map((t) => (
+                                <p key={t.id} className="text-[10px] text-muted-foreground line-clamp-1">
+                                  • {t.label || t.id}: {formatCurrency(t.amount)}
+                                  {t.isAdditional ? " (+)" : ""}
+                                </p>
+                              ))}
+                            </div>
                           )}
                         </div>
                       </TableCell>
@@ -937,14 +1154,19 @@ export function RuleManager() {
                 <Label className="text-xs font-bold">หมวดหมู่สิทธิประโยชน์</Label>
                 <select
                   value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value as any)}
+                  onChange={(e) => {
+                    const code = e.target.value as BenefitCategoryCode;
+                    setNewCategory(code);
+                    setNewPaymentType(BENEFIT_CATEGORY_META[code].paymentType);
+                  }}
                   aria-label="หมวดหมู่สิทธิประโยชน์"
                   className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
                 >
-                  <option value={BenefitCategoryCode.LUMP_SUM_PAYMENT}>หมวด 1: รับเงินครั้งเดียว (Lump Sum)</option>
-                  <option value={BenefitCategoryCode.MONTHLY_PAYMENT}>หมวด 2: รับเงินรายเดือน (Monthly)</option>
-                  <option value={BenefitCategoryCode.ANNUAL_PAYMENT}>หมวด 3: รับเงินรายปี (Annual)</option>
-                  <option value={BenefitCategoryCode.NON_MONETARY_BENEFIT}>หมวด 4: สิทธิมิใช่ตัวเงิน (Non-Monetary)</option>
+                  {Object.values(BenefitCategoryCode).map((code) => (
+                    <option key={code} value={code}>
+                      {BENEFIT_CATEGORY_META[code].label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -1051,63 +1273,34 @@ export function RuleManager() {
               </div>
             </div>
 
-            {/* Mission & Loss Type Badges */}
+            {/* Configurable Benefit Tiers (สูตร & กฎเกณฑ์ระดับเงินตอบแทน) */}
+            {renderTierEditor(newTiers, setNewTiers)}
+
+            {/* Mission & Loss Type Badges (Extensible: search / add / edit / delete) */}
             <div className="space-y-2">
               <Label className="text-xs font-bold">ประเภทภารกิจที่ได้รับสิทธิ</Label>
-              <div className="flex flex-wrap gap-1">
-                {missionOptions.map((m) => {
-                  const isChecked = newMissions.includes(m.id);
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => {
-                        if (isChecked) {
-                          setNewMissions(newMissions.filter((x) => x !== m.id));
-                        } else {
-                          setNewMissions([...newMissions, m.id]);
-                        }
-                      }}
-                      className={`text-[11px] px-2 py-0.5 rounded border transition-all ${
-                        isChecked
-                          ? "bg-emerald-800 text-white font-bold border-emerald-900"
-                          : "bg-background text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
-                      }`}
-                    >
-                      {m.label}
-                    </button>
-                  );
-                })}
-              </div>
+              <DimensionChipsEditor
+                options={missionOptions}
+                dimensionType="MISSION_TYPE"
+                selected={newMissions}
+                onChange={setNewMissions}
+                tone="emerald"
+                onOptionsChanged={fetchDimensionOptions}
+                addPlaceholder="พิมพ์ชื่อภารกิจใหม่ เช่น ภารกิจลาดตระเวนชายแดนพิเศษ..."
+              />
             </div>
 
             <div className="space-y-2">
               <Label className="text-xs font-bold">ประเภทความสูญเสียที่ได้รับสิทธิ</Label>
-              <div className="flex flex-wrap gap-1">
-                {lossTypeOptions.map((l) => {
-                  const isChecked = newLossTypes.includes(l.id);
-                  return (
-                    <button
-                      key={l.id}
-                      type="button"
-                      onClick={() => {
-                        if (isChecked) {
-                          setNewLossTypes(newLossTypes.filter((x) => x !== l.id));
-                        } else {
-                          setNewLossTypes([...newLossTypes, l.id]);
-                        }
-                      }}
-                      className={`text-[11px] px-2 py-0.5 rounded border transition-all ${
-                        isChecked
-                          ? "bg-rose-800 text-white font-bold border-rose-900"
-                          : "bg-background text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
-                      }`}
-                    >
-                      {l.label}
-                    </button>
-                  );
-                })}
-              </div>
+              <DimensionChipsEditor
+                options={lossTypeOptions}
+                dimensionType="LOSS_TYPE"
+                selected={newLossTypes}
+                onChange={setNewLossTypes}
+                tone="rose"
+                onOptionsChanged={fetchDimensionOptions}
+                addPlaceholder="พิมพ์ประเภทความสูญเสียใหม่ เช่น บาดเจ็บต้องตัดนิ้ว..."
+              />
             </div>
           </div>
 
@@ -1140,6 +1333,29 @@ export function RuleManager() {
           </DialogHeader>
 
           <div className="space-y-5 py-3">
+            {/* Category Selector (หมวดหมู่สิทธิและสวัสดิการ) */}
+            <div className="p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 space-y-1.5">
+              <Label className="text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                <Layers className="h-3.5 w-3.5 text-emerald-600" />
+                หมวดหมู่สิทธิและสวัสดิการ (Benefit Category)
+              </Label>
+              <select
+                value={formCategory}
+                onChange={(e) => setFormCategory(e.target.value as BenefitCategoryCode)}
+                aria-label="หมวดหมู่สิทธิและสวัสดิการ (Benefit Category)"
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:ring-1 focus:ring-ring"
+              >
+                {Object.values(BenefitCategoryCode).map((code) => (
+                  <option key={code} value={code}>
+                    {BENEFIT_CATEGORY_META[code].label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-muted-foreground">
+                การบันทึกจะปรับประเภทการจ่ายเงิน (Payment Type) ให้ตรงกับหมวดหมู่ที่เลือกโดยอัตโนมัติ
+              </p>
+            </div>
+
             {/* 1 & 2 Dimension: Scope and Action Cause */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
               <div className="space-y-1.5">
@@ -1177,157 +1393,55 @@ export function RuleManager() {
               </div>
             </div>
 
-            {/* 3. Dimension: Mission Types (Extensible) */}
+            {/* 3. Dimension: Mission Types (Extensible: search / add / edit / delete) */}
             <div className="space-y-2 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                  <Target className="h-3.5 w-3.5 text-blue-600" />
-                  3. ประเภทภารกิจที่ได้รับสิทธิ (Mission Types)
-                </Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowAddMission(!showAddMission)}
-                  className="text-[11px] h-7 gap-1"
-                >
-                  <Plus className="h-3 w-3" />
-                  เพิ่มประเภทภารกิจใหม่
-                </Button>
-              </div>
-
-              {showAddMission && (
-                <div className="flex items-center gap-2 p-2 bg-background rounded-lg border border-slate-300 dark:border-slate-700">
-                  <Input
-                    placeholder="พิมพ์ชื่อภารกิจใหม่ เช่น ภารกิจลาดตระเวนชายแดนพิเศษ..."
-                    value={newMissionInput}
-                    onChange={(e) => setNewMissionInput(e.target.value)}
-                    className="text-xs h-8"
-                  />
-                  <Button size="sm" onClick={handleAddCustomMission} className="text-xs h-8 bg-emerald-800 text-white">
-                    เพิ่ม
-                  </Button>
-                </div>
-              )}
-
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {missionOptions.map((m) => {
-                  const isChecked = formMissions.includes(m.id) || formMissions.includes("ALL");
-                  return (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => {
-                        if (isChecked) {
-                          setFormMissions(formMissions.filter((x) => x !== m.id && x !== "ALL"));
-                        } else {
-                          setFormMissions([...formMissions, m.id]);
-                        }
-                      }}
-                      className={`text-xs px-2.5 py-1 rounded-lg border transition-all text-left ${
-                        isChecked
-                          ? "bg-emerald-800 text-white font-bold border-emerald-900"
-                          : "bg-background text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
-                      }`}
-                    >
-                      {m.label}
-                    </button>
-                  );
-                })}
-              </div>
+              <Label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <Target className="h-3.5 w-3.5 text-blue-600" />
+                3. ประเภทภารกิจที่ได้รับสิทธิ (Mission Types)
+              </Label>
+              <DimensionChipsEditor
+                options={missionOptions}
+                dimensionType="MISSION_TYPE"
+                selected={formMissions}
+                onChange={setFormMissions}
+                tone="emerald"
+                onOptionsChanged={fetchDimensionOptions}
+                addPlaceholder="พิมพ์ชื่อภารกิจใหม่ เช่น ภารกิจลาดตระเวนชายแดนพิเศษ..."
+              />
             </div>
 
-            {/* 4. Dimension: Personnel Categories (Extensible) */}
+            {/* 4. Dimension: Personnel Categories (Extensible: search / add / edit / delete) */}
             <div className="space-y-2 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5 text-purple-600" />
-                  4. ประเภทกำลังพลที่ได้รับสิทธิ (Personnel Categories)
-                </Label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setShowAddCategory(!showAddCategory)}
-                  className="text-[11px] h-7 gap-1"
-                >
-                  <Plus className="h-3 w-3" />
-                  เพิ่มประเภทกำลังพลใหม่
-                </Button>
-              </div>
-
-              {showAddCategory && (
-                <div className="flex items-center gap-2 p-2 bg-background rounded-lg border border-slate-300 dark:border-slate-700">
-                  <Input
-                    placeholder="พิมพ์ชื่อกลุ่มกำลังพลใหม่ เช่น ทหารพรานจู่โจมพิเศษ..."
-                    value={newCategoryInput}
-                    onChange={(e) => setNewCategoryInput(e.target.value)}
-                    className="text-xs h-8"
-                  />
-                  <Button size="sm" onClick={handleAddCustomPersonnelCategory} className="text-xs h-8 bg-emerald-800 text-white">
-                    เพิ่ม
-                  </Button>
-                </div>
-              )}
-
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {personnelCategoryOptions.map((c) => {
-                  const isChecked = formPersonnelCategories.includes(c.id) || formPersonnelCategories.includes("ALL");
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => {
-                        if (isChecked) {
-                          setFormPersonnelCategories(formPersonnelCategories.filter((x) => x !== c.id && x !== "ALL"));
-                        } else {
-                          setFormPersonnelCategories([...formPersonnelCategories, c.id]);
-                        }
-                      }}
-                      className={`text-xs px-2.5 py-1 rounded-lg border transition-all text-left ${
-                        isChecked
-                          ? "bg-purple-800 text-white font-bold border-purple-900"
-                          : "bg-background text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
-                      }`}
-                    >
-                      {c.label}
-                    </button>
-                  );
-                })}
-              </div>
+              <Label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5 text-purple-600" />
+                4. ประเภทกำลังพลที่ได้รับสิทธิ (Personnel Categories)
+              </Label>
+              <DimensionChipsEditor
+                options={personnelCategoryOptions}
+                dimensionType="PERSONNEL_CATEGORY"
+                selected={formPersonnelCategories}
+                onChange={setFormPersonnelCategories}
+                tone="purple"
+                onOptionsChanged={fetchDimensionOptions}
+                addPlaceholder="พิมพ์ชื่อกลุ่มกำลังพลใหม่ เช่น ทหารพรานจู่โจมพิเศษ..."
+              />
             </div>
 
-            {/* 5. Dimension: Loss Types */}
+            {/* 5. Dimension: Loss Types (Extensible: search / add / edit / delete) */}
             <div className="space-y-2 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
               <Label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                 <HeartCrack className="h-3.5 w-3.5 text-rose-600" />
                 5. ประเภทความสูญเสียที่ได้รับสิทธิ (Loss & Casualty Types)
               </Label>
-              <div className="flex flex-wrap gap-1.5 pt-1">
-                {lossTypeOptions.map((l) => {
-                  const isChecked = formLossTypes.includes(l.id) || formLossTypes.includes("ALL");
-                  return (
-                    <button
-                      key={l.id}
-                      type="button"
-                      onClick={() => {
-                        if (isChecked) {
-                          setFormLossTypes(formLossTypes.filter((x) => x !== l.id && x !== "ALL"));
-                        } else {
-                          setFormLossTypes([...formLossTypes, l.id]);
-                        }
-                      }}
-                      className={`text-xs px-2.5 py-1 rounded-lg border transition-all text-left ${
-                        isChecked
-                          ? "bg-rose-800 text-white font-bold border-rose-900"
-                          : "bg-background text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
-                      }`}
-                    >
-                      {l.label}
-                    </button>
-                  );
-                })}
-              </div>
+              <DimensionChipsEditor
+                options={lossTypeOptions}
+                dimensionType="LOSS_TYPE"
+                selected={formLossTypes}
+                onChange={setFormLossTypes}
+                tone="rose"
+                onOptionsChanged={fetchDimensionOptions}
+                addPlaceholder="พิมพ์ประเภทความสูญเสียใหม่ เช่น บาดเจ็บต้องตัดนิ้ว..."
+              />
             </div>
 
             {/* Formula & Variables */}
@@ -1377,6 +1491,9 @@ export function RuleManager() {
                 />
               </div>
             </div>
+
+            {/* Configurable Benefit Tiers (สูตร & กฎเกณฑ์ระดับเงินตอบแทน) */}
+            {renderTierEditor(formTiers, setFormTiers)}
 
             <div className="flex items-center justify-between p-3 rounded-xl border border-slate-200 dark:border-slate-800">
               <div>
@@ -1494,13 +1611,8 @@ export function RuleManager() {
                     🏥 การพักรักษาพยาบาล (Hospital Stay - คำนวณวันอัตโนมัติ)
                   </Label>
                   <Badge className="bg-emerald-700 text-white font-mono text-xs px-2 py-0.5">
-                    คำนวณได้: {calculateStayDays(sbAdmissionDate, sbDischargeDate)} วัน (
-                    {calculateStayDays(sbAdmissionDate, sbDischargeDate) <= 10
-                      ? "10,000 บาท"
-                      : calculateStayDays(sbAdmissionDate, sbDischargeDate) <= 20
-                      ? "20,000 บาท [เพิ่ม 10k]"
-                      : "30,000 บาท"}
-                    )
+                    เงินบำรุงขวัญโดยประมาณ: {getMoraleEstimate().toLocaleString("en-US")} บาท
+                    (พักรักษา {calculateStayDays(sbAdmissionDate, sbDischargeDate)} วัน)
                   </Badge>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1566,13 +1678,12 @@ export function RuleManager() {
                     {simulationResult.categories[BenefitCategoryCode.LUMP_SUM_PAYMENT].items.map((item, idx) => (
                       <div
                         key={idx}
-                        className={`flex items-center justify-between p-2.5 rounded-lg border text-xs ${
-                          item.ruleCode === "RULE-LUMP-INSURANCE"
-                            ? "bg-amber-500/10 border-amber-500/40"
-                            : item.ruleCode.includes("PM-")
+                        className={`flex items-center justify-between p-2.5 rounded-lg border text-xs ${item.ruleCode === "RULE-LUMP-INSURANCE"
+                          ? "bg-amber-500/10 border-amber-500/40"
+                          : item.ruleCode.includes("PM-")
                             ? "bg-blue-500/10 border-blue-500/40"
                             : "bg-slate-50/50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800"
-                        }`}
+                          }`}
                       >
                         <div>
                           <div className="flex items-center gap-2">

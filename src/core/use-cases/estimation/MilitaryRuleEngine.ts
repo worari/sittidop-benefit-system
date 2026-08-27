@@ -6,7 +6,7 @@ import {
   MilitaryBenefitCalculationResult,
   BenefitCategoryCode,
 } from "@/core/domain/value-objects/military-types";
-import { BenefitRuleDefinition } from "@/core/domain/entities/BenefitRule";
+import { BenefitRuleDefinition, FormulaTierConfig } from "@/core/domain/entities/BenefitRule";
 
 export class MilitaryRuleEngine {
   /**
@@ -67,6 +67,13 @@ export class MilitaryRuleEngine {
     context: RuleFormulaContext,
     rule?: BenefitRuleDefinition
   ): number {
+    // Configurable Benefit Tiers (สูตร & กฎเกณฑ์ระดับเงินตอบแทนที่กำหนดผ่านหน้าจัดการกฎเกณฑ์)
+    // เช่น เงินบำรุงขวัญ: เสียชีวิต/ทุพพลภาพ 40,000 | บาดเจ็บพักรักษา <=20 วัน 10,000 | >20 วัน +10,000
+    // Takes precedence over hardcoded logic and the expression whenever tiers are defined on the rule.
+    if (rule?.formulaTiers && rule.formulaTiers.length > 0) {
+      return this.evaluateFormulaTiers(rule.formulaTiers, context.lossType || "", context.hospitalStayDays || 0);
+    }
+
     if (!expression || expression.trim() === "" || expression.includes("สิทธิ") || expression.includes("อัตรา")) {
       return context.baseAmount || 0;
     }
@@ -252,6 +259,63 @@ export class MilitaryRuleEngine {
   }
 
   /**
+   * Evaluates configurable benefit tiers (สูตร & กฎเกณฑ์ระดับเงินตอบแทน)
+   *
+   * Semantics:
+   *  - A tier matches when its loss-type group AND hospital-stay day range cover the case.
+   *  - Base tiers (isAdditional = false/undefined): the HIGHEST matching amount applies.
+   *  - Additional tiers (isAdditional = true): ALL matching amounts are summed on top of the base,
+   *    e.g. บาดเจ็บพักรักษาตัวเกิน 20 วัน รับเงินเพิ่มเติมอีก 10,000 บาท.
+   *
+   * Loss group keywords: "DEATH", "DISABILITY", "INJURY", "ALL" or exact loss-type codes.
+   */
+  public static evaluateFormulaTiers(
+    tiers: FormulaTierConfig[],
+    lossType: string,
+    hospitalStayDays: number
+  ): number {
+    const lt = (lossType || "").toUpperCase();
+    const days = hospitalStayDays || 0;
+
+    const isDeath = lt.includes("DEATH") || lt.includes("KIA");
+    const isDisability = lt.includes("DISABILITY");
+
+    const matchesLossGroup = (groups?: string[]): boolean => {
+      if (!groups || groups.length === 0) return true;
+      if (groups.includes("ALL")) return true;
+      return groups.some((g) => {
+        const gu = String(g).toUpperCase();
+        if (gu === "DEATH") return isDeath;
+        if (gu === "DISABILITY") return isDisability;
+        if (gu === "INJURY") return !isDeath && !isDisability;
+        return lt === gu || lt.includes(gu);
+      });
+    };
+
+    let baseAmount = 0;
+    let hasBaseMatch = false;
+    let additionalAmount = 0;
+
+    for (const tier of tiers) {
+      if (!matchesLossGroup(tier.lossTypes)) continue;
+
+      const minOk = tier.minDays === undefined || days >= tier.minDays;
+      const maxOk = tier.maxDays === undefined || days <= tier.maxDays;
+      if (!minOk || !maxOk) continue;
+
+      if (tier.isAdditional) {
+        additionalAmount += tier.amount || 0;
+      } else if (!hasBaseMatch || (tier.amount || 0) > baseAmount) {
+        baseAmount = tier.amount || 0;
+        hasBaseMatch = true;
+      }
+    }
+
+    if (!hasBaseMatch && additionalAmount === 0) return 0;
+    return Math.round(baseAmount + additionalAmount);
+  }
+
+  /**
    * Evaluates eligibility of a rule for given personnel across the 5 dimensions
    */
   public static checkEligibility(
@@ -334,9 +398,18 @@ export class MilitaryRuleEngine {
         personnel.lossType === "DUTY_DEATH" ||
         personnel.lossType?.includes("DEATH");
 
-      // Death case: เงินบำรุงขวัญกรณีเสียชีวิต 40,000 บาท
+      // Amount derived from configurable Benefit Tiers when defined (fallback: legacy fixed rates)
+      const tierAmount = (stayDays: number): number =>
+        rule.formulaTiers && rule.formulaTiers.length > 0
+          ? this.evaluateFormulaTiers(rule.formulaTiers, personnel.lossType, stayDays)
+          : stayDays <= 20
+            ? 10000
+            : 20000;
+      const fmtThb = (n: number) => n.toLocaleString("en-US");
+
+      // Death case: เงินบำรุงขวัญกรณีเสียชีวิต (ค่าเริ่มต้น 40,000 บาท ตามระดับเงินที่กำหนดในกฎเกณฑ์)
       if (isDeath) {
-        return { isEligible: true, notes: ["กรณีเสียชีวิต ได้รับเงินบำรุงขวัญ 40,000 บาท"] };
+        return { isEligible: true, notes: [`กรณีเสียชีวิต ได้รับเงินบำรุงขวัญ ${fmtThb(tierAmount(0))} บาท`] };
       }
 
       const isInjury =
@@ -370,9 +443,9 @@ export class MilitaryRuleEngine {
       }
 
       if (days <= 20) {
-        return { isEligible: true, notes: [`บาดเจ็บพักรักษาพยาบาล ${days} วัน (ไม่เกิน 20 วัน ได้รับ 10,000 บาท)`] };
+        return { isEligible: true, notes: [`บาดเจ็บพักรักษาพยาบาล ${days} วัน (ไม่เกิน 20 วัน ได้รับ ${fmtThb(tierAmount(days))} บาท)`] };
       } else {
-        return { isEligible: true, notes: [`บาดเจ็บพักรักษาพยาบาล ${days} วัน (เกิน 20 วัน รับเพิ่ม 10,000 บาท รวม 20,000 บาท)`] };
+        return { isEligible: true, notes: [`บาดเจ็บพักรักษาพยาบาล ${days} วัน (เกิน 20 วัน รับเงินเพิ่มเติม รวม ${fmtThb(tierAmount(days))} บาท)`] };
       }
     }
 

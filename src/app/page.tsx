@@ -42,7 +42,7 @@ export default function LandingPage() {
   const [salary, setSalary] = useState<number>(43500);
   const [normalYears, setNormalYears] = useState<number>(16);
   const [multiplierYears, setMultiplierYears] = useState<number>(8);
-  const [lossType, setLossType] = useState<"KIA_COMBAT" | "DUTY_DEATH" | "DISABILITY">("KIA_COMBAT");
+  const [lossType, setLossType] = useState<"KIA_COMBAT" | "DUTY_DEATH" | "DISABILITY" | "INJURY">("KIA_COMBAT");
   const [promotionSteps, setPromotionSteps] = useState<number>(7);
   const [childrenCount, setChildrenCount] = useState<number>(2);
   const [selectedUnit, setSelectedUnit] = useState("ร.19 พัน.1 / ฉก.นราธิวาส (พล.ร.9)");
@@ -52,17 +52,19 @@ export default function LandingPage() {
   const promotedSalary = Math.round(salary * 1.57); // Estimated 7-step promotion
 
   // 1. One-time Lump Sum
-  const insuranceAmount = lossType === "KIA_COMBAT" ? 2000000 : lossType === "DISABILITY" ? 1500000 : 1000000;
-  const gratuityInheritance = Math.round(promotedSalary * totalYears * 1.5);
-  const disasterCompensation = Math.max(500000, salary * 30);
-  const promotionDiff = Math.round((promotedSalary - salary) * 12 * 3);
-  const armyFundGrant = lossType === "KIA_COMBAT" ? 1500000 : 800000;
-  const funeralAid = 200000;
-  const totalLumpSum = insuranceAmount + gratuityInheritance + disasterCompensation + promotionDiff + armyFundGrant + funeralAid;
+  const isDeathCase = lossType === "KIA_COMBAT" || lossType === "DUTY_DEATH";
+  const insuranceAmount = lossType === "KIA_COMBAT" ? 2000000 : lossType === "DISABILITY" ? 1500000 : lossType === "INJURY" ? 500000 : 1000000;
+  const gratuityInheritance = isDeathCase ? Math.round(promotedSalary * totalYears * 1.5) : 0;
+  const disasterCompensation = lossType !== "INJURY" ? Math.max(500000, salary * 30) : 0;
+  const promotionDiff = isDeathCase ? Math.round((promotedSalary - salary) * 12 * 3) : 0;
+  const armyFundGrant = lossType === "KIA_COMBAT" ? 1500000 : lossType === "INJURY" ? 300000 : 800000;
+  const funeralAid = isDeathCase ? 200000 : 0;
+  const moraleGrant = lossType === "INJURY" ? 10000 : 0; // เงินบำรุงขวัญบาดเจ็บพักรักษาไม่เกิน 20 วัน
+  const totalLumpSum = insuranceAmount + gratuityInheritance + disasterCompensation + promotionDiff + armyFundGrant + funeralAid + moraleGrant;
 
   // 2. Monthly Recurring
-  const monthlySpecialPension = Math.round((promotedSalary * Math.min(totalYears, 35)) / 50);
-  const combatAdditionalPay = 5000;
+  const monthlySpecialPension = isDeathCase || lossType === "DISABILITY" ? Math.round((promotedSalary * Math.min(totalYears, 35)) / 50) : 0;
+  const combatAdditionalPay = lossType === "INJURY" ? 0 : 5000;
   const totalMonthly = monthlySpecialPension + combatAdditionalPay;
 
   // 3. Annual Education Grants
@@ -297,6 +299,7 @@ export default function LandingPage() {
                     <option value="KIA_COMBAT">เสียชีวิตจากการสู้รบ/การปะทะ (KIA) ปูนบำเหน็จ 7-9 ชั้นยศ</option>
                     <option value="DUTY_DEATH">เสียชีวิตจากการปฏิบัติราชการสนาม/รักษาความสงบ</option>
                     <option value="DISABILITY">ทุพพลภาพสมบูรณ์จากการสู้รบ/กับระเบิด</option>
+                    <option value="INJURY">บาดเจ็บจากการสู้รบ/ปฏิบัติหน้าที่ (WIA)</option>
                   </select>
                 </div>
 
@@ -393,11 +396,13 @@ export default function LandingPage() {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    <div className="flex items-start gap-2 bg-background/80 p-2.5 rounded-xl border border-slate-200/70 dark:border-slate-800">
+                    <div className={`flex items-start gap-2 p-2.5 rounded-xl border ${lossType === "INJURY" ? "bg-background/50 opacity-60" : "bg-background/80"} border-slate-200/70 dark:border-slate-800`}>
                       <HeartHandshake className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
                       <div>
                         <p className="font-bold text-slate-800 dark:text-slate-200">สิทธิบรรจุทายาททดแทน 1 อัตรา</p>
-                        <p className="text-[11px] text-muted-foreground">เข้ารับราชการในกองทัพบกเป็นกรณีพิเศษ</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {lossType === "INJURY" ? "ไม่มีสิทธิ (ใช้กรณีเสียชีวิต/ทุพพลภาพถาวร)" : "เข้ารับราชการในกองทัพบกเป็นกรณีพิเศษ"}
+                        </p>
                       </div>
                     </div>
 
@@ -414,6 +419,18 @@ export default function LandingPage() {
                       <div>
                         <p className="font-bold text-slate-800 dark:text-slate-200">สิทธิเหรียญพิทักษ์เสรีชน / กล้าหาญ</p>
                         <p className="text-[11px] text-muted-foreground">เสนอขอพระราชทานตามชั้นเกียรติยศ</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-2 bg-gradient-to-br from-amber-500/15 via-card to-card p-2.5 rounded-xl border border-amber-500/40">
+                      <Award className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">สิทธิเสนอขอเหรียญบางระจัน</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {lossType === "INJURY"
+                            ? "เสนอขอพระราชทานแก่ผู้บาดเจ็บจากการสู้รบ/ปฏิบัติภารกิจ"
+                            : "เสนอขอพระราชทานแก่ผู้เสียชีวิต/ทุพพลภาพจากการสู้รบ"}
+                        </p>
                       </div>
                     </div>
 

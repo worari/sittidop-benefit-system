@@ -1,5 +1,38 @@
-import { BenefitRuleDefinition } from "@/core/domain/entities/BenefitRule";
+import {
+  BenefitRuleDefinition,
+  DimensionOption,
+  DimensionType,
+} from "@/core/domain/entities/BenefitRule";
 import { BenefitCategoryCode } from "@/core/domain/value-objects/military-types";
+
+// ============================================================================
+// Master list of extensible dimension options (5-Dimension Rules Engine)
+// ============================================================================
+export const defaultDimensionOptions: DimensionOption[] = [
+  // 3. ประเภทภารกิจที่ได้รับสิทธิ (Mission Types)
+  { id: "SOUTHERN_BORDER", label: "จชต. (จังหวัดชายแดนภาคใต้ / กอ.รมน.ภาค 4 สน.)", type: "MISSION_TYPE", isSystem: true },
+  { id: "BORDER_DEFENSE", label: "แผนป้องกันประเทศ (กองกำลังชายแดน ทภ.1-4)", type: "MISSION_TYPE", isSystem: true },
+  { id: "INTERNAL_SECURITY", label: "รักษาความสงบเรียบร้อยภายในราชอาณาจักร", type: "MISSION_TYPE", isSystem: true },
+  { id: "DISASTER_RELIEF", label: "บรรเทาสาธารณภัย / ช่วยเหลือประชาชน", type: "MISSION_TYPE", isSystem: true },
+  { id: "PEACEKEEPING_UN", label: "รักษาสันติภาพสหประชาชาติ (UN Peacekeeping)", type: "MISSION_TYPE", isSystem: true },
+  { id: "COUNTER_INSURGENCY", label: "ปราบปรามความไม่สงบและการก่อการร้าย", type: "MISSION_TYPE", isSystem: true },
+  { id: "ROUTINE_SERVICE", label: "ราชการประจำ / งานในที่ตั้งปกติ", type: "MISSION_TYPE", isSystem: true },
+
+  // 4. ประเภทกำลังพลที่ได้รับสิทธิ (Personnel Categories)
+  { id: "COMMISSIONED_OFFICER", label: "นายทหารสัญญาบัตร (พล.อ. - ร.ต.)", type: "PERSONNEL_CATEGORY", isSystem: true },
+  { id: "NON_COMMISSIONED_OFFICER", label: "นายทหารประทวน (จ.ส.อ. - ส.ต.)", type: "PERSONNEL_CATEGORY", isSystem: true },
+  { id: "VOLUNTEER_RANGER", label: "อาสาสมัครทหารพราน (อส.ทพ.)", type: "PERSONNEL_CATEGORY", isSystem: true },
+  { id: "CONSCRIPT_SOLDIER", label: "ทหารกองประจำการ (พลทหาร)", type: "PERSONNEL_CATEGORY", isSystem: true },
+  { id: "CIVILIAN_STAFF", label: "พนักงานราชการ / ลูกจ้าง ทบ.", type: "PERSONNEL_CATEGORY", isSystem: true },
+
+  // 5. ประเภทความสูญเสียที่ได้รับสิทธิ (Loss / Casualty Types)
+  { id: "KIA_COMBAT_DEATH", label: "เสียชีวิตจากการสู้รบ/การปะทะ (KIA)", type: "LOSS_TYPE", isSystem: true },
+  { id: "DUTY_DEATH", label: "เสียชีวิตขณะปฏิบัติหน้าที่ราชการสนาม", type: "LOSS_TYPE", isSystem: true },
+  { id: "TOTAL_PERMANENT_DISABILITY", label: "พิการทุพพลภาพถาวรสมบูรณ์ (TPD)", type: "LOSS_TYPE", isSystem: true },
+  { id: "PARTIAL_DISABILITY", label: "พิการทุพพลภาพบางส่วน", type: "LOSS_TYPE", isSystem: true },
+  { id: "SEVERE_WOUND_WIA", label: "บาดเจ็บสาหัสจากการสู้รบ (WIA)", type: "LOSS_TYPE", isSystem: true },
+  { id: "MODERATE_INJURY", label: "บาดเจ็บปานกลาง / เล็กน้อย", type: "LOSS_TYPE", isSystem: true },
+];
 
 export const defaultMilitaryRules: BenefitRuleDefinition[] = [
   // ============================================================================
@@ -136,6 +169,34 @@ export const defaultMilitaryRules: BenefitRuleDefinition[] = [
     baseAmount: 10000,
     minAmount: 10000,
     maxAmount: 40000,
+
+    // สูตร & กฎเกณฑ์ระดับเงินบำรุงขวัญ (Configurable Benefit Tiers)
+    // 1) เสียชีวิตหรือพิการทุพพลภาพ -> 40,000 บาท
+    // 2) บาดเจ็บพักรักษาตัวไม่เกิน 20 วัน -> 10,000 บาท
+    // 3) บาดเจ็บพักรักษาตัวเกิน 20 วัน -> รับเพิ่มเติมอีก 10,000 บาท (รวม 20,000 บาท)
+    formulaTiers: [
+      {
+        id: "tier-morale-death-disability",
+        label: "กรณีเสียชีวิตหรือพิการทุพพลภาพ",
+        lossTypes: ["DEATH", "DISABILITY"],
+        amount: 40000,
+      },
+      {
+        id: "tier-morale-injury-base",
+        label: "กรณีบาดเจ็บและพักรักษาตัวในโรงพยาบาล (ฐาน)",
+        lossTypes: ["INJURY"],
+        amount: 10000,
+      },
+      {
+        id: "tier-morale-injury-over20",
+        label: "กรณีบาดเจ็บพักรักษาตัวเกิน 20 วัน (รับเพิ่มเติม)",
+        lossTypes: ["INJURY"],
+        minDays: 21,
+        amount: 10000,
+        isAdditional: true,
+      },
+    ],
+
     conditions: {
       allowedLossTypes: ["KIA_COMBAT_DEATH", "DUTY_DEATH", "SEVERE_WOUND_WIA", "MODERATE_INJURY", "MINOR_INJURY", "TOTAL_PERMANENT_DISABILITY", "PARTIAL_DISABILITY", "ALL"],
       allowedMissions: ["SOUTHERN_BORDER", "BORDER_DEFENSE", "INTERNAL_SECURITY", "COUNTER_INSURGENCY", "DISASTER_RELIEF", "ALL"],
@@ -406,6 +467,29 @@ export const defaultMilitaryRules: BenefitRuleDefinition[] = [
     updatedAt: new Date(),
   },
   {
+    id: "rule-cat4-05",
+    ruleCode: "RULE-NONMONEY-BANGRAJAN-MEDAL",
+    ruleName: "สิทธิเสนอขอเหรียญบางระจัน",
+    category: BenefitCategoryCode.NON_MONETARY_BENEFIT,
+    categoryName: "Non-Monetary Rights",
+    categoryThaiName: "หมวด 4: สิทธิมิใช่ตัวเงิน",
+    description: "สิทธิเสนอขอพระราชทานเหรียญบางระจัน แก่กำลังพลที่กระทำการอันเป็นการกล้าหาญเด็ดเดี่ยวในการปฏิบัติภารกิจในพื้นที่ปฏิบัติการรบ ทั้งกรณีเสียชีวิต ทุพพลภาพ และบาดเจ็บจากการสู้รบ",
+    legalBasis: "พ.ร.บ. เครื่องอิสริยาภรณ์ตรีภาษณาภิรมย์ และระเบียบการเสนอขอเหรียญกล้าหาญ (เหรียญบางระจัน) กองทัพบก",
+    paymentType: "NON_MONETARY",
+    formulaType: "NON_MONETARY",
+    formulaExpression: "สิทธิเสนอขอเหรียญบางระจัน",
+    multiplierFactor: 0,
+    baseAmount: 0,
+    conditions: {
+      allowedLossTypes: ["KIA_COMBAT_DEATH", "TOTAL_PERMANENT_DISABILITY", "SEVERE_WOUND_WIA", "MODERATE_INJURY", "MINOR_INJURY", "INJURY_SEVERE", "DUTY_DEATH"],
+      allowedMissions: ["SOUTHERN_BORDER", "BORDER_DEFENSE", "COUNTER_INSURGENCY", "ALL"],
+    },
+    isActive: true,
+    priorityOrder: 17,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  },
+  {
     id: "rule-cat4-04",
     ruleCode: "RULE-NONMONEY-ROYAL-CREMATION",
     ruleName: "สิทธิการขอพระราชทานเพลิงศพเป็นกรณีพิเศษ พร้อมกองทหารเกียรติยศ",
@@ -431,9 +515,11 @@ export const defaultMilitaryRules: BenefitRuleDefinition[] = [
 
 class MilitaryRuleRepository {
   private rules: BenefitRuleDefinition[] = [];
+  private dimensionOptions: DimensionOption[] = [];
 
   constructor() {
     this.rules = [...defaultMilitaryRules];
+    this.dimensionOptions = [...defaultDimensionOptions];
   }
 
   public getAllRules(): BenefitRuleDefinition[] {
@@ -482,6 +568,86 @@ class MilitaryRuleRepository {
 
   public resetToDefault() {
     this.rules = [...defaultMilitaryRules];
+    this.dimensionOptions = [...defaultDimensionOptions];
+  }
+
+  // --------------------------------------------------------------------------
+  // Dimension Options Master List
+  // (ประเภทภารกิจ / ประเภทกำลังพล / ประเภทความสูญเสีย)
+  // --------------------------------------------------------------------------
+
+  public getDimensionOptions(type?: DimensionType): DimensionOption[] {
+    const list = type ? this.dimensionOptions.filter((o) => o.type === type) : this.dimensionOptions;
+    return [...list];
+  }
+
+  public createDimensionOption(data: { id?: string; label: string; type: DimensionType }): DimensionOption {
+    const label = (data.label || "").trim();
+    if (!label) throw new Error("กรุณาระบุชื่อตัวเลือก (label is required)");
+    if (!["MISSION_TYPE", "PERSONNEL_CATEGORY", "LOSS_TYPE"].includes(data.type)) {
+      throw new Error("ประเภทมิติไม่ถูกต้อง (invalid dimension type)");
+    }
+
+    // Auto-generate a stable, readable id from the Thai/English label
+    const slug =
+      data.id?.trim() ||
+      `${data.type}_${label
+        .replace(/[^\p{L}\p{N}]+/gu, "_")
+        .replace(/^_+|_+$/g, "")
+        .toUpperCase()
+        .slice(0, 48)}`;
+    const safeId = this.dimensionOptions.some((o) => o.id === slug)
+      ? `${slug}_${Date.now().toString().slice(-5)}`
+      : slug;
+
+    const newOption: DimensionOption = { id: safeId, label, type: data.type, isSystem: false };
+    this.dimensionOptions.push(newOption);
+    return newOption;
+  }
+
+  public updateDimensionOption(id: string, data: { label?: string }): DimensionOption {
+    const idx = this.dimensionOptions.findIndex((o) => o.id === id);
+    if (idx === -1) throw new Error(`ไม่พบตัวเลือกมิติที่ระบุ (${id})`);
+    if (data.label !== undefined) {
+      const label = data.label.trim();
+      if (!label) throw new Error("ชื่อตัวเลือกไม่สามารถเป็นค่าว่างได้");
+      this.dimensionOptions[idx] = { ...this.dimensionOptions[idx], label };
+    }
+    return this.dimensionOptions[idx];
+  }
+
+  /**
+   * Delete a dimension option from the master list.
+   * With cascade=true it also removes the option id from every rule's
+   * conditions arrays so the rules engine never evaluates an orphaned option.
+   */
+  public deleteDimensionOption(id: string, cascade: boolean): { deleted: boolean; affectedRules: number } {
+    const option = this.dimensionOptions.find((o) => o.id === id);
+    if (!option) throw new Error(`ไม่พบตัวเลือกมิติที่ระบุ (${id})`);
+
+    let affectedRules = 0;
+    if (cascade) {
+      const key =
+        option.type === "MISSION_TYPE"
+          ? "allowedMissions"
+          : option.type === "PERSONNEL_CATEGORY"
+            ? "allowedPersonnelCategories"
+            : "allowedLossTypes";
+      for (const rule of this.rules) {
+        const cond = rule.conditions as Record<string, unknown> | undefined;
+        if (!cond) continue;
+        const arr = cond[key];
+        if (Array.isArray(arr) && arr.includes(id)) {
+          cond[key] = arr.filter((x) => x !== id);
+          affectedRules += 1;
+          rule.updatedAt = new Date();
+        }
+      }
+    }
+
+    const idx = this.dimensionOptions.findIndex((o) => o.id === id);
+    this.dimensionOptions.splice(idx, 1);
+    return { deleted: true, affectedRules };
   }
 }
 
