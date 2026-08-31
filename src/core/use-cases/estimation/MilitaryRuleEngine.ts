@@ -7,6 +7,7 @@ import {
   BenefitCategoryCode,
 } from "@/core/domain/value-objects/military-types";
 import { BenefitRuleDefinition, FormulaTierConfig } from "@/core/domain/entities/BenefitRule";
+import { defaultMilitaryRules } from "@/infrastructure/database/repositories/PrismaMilitaryRuleRepository";
 
 export class MilitaryRuleEngine {
   /**
@@ -161,19 +162,31 @@ export class MilitaryRuleEngine {
     }
 
     let parsed = expression
-      .replace(/{salary}/g, String(context.salary))
-      .replace(/{promotedSalary}/g, String(context.promotedSalary))
-      .replace(/{serviceYears}/g, String(context.serviceYears))
-      .replace(/{serviceYearsMultiplier}/g, String(context.serviceYearsMultiplier))
-      .replace(/{totalServiceYears}/g, String(context.totalServiceYears))
-      .replace(/{compensationAmount}/g, String(context.compensationAmount))
-      .replace(/{additionalPay}/g, String(context.additionalPay))
-      .replace(/{promotionSteps}/g, String(context.promotionSteps))
-      .replace(/{childrenCount}/g, String(context.childrenCount))
-      .replace(/{studyingChildrenCount}/g, String(context.studyingChildrenCount))
-      .replace(/{hospitalStayDays}/g, String(context.hospitalStayDays || 0))
-      .replace(/{multiplierFactor}/g, String(context.multiplierFactor))
-      .replace(/{baseAmount}/g, String(context.baseAmount));
+      .replace(/{salary}/gi, String(context.salary))
+      .replace(/{promotedSalary}/gi, String(context.promotedSalary))
+      .replace(/{promoted_salary}/gi, String(context.promotedSalary))
+      .replace(/{serviceYears}/gi, String(context.serviceYears))
+      .replace(/{service_years}/gi, String(context.serviceYears))
+      .replace(/{serviceYearsMultiplier}/gi, String(context.serviceYearsMultiplier))
+      .replace(/{service_years_multiplier}/gi, String(context.serviceYearsMultiplier))
+      .replace(/{totalServiceYears}/gi, String(context.totalServiceYears))
+      .replace(/{total_service_years}/gi, String(context.totalServiceYears))
+      .replace(/{compensationAmount}/gi, String(context.compensationAmount))
+      .replace(/{compensation_amount}/gi, String(context.compensationAmount))
+      .replace(/{additionalPay}/gi, String(context.additionalPay))
+      .replace(/{additional_pay}/gi, String(context.additionalPay))
+      .replace(/{promotionSteps}/gi, String(context.promotionSteps))
+      .replace(/{promotion_steps}/gi, String(context.promotionSteps))
+      .replace(/{childrenCount}/gi, String(context.childrenCount))
+      .replace(/{children_count}/gi, String(context.childrenCount))
+      .replace(/{studyingChildrenCount}/gi, String(context.studyingChildrenCount))
+      .replace(/{studying_children_count}/gi, String(context.studyingChildrenCount))
+      .replace(/{hospitalStayDays}/gi, String(context.hospitalStayDays || 0))
+      .replace(/{hospital_stay_days}/gi, String(context.hospitalStayDays || 0))
+      .replace(/{multiplierFactor}/gi, String(context.multiplierFactor))
+      .replace(/{multiplier_factor}/gi, String(context.multiplierFactor))
+      .replace(/{baseAmount}/gi, String(context.baseAmount))
+      .replace(/{base_amount}/gi, String(context.baseAmount));
 
     // Handle ternary / conditional operators safely
     if (parsed.includes("?") && parsed.includes(":")) {
@@ -945,8 +958,9 @@ export class MilitaryRuleEngine {
    */
   public static calculate(
     personnel: MilitaryPersonnelInput,
-    rules: BenefitRuleDefinition[]
+    rules: BenefitRuleDefinition[] = defaultMilitaryRules
   ): MilitaryBenefitCalculationResult {
+    const activeRules = rules && rules.length > 0 ? rules : defaultMilitaryRules;
     const defaultPromotedSalary =
       personnel.promotedSalary ||
       Math.round(personnel.salary * (1 + (personnel.specialPensionTier || personnel.promotionSteps || 7) * 0.08));
@@ -986,7 +1000,7 @@ export class MilitaryRuleEngine {
       hospitalStayDays: computedStayDays,
     };
 
-    const sortedRules = [...rules].sort((a, b) => (a.priorityOrder || 0) - (b.priorityOrder || 0));
+    const sortedRules = [...activeRules].sort((a, b) => (a.priorityOrder || 0) - (b.priorityOrder || 0));
 
     for (const rule of sortedRules) {
       const eligibility = this.checkEligibility(rule, personnel);

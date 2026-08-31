@@ -8,6 +8,7 @@ import {
     BenefitEligibilityResult,
     BenefitCalculationSummary,
 } from "../../domain/value-objects/types";
+import { BenefitEstimationEngine } from "./BenefitEstimationEngine";
 import { MilitaryRuleEngine } from "./MilitaryRuleEngine";
 import { BenefitRuleDefinition } from "../../domain/entities/BenefitRule";
 import { MilitaryPersonnelInput } from "../../domain/value-objects/military-types";
@@ -25,8 +26,8 @@ export class EnhancedBenefitCalculationEngine {
         const civilianSummary = this.calculateCivilianBenefits(input);
 
         let militarySummary = null;
-        if (militaryData && benefitRules) {
-            militarySummary = this.calculateMilitaryBenefits(militaryData as MilitaryPersonnelInput, benefitRules);
+        if (militaryData) {
+            militarySummary = this.calculateMilitaryBenefits(militaryData as MilitaryPersonnelInput, benefitRules || []);
         }
 
         // Merge results
@@ -37,8 +38,6 @@ export class EnhancedBenefitCalculationEngine {
      * Enhanced civilian benefit calculation with improved logic
      */
     private static calculateCivilianBenefits(input: EstimateInput): BenefitCalculationSummary {
-        // Use the existing BenefitEstimationEngine logic but with enhancements
-        const { BenefitEstimationEngine } = require('./BenefitEstimationEngine');
         return BenefitEstimationEngine.calculate(input);
     }
 
