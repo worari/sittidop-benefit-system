@@ -6,10 +6,13 @@ export interface IBenefitTrackingRepository {
     findByTrackingNumber(trackingNumber: string): Promise<BenefitTrackingEntity | null>;
     findByCitizenId(citizenId: string): Promise<BenefitTrackingEntity[]>;
     findByApplicationId(applicationId: string): Promise<BenefitTrackingEntity[]>;
+    findByEstimateId(estimateId: string): Promise<BenefitTrackingEntity[]>;
     findAll(params?: {
         status?: BenefitTrackingStatus;
         citizenId?: string;
         programId?: string;
+        estimateId?: string;
+        sourceType?: string;
         search?: string;
         skip?: number;
         take?: number;

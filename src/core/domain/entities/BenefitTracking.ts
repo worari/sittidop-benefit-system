@@ -5,6 +5,9 @@ export interface BenefitTrackingEntity {
     trackingNumber: string;
     applicationId?: string | null;
     applicationNumber?: string | null;
+    estimateId?: string | null;
+    estimateNumber?: string | null;
+    sourceType?: string | null;
     citizenId: string;
     citizenName?: string | null;
     citizenNationalId?: string | null;

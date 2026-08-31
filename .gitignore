@@ -19,7 +19,10 @@
 *.pem
 
 # Local env files
+.env
 .env*.local
+.env.production
+.env.development
 
 # Vercel
 .vercel
@@ -31,3 +34,5 @@ next-env.d.ts
 # SQLite / Prisma temp
 *.db
 *.db-journal
+
+.vercel

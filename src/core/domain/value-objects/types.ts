@@ -1,4 +1,6 @@
 import { BenefitCategory, PaymentFrequency, VulnerabilityLevel, ApplicationStatus, ApprovalDecision, Role } from "./enums";
+import type { BenefitEstimateRecord } from "../repositories/IEstimateRepository";
+import type { BenefitTrackingEntity } from "../entities/BenefitTracking";
 
 export interface EstimateInput {
   nationalId?: string;
@@ -48,6 +50,17 @@ export interface BenefitCalculationSummary {
   eligiblePrograms: BenefitEligibilityResult[];
   ineligiblePrograms: BenefitEligibilityResult[];
   summaryRecommendations: string[];
+}
+
+/**
+ * ภาพรวมบูรณาการ: ผลประมาณการสิทธิ พร้อมสถานะการเสนอขอรับสิทธิ (Estimate -> Tracking)
+ */
+export interface EstimationOverviewItem {
+  estimate: BenefitEstimateRecord;
+  eligiblePrograms: BenefitEligibilityResult[];
+  trackings: BenefitTrackingEntity[];
+  proposedProgramIds: string[];
+  totalRequestedAmount: number;
 }
 
 export interface DashboardMetrics {

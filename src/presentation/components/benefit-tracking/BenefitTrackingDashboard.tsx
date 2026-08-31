@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { BenefitTrackingEntity } from "../../../core/domain/entities/BenefitTracking";
 import { BenefitTrackingStatus } from "../../../core/domain/value-objects/enums";
+import type { EstimationOverviewItem } from "../../../core/domain/value-objects/types";
 import { formatCurrency, formatThaiDate, formatNationalId } from "../../lib/utils";
 import {
     Table,
@@ -38,12 +39,15 @@ import {
     AlertCircle,
     RotateCcw,
     Truck,
+    Send,
+    Sparkles,
     X,
 } from "lucide-react";
 
 interface BenefitTrackingDashboardProps {
     initialTrackings: BenefitTrackingEntity[];
     initialCounts?: Record<BenefitTrackingStatus, number>;
+    initialEstimationOverview?: EstimationOverviewItem[];
     userRole?: string;
     onRefresh?: () => void;
 }
@@ -52,6 +56,7 @@ const statusConfig: Record<
     BenefitTrackingStatus,
     { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info" | "purple"; icon: React.ElementType; color: string }
 > = {
+    [BenefitTrackingStatus.PROPOSED]: { label: "เสนอขอรับสิทธิ", variant: "info", icon: Send, color: "text-sky-600" },
     [BenefitTrackingStatus.PENDING]: { label: "รอดำเนินการ", variant: "secondary", icon: Clock, color: "text-slate-600" },
     [BenefitTrackingStatus.UNDER_REVIEW]: { label: "ตรวจสอบเอกสาร", variant: "warning", icon: FileCheck, color: "text-amber-600" },
     [BenefitTrackingStatus.APPROVED]: { label: "อนุมัติแล้ว", variant: "success", icon: CheckCircle2, color: "text-emerald-600" },
@@ -77,6 +82,7 @@ function getStatusConfig(status: BenefitTrackingStatus | string | undefined | nu
 
 const statusOptions = [
     { key: "ALL", label: "ทั้งหมด" },
+    { key: BenefitTrackingStatus.PROPOSED, label: statusConfig[BenefitTrackingStatus.PROPOSED].label },
     { key: BenefitTrackingStatus.PENDING, label: statusConfig[BenefitTrackingStatus.PENDING].label },
     { key: BenefitTrackingStatus.UNDER_REVIEW, label: statusConfig[BenefitTrackingStatus.UNDER_REVIEW].label },
     { key: BenefitTrackingStatus.APPROVED, label: statusConfig[BenefitTrackingStatus.APPROVED].label },
@@ -88,11 +94,14 @@ const statusOptions = [
 export function BenefitTrackingDashboard({
     initialTrackings,
     initialCounts,
+    initialEstimationOverview,
     userRole = "STAFF",
     onRefresh,
 }: BenefitTrackingDashboardProps) {
     const [trackings, setTrackings] = useState<BenefitTrackingEntity[]>(initialTrackings);
     const [counts, setCounts] = useState<Record<BenefitTrackingStatus, number> | undefined>(initialCounts);
+    const [overview, setOverview] = useState<EstimationOverviewItem[]>(initialEstimationOverview || []);
+    const [proposingKey, setProposingKey] = useState<string | null>(null);
     const [search, setSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("ALL");
     const [selectedTracking, setSelectedTracking] = useState<BenefitTrackingEntity | null>(null);
@@ -188,7 +197,65 @@ export function BenefitTrackingDashboard({
         }
     };
 
+    const refreshData = async () => {
+        try {
+            const [trRes, ovRes] = await Promise.all([
+                fetch("/api/benefit-tracking?take=100"),
+                fetch("/api/benefit-tracking/estimates?limit=10"),
+            ]);
+            if (trRes.ok) {
+                const json = await trRes.json();
+                const fetched: BenefitTrackingEntity[] = json.data?.trackings || [];
+                setTrackings(fetched);
+                const computed = Object.values(BenefitTrackingStatus).reduce(
+                    (acc, s) => ({ ...acc, [s]: 0 }),
+                    {} as Record<BenefitTrackingStatus, number>
+                );
+                fetched.forEach((t) => {
+                    computed[t.status] = (computed[t.status] || 0) + 1;
+                });
+                setCounts(computed);
+            }
+            if (ovRes.ok) {
+                const json = await ovRes.json();
+                setOverview(json.data || []);
+            }
+            if (onRefresh) onRefresh();
+        } catch {
+            // offline mode: keep current state
+        }
+    };
+
+    const handlePropose = async (estimateId: string, programId: string | null, programName: string) => {
+        setProposingKey(programId || estimateId);
+        try {
+            const res = await fetch("/api/benefit-tracking/propose", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    estimateId,
+                    programIds: programId ? [programId] : undefined,
+                }),
+            });
+            const json = await res.json();
+            if (res.ok) {
+                const trackingNumbers = (json.data?.trackingNumbers || []).join(", ");
+                setFeedbackMessage(
+                    `เสนอขอรับสิทธิ "${programName}" สำเร็จ แล้ว${trackingNumbers ? ` เลขติดตาม: ${trackingNumbers}` : ""}`
+                );
+                await refreshData();
+            } else {
+                setFeedbackMessage(`เกิดข้อผิดพลาด: ${json.error || res.statusText}`);
+            }
+        } catch {
+            setFeedbackMessage("เกิดข้อผิดพลาดในการเชื่อมต่อระบบ กรุณาลองใหม่อีกครั้ง");
+        } finally {
+            setProposingKey(null);
+        }
+    };
+
     const summaryCards = [
+        { status: BenefitTrackingStatus.PROPOSED, label: "เสนอขอรับสิทธิ", color: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300" },
         { status: BenefitTrackingStatus.PENDING, label: "รอดำเนินการ", color: "bg-slate-100 text-slate-700 dark:bg-slate-900 dark:text-slate-300" },
         { status: BenefitTrackingStatus.UNDER_REVIEW, label: "ตรวจสอบเอกสาร", color: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300" },
         { status: BenefitTrackingStatus.APPROVED, label: "อนุมัติแล้ว", color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300" },
@@ -211,8 +278,97 @@ export function BenefitTrackingDashboard({
                 </div>
             )}
 
+            {/* Estimation Overview: เสนอขอรับสิทธิต่อจากผลประมาณการ (บูรณาการ) */}
+            <div className="rounded-xl border border-sky-200 dark:border-sky-900/60 bg-sky-50/50 dark:bg-sky-950/20 p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="text-sm font-bold text-sky-900 dark:text-sky-200 flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-sky-600" />
+                        ผลประมาณการสิทธิและสวัสดิการ — เสนอขอรับสิทธิต่อ
+                    </h3>
+                    <span className="text-[11px] text-muted-foreground">
+                        รายการที่ได้รับการพิจารณาประมาณการสิทธิแล้ว สามารถเสนอขอรับสิทธิต่อได้ทันที
+                    </span>
+                </div>
+                {overview.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-2">
+                        ยังไม่มีผลประมาณการสิทธิที่บันทึกไว้ — คำนวณประมาณการสิทธิได้จากเมนู "ประมาณการสิทธิ"
+                    </p>
+                ) : (
+                    <div className="space-y-3">
+                        {overview.map((item) => (
+                            <div
+                                key={item.estimate.id}
+                                className="rounded-lg border border-sky-200 dark:border-sky-900 bg-card p-3 space-y-2"
+                            >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="font-mono text-xs font-bold text-sky-700 dark:text-sky-300">
+                                            {item.estimate.estimateNumber || item.estimate.id}
+                                        </span>
+                                        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                                            {item.estimate.citizenName || item.estimate.citizenNationalId || "ไม่ระบุตัวตน"}
+                                        </span>
+                                        <span className="text-[11px] text-muted-foreground">
+                                            อายุ {item.estimate.calculatedAge} ปี • ประมาณการเมื่อ {formatThaiDate(item.estimate.createdAt)}
+                                        </span>
+                                    </div>
+                                    <div className="flex flex-wrap items-center gap-3 text-[11px]">
+                                        <span>
+                                            รายเดือน{" "}
+                                            <b className="text-emerald-600 dark:text-emerald-400">
+                                                {formatCurrency(item.estimate.totalMonthlyEstimate)}
+                                            </b>
+                                        </span>
+                                        <span>
+                                            เงินก้อน/สงเคราะห์{" "}
+                                            <b className="text-amber-600 dark:text-amber-400">
+                                                {formatCurrency(item.estimate.totalOneTimeEstimate)}
+                                            </b>
+                                        </span>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-7 text-[11px] gap-1 border-sky-300 dark:border-sky-700 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/60"
+                                            disabled={proposingKey === item.estimate.id}
+                                            onClick={() => handlePropose(item.estimate.id, null, "ทุกรายการที่ผ่านเกณฑ์")}
+                                        >
+                                            <Send className="h-3 w-3" />
+                                            {proposingKey === item.estimate.id ? "กำลังเสนอ..." : "เสนอขอทุกรายการคงเหลือ"}
+                                        </Button>
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {item.eligiblePrograms.map((program) => {
+                                        const proposedTracking = item.trackings.find((t) => t.programId === program.programId);
+                                        if (proposedTracking) {
+                                            return (
+                                                <Badge key={program.programId} variant="success" className="text-[11px] gap-1">
+                                                    <CheckCircle2 className="h-3 w-3" />
+                                                    {program.programName} • {proposedTracking.trackingNumber}
+                                                </Badge>
+                                            );
+                                        }
+                                        return (
+                                            <button
+                                                key={program.programId}
+                                                onClick={() => handlePropose(item.estimate.id, program.programId, program.programName)}
+                                                disabled={proposingKey === program.programId}
+                                                className="inline-flex items-center gap-1 rounded-full border border-sky-300 dark:border-sky-700 bg-white dark:bg-sky-950/40 px-2.5 py-1 text-[11px] font-semibold text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/60 transition-colors disabled:opacity-50"
+                                            >
+                                                <Send className="h-3 w-3" />
+                                                {proposingKey === program.programId ? "กำลังเสนอ..." : `เสนอขอ ${program.programName}`}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
             {/* Summary Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
                 {summaryCards.map((card) => {
                     const count = counts?.[card.status] ?? trackings.filter((t) => t.status === card.status).length;
                     const isActive = statusFilter === card.status;
@@ -298,6 +454,15 @@ export function BenefitTrackingDashboard({
                                                     {tracking.citizenNationalId ? formatNationalId(tracking.citizenNationalId) : "-"} • {tracking.citizenProvince}
                                                 </p>
                                                 <p className="text-[11px] text-emerald-700 dark:text-emerald-400 font-medium">{tracking.programName}</p>
+                                                {tracking.sourceType === "ESTIMATE" && (
+                                                    <p className="text-[10px] text-sky-700 dark:text-sky-400 font-semibold flex items-center gap-1">
+                                                        <Sparkles className="h-3 w-3" />
+                                                        จากประมาณการสิทธิ{tracking.estimateNumber ? ` ${tracking.estimateNumber}` : ""}
+                                                    </p>
+                                                )}
+                                                {tracking.sourceType === "MANUAL" && (
+                                                    <p className="text-[10px] text-slate-400 font-medium">บันทึกคำขอโดยเจ้าหน้าที่</p>
+                                                )}
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right">

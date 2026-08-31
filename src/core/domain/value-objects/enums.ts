@@ -42,6 +42,7 @@ export enum ApprovalDecision {
 }
 
 export enum BenefitTrackingStatus {
+  PROPOSED = "PROPOSED",
   PENDING = "PENDING",
   UNDER_REVIEW = "UNDER_REVIEW",
   APPROVED = "APPROVED",
@@ -49,6 +50,12 @@ export enum BenefitTrackingStatus {
   RECEIVED = "RECEIVED",
   REJECTED = "REJECTED",
   CANCELLED = "CANCELLED",
+}
+
+export enum BenefitTrackingSourceType {
+  ESTIMATE = "ESTIMATE",
+  APPLICATION = "APPLICATION",
+  MANUAL = "MANUAL",
 }
 
 export enum VulnerabilityLevel {

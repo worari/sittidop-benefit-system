@@ -1,12 +1,20 @@
-import { PrismaBenefitTrackingRepository } from "../../../infrastructure/database/repositories/PrismaBenefitTrackingRepository";
+import { BenefitTrackingService } from "../../../core/use-cases/benefit-tracking/BenefitTrackingService";
 import { BenefitTrackingDashboard } from "../../../presentation/components/benefit-tracking/BenefitTrackingDashboard";
+import type { EstimationOverviewItem } from "../../../core/domain/value-objects/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function BenefitTrackingPage() {
-    const repo = new PrismaBenefitTrackingRepository();
-    const { trackings } = await repo.findAll({ take: 100 });
-    const counts = await repo.countByStatus();
+    const trackingService = new BenefitTrackingService();
+    const { trackings } = await trackingService.getTrackings({ take: 100 });
+    const counts = await trackingService.getStatusCounts();
+
+    let estimationOverview: EstimationOverviewItem[] = [];
+    try {
+        estimationOverview = await trackingService.getEstimationOverview(10);
+    } catch {
+        estimationOverview = [];
+    }
 
     return (
         <div className="space-y-6">
@@ -15,11 +23,16 @@ export default async function BenefitTrackingPage() {
                     ติดตามสถานะรายการสิทธิและเงินสงเคราะห์
                 </h1>
                 <p className="text-xs text-muted-foreground">
-                    ตรวจสอบรายการสิทธิประโยชน์และเงินสงเคราะห์ที่ได้รับ อนุมัติ หรืออยู่ระหว่างดำเนินการ
+                    รวมข้อมูลรายการสิทธิและสวัสดิการที่ได้รับการพิจารณาประมาณการสิทธิ และได้เสนอขอรับสิทธิแล้ว
+                    เชื่อมโยงข้อมูลตั้งแต่ผลประมาณการ → คำขอ → การอนุมัติ → การจ่ายเงิน แบบบูรณาการ
                 </p>
             </div>
 
-            <BenefitTrackingDashboard initialTrackings={trackings} initialCounts={counts} />
+            <BenefitTrackingDashboard
+                initialTrackings={trackings}
+                initialCounts={counts}
+                initialEstimationOverview={estimationOverview}
+            />
         </div>
     );
 }

@@ -11,6 +11,9 @@ export class PrismaBenefitTrackingRepository implements IBenefitTrackingReposito
             trackingNumber: dbItem.trackingNumber,
             applicationId: dbItem.applicationId,
             applicationNumber: dbItem.application?.applicationNumber || null,
+            estimateId: dbItem.estimateId || null,
+            estimateNumber: dbItem.estimate?.estimateNumber || null,
+            sourceType: dbItem.sourceType || null,
             citizenId: dbItem.citizenId,
             citizenName: dbItem.citizen ? `${dbItem.citizen.title}${dbItem.citizen.firstName} ${dbItem.citizen.lastName}` : null,
             citizenNationalId: dbItem.citizen?.nationalId || null,
@@ -51,7 +54,7 @@ export class PrismaBenefitTrackingRepository implements IBenefitTrackingReposito
         try {
             const dbItem = await prisma.benefitTracking.findUnique({
                 where: { id },
-                include: { citizen: true, program: true, application: true, createdByUser: true, updatedByUser: true },
+                include: { citizen: true, program: true, application: true, estimate: true, createdByUser: true, updatedByUser: true },
             });
             if (dbItem) return this.toEntity(dbItem);
         } catch {
@@ -65,7 +68,7 @@ export class PrismaBenefitTrackingRepository implements IBenefitTrackingReposito
         try {
             const dbItem = await prisma.benefitTracking.findUnique({
                 where: { trackingNumber },
-                include: { citizen: true, program: true, application: true },
+                include: { citizen: true, program: true, application: true, estimate: true },
             });
             if (dbItem) return this.toEntity(dbItem);
         } catch {
@@ -79,7 +82,7 @@ export class PrismaBenefitTrackingRepository implements IBenefitTrackingReposito
         try {
             const items = await prisma.benefitTracking.findMany({
                 where: { citizenId },
-                include: { citizen: true, program: true, application: true },
+                include: { citizen: true, program: true, application: true, estimate: true },
                 orderBy: { submissionDate: "desc" },
             });
             if (items.length > 0) return items.map((i: any) => this.toEntity(i));
@@ -93,7 +96,7 @@ export class PrismaBenefitTrackingRepository implements IBenefitTrackingReposito
         try {
             const items = await prisma.benefitTracking.findMany({
                 where: { applicationId },
-                include: { citizen: true, program: true, application: true },
+                include: { citizen: true, program: true, application: true, estimate: true },
                 orderBy: { submissionDate: "desc" },
             });
             if (items.length > 0) return items.map((i: any) => this.toEntity(i));
@@ -103,10 +106,26 @@ export class PrismaBenefitTrackingRepository implements IBenefitTrackingReposito
         return storeManager.benefitTrackings.filter((t) => t.applicationId === applicationId);
     }
 
+    async findByEstimateId(estimateId: string): Promise<BenefitTrackingEntity[]> {
+        try {
+            const items = await prisma.benefitTracking.findMany({
+                where: { estimateId },
+                include: { citizen: true, program: true, application: true, estimate: true },
+                orderBy: { submissionDate: "desc" },
+            });
+            if (items.length > 0) return items.map((i: any) => this.toEntity(i));
+        } catch {
+            // fallback
+        }
+        return storeManager.benefitTrackings.filter((t) => t.estimateId === estimateId);
+    }
+
     async findAll(params?: {
         status?: BenefitTrackingStatus;
         citizenId?: string;
         programId?: string;
+        estimateId?: string;
+        sourceType?: string;
         search?: string;
         skip?: number;
         take?: number;
@@ -116,6 +135,8 @@ export class PrismaBenefitTrackingRepository implements IBenefitTrackingReposito
             if (params?.status) where.status = params.status;
             if (params?.citizenId) where.citizenId = params.citizenId;
             if (params?.programId) where.programId = params.programId;
+            if (params?.estimateId) where.estimateId = params.estimateId;
+            if (params?.sourceType) where.sourceType = params.sourceType;
             if (params?.search) {
                 where.OR = [
                     { trackingNumber: { contains: params.search } },
@@ -128,7 +149,7 @@ export class PrismaBenefitTrackingRepository implements IBenefitTrackingReposito
             const [items, total] = await Promise.all([
                 prisma.benefitTracking.findMany({
                     where,
-                    include: { citizen: true, program: true, application: true, createdByUser: true, updatedByUser: true },
+                    include: { citizen: true, program: true, application: true, estimate: true, createdByUser: true, updatedByUser: true },
                     skip: params?.skip ?? 0,
                     take: params?.take ?? 50,
                     orderBy: { submissionDate: "desc" },
@@ -146,6 +167,8 @@ export class PrismaBenefitTrackingRepository implements IBenefitTrackingReposito
         if (params?.status) filtered = filtered.filter((t) => t.status === params.status);
         if (params?.citizenId) filtered = filtered.filter((t) => t.citizenId === params.citizenId);
         if (params?.programId) filtered = filtered.filter((t) => t.programId === params.programId);
+        if (params?.estimateId) filtered = filtered.filter((t) => t.estimateId === params.estimateId);
+        if (params?.sourceType) filtered = filtered.filter((t) => t.sourceType === params.sourceType);
         if (params?.search) {
             const s = params.search.toLowerCase();
             filtered = filtered.filter(
@@ -165,8 +188,17 @@ export class PrismaBenefitTrackingRepository implements IBenefitTrackingReposito
 
     async create(data: Omit<BenefitTrackingEntity, "id" | "trackingNumber" | "createdAt" | "updatedAt">): Promise<BenefitTrackingEntity> {
         const yearBE = new Date().getFullYear() + 543;
-        const seq = (storeManager.benefitTrackings.length + 1).toString().padStart(4, "0");
-        const trackingNumber = `TRK-${yearBE}-${seq}`;
+
+        // Generate a collision-resistant tracking number (DB count first, in-memory fallback)
+        let seq = storeManager.benefitTrackings.length + 1;
+        try {
+            const dbCount = await prisma.benefitTracking.count();
+            if (dbCount > 0) seq = dbCount + 1;
+        } catch {
+            // keep in-memory seq
+        }
+        const buildTrackingNumber = (n: number, suffix?: string) =>
+            `TRK-${yearBE}-${n.toString().padStart(4, "0")}${suffix || ""}`;
 
         const citizen = storeManager.citizens.find((c) => c.id === data.citizenId);
         const program = storeManager.programs.find((p) => p.id === data.programId);
@@ -175,7 +207,7 @@ export class PrismaBenefitTrackingRepository implements IBenefitTrackingReposito
         const newItem: BenefitTrackingEntity = {
             ...data,
             id: `trk-${Date.now().toString().slice(-6)}`,
-            trackingNumber,
+            trackingNumber: buildTrackingNumber(seq),
             applicationNumber: application?.applicationNumber || null,
             citizenName: citizen ? `${citizen.title}${citizen.firstName} ${citizen.lastName}` : "ผู้รับสิทธิ",
             citizenNationalId: citizen?.nationalId || null,
@@ -188,34 +220,43 @@ export class PrismaBenefitTrackingRepository implements IBenefitTrackingReposito
             updatedAt: new Date(),
         };
 
-        try {
-            const dbItem = await prisma.benefitTracking.create({
-                data: {
-                    trackingNumber: newItem.trackingNumber,
-                    applicationId: newItem.applicationId,
-                    citizenId: newItem.citizenId,
-                    programId: newItem.programId,
-                    benefitName: newItem.benefitName,
-                    benefitCategory: newItem.benefitCategory as any,
-                    requestedAmount: newItem.requestedAmount,
-                    approvedAmount: newItem.approvedAmount,
-                    disbursedAmount: newItem.disbursedAmount,
-                    status: newItem.status as any,
-                    submissionDate: newItem.submissionDate,
-                    expectedReceiveDate: newItem.expectedReceiveDate,
-                    paymentMethod: newItem.paymentMethod,
-                    bankName: newItem.bankName,
-                    bankAccountNumber: newItem.bankAccountNumber,
-                    recipientName: newItem.recipientName,
-                    notes: newItem.notes,
-                    officerNotes: newItem.officerNotes,
-                    documentsJson: newItem.documentsJson,
-                    createdByUserId: newItem.createdByUserId,
-                },
-            });
-            if (dbItem) return newItem;
-        } catch {
-            // fallback
+        // Attempt DB persistence with retry on trackingNumber collision
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                const dbItem = await prisma.benefitTracking.create({
+                    data: {
+                        trackingNumber: attempt === 0 ? newItem.trackingNumber : buildTrackingNumber(seq, `-${Math.random().toString(36).slice(2, 5).toUpperCase()}`),
+                        applicationId: newItem.applicationId,
+                        estimateId: newItem.estimateId || null,
+                        sourceType: newItem.sourceType || null,
+                        citizenId: newItem.citizenId,
+                        programId: newItem.programId,
+                        benefitName: newItem.benefitName,
+                        benefitCategory: newItem.benefitCategory as any,
+                        requestedAmount: newItem.requestedAmount,
+                        approvedAmount: newItem.approvedAmount,
+                        disbursedAmount: newItem.disbursedAmount,
+                        status: newItem.status as any,
+                        submissionDate: newItem.submissionDate,
+                        expectedReceiveDate: newItem.expectedReceiveDate,
+                        paymentMethod: newItem.paymentMethod,
+                        bankName: newItem.bankName,
+                        bankAccountNumber: newItem.bankAccountNumber,
+                        recipientName: newItem.recipientName,
+                        notes: newItem.notes,
+                        officerNotes: newItem.officerNotes,
+                        documentsJson: newItem.documentsJson,
+                        createdByUserId: newItem.createdByUserId,
+                    },
+                });
+                if (dbItem) {
+                    newItem.trackingNumber = dbItem.trackingNumber;
+                    newItem.id = dbItem.id;
+                    return newItem;
+                }
+            } catch {
+                // retry with suffix, then fallback to store
+            }
         }
 
         storeManager.benefitTrackings.unshift(newItem);
@@ -289,6 +330,7 @@ export class PrismaBenefitTrackingRepository implements IBenefitTrackingReposito
 
     async countByStatus(): Promise<Record<BenefitTrackingStatus, number>> {
         const counts: Record<BenefitTrackingStatus, number> = {
+            [BenefitTrackingStatus.PROPOSED]: 0,
             [BenefitTrackingStatus.PENDING]: 0,
             [BenefitTrackingStatus.UNDER_REVIEW]: 0,
             [BenefitTrackingStatus.APPROVED]: 0,

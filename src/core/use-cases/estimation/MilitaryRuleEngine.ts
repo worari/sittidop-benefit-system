@@ -128,13 +128,15 @@ export class MilitaryRuleEngine {
     }
 
     // Special logic for Hospital Stay / Morale Grant rule (RULE-LUMP-HOSPITAL-STAY)
+    // Note: This logic serves as a fallback when formulaTiers are not defined on the rule.
+    // The primary logic is in the formulaTiers evaluation at the beginning of this function.
     if (rule?.ruleCode === "RULE-LUMP-HOSPITAL-STAY") {
       const isDeath =
         context.lossType === "KIA_COMBAT_DEATH" ||
         context.lossType === "DUTY_DEATH" ||
         (context.lossType || "").includes("DEATH");
 
-      // Death case: เงินบำรุงขวัญกรณีเสียชีวิต 40,000 บาท
+      // Death case: เงินบำรุงขวัญกรณีเสียชีวิต 40,000 บาท (fallback when formulaTiers not defined)
       if (isDeath) return 40000;
 
       const isInjury =
@@ -149,7 +151,7 @@ export class MilitaryRuleEngine {
 
       const days = context.hospitalStayDays || 0;
 
-      // Injury + hospitalized case
+      // Injury + hospitalized case (fallback when formulaTiers not defined)
       if (isInjury && days > 0) {
         if (days <= 20) return 10000; // บาดเจ็บพักรักษาไม่เกิน 20 วัน รับ 10,000 บาท
         return 20000; // บาดเจ็บพักรักษาเกิน 20 วัน รับเพิ่ม 10,000 บาท รวม 20,000 บาท

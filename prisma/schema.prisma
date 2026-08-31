@@ -8,8 +8,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ------------------------------------------------------------------------------
@@ -154,6 +155,7 @@ enum ApprovalDecision {
 }
 
 enum BenefitTrackingStatus {
+  PROPOSED
   PENDING
   APPROVED
   DISBURSED
@@ -551,7 +553,10 @@ model BenefitEstimate {
   ipAddress              String?
   createdAt              DateTime           @default(now())
 
+  trackings BenefitTracking[]
+
   @@index([citizenId])
+  @@index([estimateNumber])
 }
 
 // ------------------------------------------------------------------------------
@@ -638,6 +643,9 @@ model BenefitTracking {
   trackingNumber      String                @unique
   applicationId       String?
   application         Application?          @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  estimateId          String?
+  estimate            BenefitEstimate?      @relation(fields: [estimateId], references: [id], onDelete: SetNull)
+  sourceType          String?               // ESTIMATE | APPLICATION | MANUAL
   citizenId           String
   citizen             Citizen               @relation(fields: [citizenId], references: [id], onDelete: Cascade)
   programId           String
@@ -676,6 +684,8 @@ model BenefitTracking {
   @@index([status])
   @@index([trackingNumber])
   @@index([applicationId])
+  @@index([estimateId])
+  @@index([sourceType])
 }
 
 // ------------------------------------------------------------------------------

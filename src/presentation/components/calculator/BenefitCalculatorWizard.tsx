@@ -120,9 +120,39 @@ export function BenefitCalculatorWizard({ initialCitizen, onApplicationSubmitted
   };
 
   const handleSubmitClaim = async () => {
-    if (!selectedProgramToClaim) return;
+    if (!selectedProgramToClaim || !calculationResult) return;
     setIsSubmittingClaim(true);
 
+    // บูรณาการ: บันทึกผลประมาณการสิทธิ -> สร้างคำขอ -> สร้างรายการติดตามสถานะ (เชื่อมโยงข้อมูลเดียวกัน)
+    try {
+      const res = await fetch("/api/benefit-tracking/propose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          summary: calculationResult,
+          programIds: [selectedProgramToClaim.programId],
+          notes: claimRemarks,
+          citizenNationalId: formData.nationalId || "1100400289112",
+        }),
+      });
+
+      const json = await res.json();
+      if (res.ok) {
+        const trackingNumber = json.data?.trackings?.[0]?.trackingNumber;
+        const estimateNumber = json.data?.estimate?.estimateNumber;
+        setClaimSuccessMessage(
+          `เสนอขอรับสิทธิสำเร็จ! เลขติดตามสถานะ: ${trackingNumber || "-"}${estimateNumber ? ` (อ้างอิงผลประมาณการ ${estimateNumber})` : ""
+          } — ติดตามได้ที่เมนู "ติดตามสถานะรายการสิทธิ"`
+        );
+        setClaimModalOpen(false);
+        if (onApplicationSubmitted) onApplicationSubmitted(json.data);
+        return;
+      }
+    } catch {
+      // fall through to legacy application endpoint
+    }
+
+    // Fallback: สร้างคำขออย่างเดียว (กรณีระบบเชื่อมโยงใช้ไม่ได้)
     try {
       const payload = {
         citizenNationalId: formData.nationalId || "1100400289112",
@@ -482,11 +512,10 @@ export function BenefitCalculatorWizard({ initialCitizen, onApplicationSubmitted
                     type="button"
                     key={opt.value}
                     onClick={() => setFormData({ ...formData, livingCondition: opt.value as any })}
-                    className={`p-3 rounded-xl border text-xs sm:text-sm font-medium transition-all ${
-                      formData.livingCondition === opt.value
+                    className={`p-3 rounded-xl border text-xs sm:text-sm font-medium transition-all ${formData.livingCondition === opt.value
                         ? "border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 font-semibold shadow-xs"
                         : "border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300"
-                    }`}
+                      }`}
                   >
                     {opt.label}
                   </button>
@@ -559,8 +588,8 @@ export function BenefitCalculatorWizard({ initialCitizen, onApplicationSubmitted
                       calculationResult.vulnerabilityLevel === VulnerabilityLevel.CRITICAL
                         ? "destructive"
                         : calculationResult.vulnerabilityLevel === VulnerabilityLevel.HIGH
-                        ? "warning"
-                        : "info"
+                          ? "warning"
+                          : "info"
                     }
                   >
                     {calculationResult.vulnerabilityScore}/100 ({calculationResult.vulnerabilityLevel})
@@ -652,8 +681,8 @@ export function BenefitCalculatorWizard({ initialCitizen, onApplicationSubmitted
                             {program.frequency === PaymentFrequency.MONTHLY
                               ? "ยอดรับรายเดือน"
                               : program.frequency === PaymentFrequency.ONE_TIME
-                              ? "วงเงินสูงสุด (ครั้งเดียว)"
-                              : "วงเงินช่วยเหลือต่อครั้ง"}
+                                ? "วงเงินสูงสุด (ครั้งเดียว)"
+                                : "วงเงินช่วยเหลือต่อครั้ง"}
                           </span>
                           <span className="text-xl font-extrabold text-emerald-600 dark:text-emerald-400">
                             {formatCurrency(program.estimatedAmount)}
@@ -820,7 +849,7 @@ export function BenefitCalculatorWizard({ initialCitizen, onApplicationSubmitted
               onClick={handleSubmitClaim}
               disabled={isSubmittingClaim}
             >
-              {isSubmittingClaim ? "กำลังส่งคำขอ..." : "ยืนยันการยื่นคำขอรับสิทธิ"}
+              {isSubmittingClaim ? "กำลังเสนอขอรับสิทธิ..." : "ยืนยันเสนอขอรับสิทธิ"}
             </Button>
           </DialogFooter>
         </DialogContent>

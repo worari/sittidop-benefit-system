@@ -12,6 +12,8 @@ export async function GET(req: NextRequest) {
         const status = searchParams.get("status") as BenefitTrackingStatus | undefined;
         const citizenId = searchParams.get("citizenId") || undefined;
         const programId = searchParams.get("programId") || undefined;
+        const estimateId = searchParams.get("estimateId") || undefined;
+        const sourceType = searchParams.get("sourceType") || undefined;
         const search = searchParams.get("search") || undefined;
         const skip = searchParams.get("skip") ? Number(searchParams.get("skip")) : undefined;
         const take = searchParams.get("take") ? Number(searchParams.get("take")) : undefined;
@@ -20,6 +22,8 @@ export async function GET(req: NextRequest) {
             status,
             citizenId,
             programId,
+            estimateId,
+            sourceType,
             search,
             skip,
             take,
