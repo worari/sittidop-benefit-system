@@ -149,51 +149,25 @@ async function main() {
   });
 
   // 4. Create Benefit Programs
-  const p1 = await prisma.benefitProgram.create({
-    data: {
-      code: "DOP-ELD-001",
-      name: "Elderly Living Allowance",
-      thaiName: "เบี้ยยังชีพผู้สูงอายุ (แบบขั้นบันได)",
-      description: "เงินช่วยเหลือรายเดือนสำหรับผู้สูงอายุสัญชาติไทยที่มีอายุ 60 ปีขึ้นไป เพื่อการยังชีพตามเกณฑ์ขั้นบันได",
-      category: BenefitCategory.LIVING_ALLOWANCE,
-      targetGroup: "ผู้สูงอายุสัญชาติไทย อายุ 60 ปีขึ้นไป",
-      budgetTotal: 88500000000,
-      budgetDisbursed: 64200000000,
-      maxAmount: 1000,
-      paymentFrequency: PaymentFrequency.MONTHLY,
-      legalBasis: "พ.ร.บ. ผู้สูงอายุ พ.ศ. 2546 และระเบียบกระทรวงมหาดไทย พ.ศ. 2566",
-    },
-  });
+  // Note: Only military benefit programs are included in this system
+  // Non-military programs like elderly living allowances, disability benefits, and housing grants
+  // have been removed as they are not related to military personnel benefits
 
-  const p2 = await prisma.benefitProgram.create({
+  // Create a sample military benefit program for demonstration
+  const militaryProgram = await prisma.benefitProgram.create({
     data: {
-      code: "DOP-DIS-002",
-      name: "Disability Benefit for Elderly",
-      thaiName: "เบี้ยความพิการสำหรับผู้สูงอายุ",
-      description: "เงินสวัสดิการรายเดือนสำหรับคนพิการที่มีบัตรประจำตัวคนพิการถูกต้องตามกฎหมาย และเงินเพิ่มพิเศษกรณีมีบัตรสวัสดิการแห่งรัฐ",
-      category: BenefitCategory.DISABILITY_BENEFIT,
-      targetGroup: "คนพิการที่มีสมุด/บัตรประจำตัวคนพิการ อายุ 18 ปีขึ้นไป",
-      budgetTotal: 24000000000,
-      budgetDisbursed: 18500000000,
-      maxAmount: 1000,
-      paymentFrequency: PaymentFrequency.MONTHLY,
-      legalBasis: "พ.ร.บ. ส่งเสริมและพัฒนาคุณภาพชีวิตคนพิการ พ.ศ. 2550",
-    },
-  });
-
-  const p3 = await prisma.benefitProgram.create({
-    data: {
-      code: "DOP-HSG-005",
-      name: "Home Modification Grant",
-      thaiName: "เงินช่วยเหลือปรับปรุงสภาพแวดล้อมที่อยู่อาศัยผู้สูงอายุ",
-      description: "เงินสนับสนุนปรับปรุงห้องน้ำ ทางลาด ประตู หลังคา และโครงสร้างบ้านให้ปลอดภัยและเอื้อต่อสุขอนามัยของผู้สูงอายุ",
-      category: BenefitCategory.HOUSING_RENOVATION,
-      targetGroup: "ผู้สูงอายุที่มีบ้านพักอาศัยชำรุดทรุดโทรม ไม่ปลอดภัย และมีฐานะยากจน",
-      budgetTotal: 3200000000,
-      budgetDisbursed: 2100000000,
-      maxAmount: 40000,
+      code: "MIL-001",
+      name: "Combat Injury Compensation",
+      thaiName: "ค่าชดเชยการบาดเจ็บจากการรบ",
+      description: "เงินชดเชยสำหรับกำลังพลที่ได้รับบาดเจ็บจากการปฏิบัติหน้าที่ในการรบ",
+      category: BenefitCategory.LUMP_SUM_COMPENSATION,
+      targetGroup: "กำลังพลที่ได้รับบาดเจ็บจากการรบ",
+      budgetTotal: 1000000000,
+      budgetDisbursed: 0,
+      maxAmount: 500000,
       paymentFrequency: PaymentFrequency.ONE_TIME,
-      legalBasis: "ระเบียบกรมกิจการผู้สูงอายุว่าด้วยการปรับปรุงสภาพแวดล้อมที่อยู่อาศัย",
+      legalBasis: "ระเบียบกองทัพบกว่าด้วยการชดเชยการบาดเจ็บและการสูญเสีย",
+      isActive: true,
     },
   });
 
@@ -202,7 +176,7 @@ async function main() {
     data: {
       applicationNumber: "APP-2569-0001",
       citizenId: c2.id,
-      programId: p3.id,
+      programId: militaryProgram.id,
       requestedAmount: 40000,
       approvedAmount: 40000,
       status: ApplicationStatus.APPROVED,

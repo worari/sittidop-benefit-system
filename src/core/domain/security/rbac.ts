@@ -74,6 +74,19 @@ export const RolePermissions: Record<Role, Permission[]> = {
     Permission.VIEW_AUDIT_LOGS,
   ],
 
+  [Role.COMMANDER]: [
+    Permission.VIEW_PERSONNEL,
+    Permission.VIEW_FAMILY,
+    Permission.VIEW_RULES,
+    Permission.EXECUTE_CALCULATION,
+    Permission.SIGN_DOCUMENTS,
+    Permission.EXPORT_DOCUMENTS,
+    Permission.VIEW_DOCUMENTS,
+    Permission.VIEW_REPORTS,
+    Permission.EXPORT_REPORTS,
+    Permission.VIEW_AUDIT_LOGS,
+  ],
+
   [Role.STAFF]: [
     Permission.MANAGE_PERSONNEL,
     Permission.VIEW_PERSONNEL,
@@ -85,18 +98,6 @@ export const RolePermissions: Record<Role, Permission[]> = {
     Permission.VIEW_DOCUMENTS,
     Permission.IMPORT_EXCEL,
     Permission.VIEW_REPORTS,
-  ],
-
-  [Role.COMMANDER]: [
-    Permission.VIEW_PERSONNEL,
-    Permission.VIEW_FAMILY,
-    Permission.VIEW_RULES,
-    Permission.EXECUTE_CALCULATION,
-    Permission.SIGN_DOCUMENTS,
-    Permission.EXPORT_DOCUMENTS,
-    Permission.VIEW_DOCUMENTS,
-    Permission.VIEW_REPORTS,
-    Permission.EXPORT_REPORTS,
   ],
 
   [Role.AUDITOR]: [
@@ -119,15 +120,15 @@ export const RolePermissions: Record<Role, Permission[]> = {
 };
 
 export const RouteAccessRules: { path: string; roles: Role[] }[] = [
-  { path: "/dashboard", roles: [Role.SUPERADMIN, Role.ADMIN, Role.STAFF, Role.COMMANDER, Role.AUDITOR, Role.READONLY] },
-  { path: "/personnel", roles: [Role.SUPERADMIN, Role.ADMIN, Role.STAFF, Role.COMMANDER, Role.AUDITOR, Role.READONLY] },
-  { path: "/family", roles: [Role.SUPERADMIN, Role.ADMIN, Role.STAFF, Role.COMMANDER, Role.AUDITOR, Role.READONLY] },
-  { path: "/heirs", roles: [Role.SUPERADMIN, Role.ADMIN, Role.STAFF, Role.COMMANDER, Role.AUDITOR, Role.READONLY] },
-  { path: "/calculator", roles: [Role.SUPERADMIN, Role.ADMIN, Role.STAFF, Role.COMMANDER, Role.AUDITOR, Role.READONLY] },
-  { path: "/rules", roles: [Role.SUPERADMIN, Role.ADMIN, Role.STAFF, Role.AUDITOR] },
-  { path: "/documents", roles: [Role.SUPERADMIN, Role.ADMIN, Role.STAFF, Role.COMMANDER, Role.AUDITOR, Role.READONLY] },
-  { path: "/import", roles: [Role.SUPERADMIN, Role.ADMIN, Role.STAFF] },
-  { path: "/reports", roles: [Role.SUPERADMIN, Role.ADMIN, Role.STAFF, Role.COMMANDER, Role.AUDITOR] },
+  { path: "/dashboard", roles: [Role.SUPERADMIN, Role.ADMIN, Role.COMMANDER, Role.STAFF, Role.AUDITOR, Role.READONLY] },
+  { path: "/personnel", roles: [Role.SUPERADMIN, Role.ADMIN, Role.COMMANDER, Role.STAFF, Role.AUDITOR, Role.READONLY] },
+  { path: "/family", roles: [Role.SUPERADMIN, Role.ADMIN, Role.COMMANDER, Role.STAFF, Role.AUDITOR, Role.READONLY] },
+  { path: "/heirs", roles: [Role.SUPERADMIN, Role.ADMIN, Role.COMMANDER, Role.STAFF, Role.AUDITOR, Role.READONLY] },
+  { path: "/calculator", roles: [Role.SUPERADMIN, Role.ADMIN, Role.COMMANDER, Role.STAFF, Role.AUDITOR, Role.READONLY] },
+  { path: "/rules", roles: [Role.SUPERADMIN, Role.ADMIN, Role.COMMANDER, Role.AUDITOR] },
+  { path: "/documents", roles: [Role.SUPERADMIN, Role.ADMIN, Role.COMMANDER, Role.STAFF, Role.AUDITOR, Role.READONLY] },
+  { path: "/import", roles: [Role.SUPERADMIN, Role.ADMIN, Role.COMMANDER, Role.STAFF] },
+  { path: "/reports", roles: [Role.SUPERADMIN, Role.ADMIN, Role.COMMANDER, Role.STAFF, Role.AUDITOR] },
   { path: "/users", roles: [Role.SUPERADMIN, Role.ADMIN] },
   { path: "/audit-logs", roles: [Role.SUPERADMIN, Role.AUDITOR] },
 ];
@@ -159,17 +160,17 @@ export const RoleDescriptions: Record<
     badgeColor: "bg-purple-600 text-white",
     description: "บริหารจัดการกำลังพล ครอบครัว กฎเกณฑ์สูตรคำนวณ ออกเอกสาร และนำเข้าข้อมูล",
   },
-  [Role.STAFF]: {
-    thaiTitle: "เจ้าหน้าที่ฝ่ายกำลังพล / ธุรการ",
-    englishTitle: "Staff Officer",
-    badgeColor: "bg-emerald-600 text-white",
-    description: "บันทึกทะเบียนกำลังพล ครอบครัว คำนวณสิทธิ นำเข้า Excel และเตรียมร่างหนังสือรับรอง",
-  },
   [Role.COMMANDER]: {
     thaiTitle: "ผู้บังคับบัญชา / ผู้อนุมัติ",
     englishTitle: "Commander / Approver",
     badgeColor: "bg-amber-600 text-white",
     description: "พิจารณาอนุมัติสิทธิ ลงนามหนังสือรับรองทางการ (e-Signature) และดูรายงานสถิติภาพรวม",
+  },
+  [Role.STAFF]: {
+    thaiTitle: "เจ้าหน้าที่ฝ่ายกำลังพล / ธุรการ",
+    englishTitle: "Staff Officer",
+    badgeColor: "bg-emerald-600 text-white",
+    description: "บันทึกทะเบียนกำลังพล ครอบครัว คำนวณสิทธิ นำเข้า Excel และเตรียมร่างหนังสือรับรอง",
   },
   [Role.AUDITOR]: {
     thaiTitle: "ผู้ตรวจสอบภายใน / สตง.",

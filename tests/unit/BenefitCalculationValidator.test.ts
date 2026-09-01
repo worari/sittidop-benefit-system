@@ -72,6 +72,7 @@ describe("BenefitCalculationValidator", () => {
       actionType: "DIRECT_COMBAT",
       incidentType: "COMBAT_ENGAGEMENT",
       lossType: "KIA_COMBAT_DEATH",
+      promotionSteps: 7,
     };
 
     it("should pass for complete valid military input", () => {
@@ -92,7 +93,14 @@ describe("BenefitCalculationValidator", () => {
       const withInvalidChild: MilitaryPersonnelInput = {
         ...validMilitary,
         children: [
-          { fullName: "เด็กชาย A", age: 30, isStudying: true, allocationPercentage: 150 },
+          {
+            nationalId: "1100400289113",
+            fullName: "เด็กชาย A",
+            age: 30,
+            isStudying: true,
+            educationLevel: "SECONDARY",
+            allocationPercentage: 150,
+          },
         ],
       };
       const result = BenefitCalculationValidator.validateMilitaryInput(withInvalidChild);

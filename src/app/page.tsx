@@ -33,15 +33,87 @@ import {
   HeartHandshake,
   Landmark,
   FileCheck,
+  Pen,
+  Trash2,
 } from "lucide-react";
 
 export default function LandingPage() {
   // Fast Interactive Estimator State
   const [rankCategory, setRankCategory] = useState<"OFFICER" | "NCO" | "ENLISTED" | "RANGER">("OFFICER");
-  const [selectedRank, setSelectedRank] = useState("พ.ท. (พันโท)");
+  const [selectedRank, setSelectedRank] = useState("พ.อ. (พันเอก)");
   const [salary, setSalary] = useState<number>(43500);
   const [normalYears, setNormalYears] = useState<number>(16);
   const [multiplierYears, setMultiplierYears] = useState<number>(8);
+
+  // Category data state (session only)
+  type Category = {
+    code: string;
+    title: string;
+    rate: string;
+    items: string[];
+    color: string;
+    badge: string;
+  };
+
+  const initialCategories: Category[] = [
+    {
+      code: "หมวดที่ 1",
+      title: "รับเงินครั้งเดียว (Lump Sum)",
+      rate: "1,500,000 - 8,000,000+ บาท",
+      items: [
+        "เงินบำรุงขวัญ ทบ.",
+        "เงินพระราชทาน",
+        "เงินเยียวยา (สำนักนายก)",
+        "เงินสินไหมทดแทนประกันชีวิต (พิทักษ์พล กห.หรือ ภัยสงคราม)",
+        "เงินสินไหมทดแทนประกันชีวิต ",
+      ],
+      color: "border-amber-500/40 bg-amber-500/5",
+      badge: "เงินก้อนช่วยเหลือ",
+    },
+    {
+      code: "หมวดที่ 2",
+      title: "รับเงินรายเดือน (Recurring)",
+      rate: "15,000 - 55,000+ บาท/เดือน",
+      items: [
+        "บำนาญพิเศษทายาทตามอัตราปูนบำเหน็จ",
+        "เงินเพิ่มพิเศษสำหรับการสู้รบ (พ.ส.ร.)",
+        "เงินบำนาญกำลังพลทุพพลภาพ ทบ.",
+        "เงินช่วยเหลือรายเดือน (มูลนิธิสายใจไทย)",
+      ],
+      color: "border-blue-500/40 bg-blue-500/5",
+      badge: "บำนาญตลอดชีพ",
+    },
+    {
+      code: "หมวดที่ 3",
+      title: "รับเงินรายปี (Annual Grants)",
+      rate: "12,000 - 30,000 บาท/คน/ปี",
+      items: [
+        "ทุนการศึกษาบุตรกำลังพล ทบ. (ไม่เกิน 3 คน)",
+        "ทุนการศึกษาบุตร สปน.",
+        "ทุนมูลนิธิสายใจไทยในพระบรมราชูปถัมภ์",
+        "เงินสนับสนุนอุปกรณ์การศึกษารายปี",
+      ],
+      color: "border-emerald-500/40 bg-emerald-500/5",
+      badge: "ทุนการศึกษา",
+    },
+    {
+      code: "หมวดที่ 4",
+      title: "สิทธิประโยชน์มิใช่ตัวเงิน",
+      rate: "สิทธิเกียรติยศและสวัสดิการ",
+      items: [
+        "สิทธิบรรจุทายาททดแทนเข้ารับราชการ ทบ. 1 อัตรา",
+        "สิทธิรักษาพยาบาล รพ.ค่าย / รพ.พระมงกุฎเกล้า",
+        "สิทธิขอพระราชทานเหรียญพิทักษ์เสรีชน",
+        "สิทธิสินเชื่อเคหะ ทบ. อัตราดอกเบี้ยพิเศษ",
+      ],
+      color: "border-purple-500/40 bg-purple-500/5",
+      badge: "สิทธิเกียรติศ",
+    },
+  ];
+
+  const [categories, setCategories] = useState<Category[]>(initialCategories);
+  const [editIndex, setEditIndex] = useState<number | null>(null);
+  const [editData, setEditData] = useState<Partial<Category>>({});
   const [lossType, setLossType] = useState<"KIA_COMBAT" | "DUTY_DEATH" | "DISABILITY" | "INJURY">("KIA_COMBAT");
   const [promotionSteps, setPromotionSteps] = useState<number>(7);
   const [childrenCount, setChildrenCount] = useState<number>(2);
@@ -112,7 +184,7 @@ export default function LandingPage() {
             <Link href="/dashboard">
               <Button size="sm" className="bg-emerald-800 hover:bg-emerald-900 text-white text-xs sm:text-sm font-semibold gap-1.5 shadow-sm shadow-emerald-900/20">
                 <LayoutDashboard className="h-3.5 w-3.5 text-amber-400" />
-                <span className="hidden sm:inline">ศูนย์ปฏิบัติงาน กพ.ทบ.</span>
+                <span className="hidden sm:inline">ศูนย์ปฏิบัติประสานงาน</span>
                 <span className="sm:hidden">ระบบงาน</span>
               </Button>
             </Link>
@@ -131,7 +203,7 @@ export default function LandingPage() {
           <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 leading-tight">
             ระบบประมาณการสิทธิประโยชน์ <br className="hidden sm:inline" />
             <span className="bg-gradient-to-r from-emerald-700 via-emerald-800 to-amber-600 dark:from-emerald-400 dark:via-emerald-300 dark:to-amber-400 bg-clip-text text-transparent">
-              และเงินสงเคราะห์กำลังพล กองทัพบก
+              และเงินช่วยเหลือกำลังพล กองทัพบก
             </span>
           </h1>
 
@@ -217,8 +289,8 @@ export default function LandingPage() {
                         onClick={() => {
                           setRankCategory(t.id as any);
                           if (t.id === "OFFICER") {
-                            setSelectedRank("พ.ท. (พันโท)");
-                            setSalary(43500);
+                            setSelectedRank("ร.ต. (ร้อยตรี)");
+                            setSalary(28400);
                           } else if (t.id === "NCO") {
                             setSelectedRank("จ.ส.อ. (จ่าสิบเอก)");
                             setSalary(28400);
@@ -296,10 +368,9 @@ export default function LandingPage() {
                     aria-label="กรณีความสูญเสียจากการปฏิบัติหน้าที่"
                     className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                   >
-                    <option value="KIA_COMBAT">เสียชีวิตจากการสู้รบ/การปะทะ (KIA) ปูนบำเหน็จ 7-9 ชั้นยศ</option>
-                    <option value="DUTY_DEATH">เสียชีวิตจากการปฏิบัติราชการสนาม/รักษาความสงบ</option>
-                    <option value="DISABILITY">ทุพพลภาพสมบูรณ์จากการสู้รบ/กับระเบิด</option>
-                    <option value="INJURY">บาดเจ็บจากการสู้รบ/ปฏิบัติหน้าที่ (WIA)</option>
+                    <option value="KIA_COMBAT">เสียชีวิต</option>
+                    <option value="DISABILITY">พิการทุพพลภาพ</option>
+                    <option value="INJURY">บาดเจ็บ</option>
                   </select>
                 </div>
 
@@ -350,7 +421,7 @@ export default function LandingPage() {
                       {formatCurrency(totalLumpSum)}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      สินไหมภัยสงคราม + บำเหน็จตกทอด + ชดเชย 30 เท่า + กองทุน ทบ.
+                      สินไหมทดแทน + บำเหน็จตกทอด + ชดเชย 30 เท่า + กองทุน ทบ.
                     </p>
                   </div>
 
@@ -364,7 +435,7 @@ export default function LandingPage() {
                       {formatCurrency(totalMonthly)}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      บำนาญพิเศษทายาทตลอดชีพ + เงินเพิ่ม พ.ช.ท. รายเดือน
+                      บำนาญพิเศษทายาทตลอดชีพ + เงินเพิ่ม พ.ส.ร. รายเดือน
                     </p>
                   </div>
 
@@ -417,7 +488,7 @@ export default function LandingPage() {
                     <div className="flex items-start gap-2 bg-background/80 p-2.5 rounded-xl border border-slate-200/70 dark:border-slate-800">
                       <Award className="h-4 w-4 text-purple-600 shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-bold text-slate-800 dark:text-slate-200">สิทธิเหรียญพิทักษ์เสรีชน / กล้าหาญ</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">สิทธิเหรียญพิทักษ์เสรีชน / บางระจัน / กล้าหาญ</p>
                         <p className="text-[11px] text-muted-foreground">เสนอขอพระราชทานตามชั้นเกียรติยศ</p>
                       </div>
                     </div>
@@ -425,7 +496,7 @@ export default function LandingPage() {
                     <div className="flex items-start gap-2 bg-gradient-to-br from-amber-500/15 via-card to-card p-2.5 rounded-xl border border-amber-500/40">
                       <Award className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                       <div>
-                        <p className="font-bold text-slate-800 dark:text-slate-200">สิทธิเสนอขอเหรียญบางระจัน</p>
+                        <p className="font-bold text-slate-800 dark:text-slate-200">สิทธิเสนอขอเหรียญบ</p>
                         <p className="text-[11px] text-muted-foreground">
                           {lossType === "INJURY"
                             ? "เสนอขอพระราชทานแก่ผู้บาดเจ็บจากการสู้รบ/ปฏิบัติภารกิจ"
@@ -483,11 +554,11 @@ export default function LandingPage() {
                 title: "รับเงินครั้งเดียว (Lump Sum)",
                 rate: "1,500,000 - 8,000,000+ บาท",
                 items: [
-                  "สินไหมทดแทนประกันชีวิตภัยสงคราม ทบ.",
-                  "บำเหน็จตกทอดทายาทตามกฎหมาย",
-                  "เงินชดเชยตาม พ.ร.บ. สงเคราะห์ (30 เท่า)",
-                  "เงินเพิ่มผลต่างปูนบำเหน็จเลื่อนชั้นยศ",
-                  "เงินกองทุนสวัสดิการกองทัพบก (สก.ทบ.)",
+                  "เงินบำรุงขวัญ ทบ.",
+                  "เงินพระราชทาน",
+                  "เงินเยียวยา (สำนักนายก)",
+                  "เงินสินไหมทดแทนประกันชีวิต (พิทักษ์พล กห.หรือ ภัยสงคราม)",
+                  "เงินสินไหมทดแทนประกันชีวิต ",
                 ],
                 color: "border-amber-500/40 bg-amber-500/5",
                 badge: "เงินก้อนช่วยเหลือ",
@@ -498,9 +569,9 @@ export default function LandingPage() {
                 rate: "15,000 - 55,000+ บาท/เดือน",
                 items: [
                   "บำนาญพิเศษทายาทตามอัตราปูนบำเหน็จ",
-                  "เงินเพิ่มพิเศษสำหรับการสู้รบ (พ.ช.ท.)",
+                  "เงินเพิ่มพิเศษสำหรับการสู้รบ (พ.ส.ร.)",
                   "เงินบำนาญกำลังพลทุพพลภาพ ทบ.",
-                  "เงินสงเคราะห์รายเดือนจาก สก.ทบ.",
+                  "เงินช่วยเหลือรายเดือน (มูลนิธิสายใจไทย)",
                 ],
                 color: "border-blue-500/40 bg-blue-500/5",
                 badge: "บำนาญตลอดชีพ",
@@ -510,8 +581,8 @@ export default function LandingPage() {
                 title: "รับเงินรายปี (Annual Grants)",
                 rate: "12,000 - 30,000 บาท/คน/ปี",
                 items: [
-                  "ทุนการศึกษาบุตรกำลังพล ทบ. (สก.ทบ.)",
-                  "ทุนมูลนิธิ พล.อ.เปรม ติณสูลานนท์",
+                  "ทุนการศึกษาบุตรกำลังพล ทบ. (ไม่เกิน 3 คน)",
+                  "ทุนการศึกษาบุตร สปน.",
                   "ทุนมูลนิธิสายใจไทยในพระบรมราชูปถัมภ์",
                   "เงินสนับสนุนอุปกรณ์การศึกษารายปี",
                 ],
@@ -580,7 +651,7 @@ export default function LandingPage() {
           <div className="text-center sm:text-right text-slate-400 text-[11px] space-y-1">
             <p className="flex items-center justify-center sm:justify-end gap-1.5 text-slate-300">
               <PhoneCall className="h-3.5 w-3.5 text-amber-400" />
-              สายด่วนสวัสดิการกำลังพล กองทัพบก โทร.ทบ. 97106 หรือ 02-297-7106
+              สายด่วนสิทธิและสวัสดิการกำลังพล กองทัพบก โทร.ทบ. 97106 หรือ 02-297-7106
             </p>
             <p>© 2569 กองทัพบก (Royal Thai Army). สงวนลิขสิทธิ์ตามระเบียบทางราชการ.</p>
           </div>

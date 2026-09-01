@@ -71,6 +71,7 @@ describe("EnhancedBenefitCalculationEngine", () => {
         actionType: "DIRECT_COMBAT",
         incidentType: "COMBAT_ENGAGEMENT",
         lossType: "KIA_COMBAT_DEATH",
+        promotionSteps: 7,
       };
 
       const summary = EnhancedBenefitCalculationEngine.calculateComprehensive(

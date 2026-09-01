@@ -446,16 +446,34 @@ model BenefitProgram {
 
 model BenefitRule {
   id                 String         @id @default(cuid())
-  programId          String
-  program            BenefitProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  programId          String?
+  program            BenefitProgram? @relation(fields: [programId], references: [id], onDelete: SetNull)
   ruleCode           String
   ruleName           String
-  applicableLossType LossType?
-  applicableMission  MissionType?
-  formulaType        String         @default("MILITARY_FORMULA")
+  category           String
+  categoryName       String
+  categoryThaiName   String
+  description        String?        @db.Text
+  legalBasis         String?        @db.Text
+  paymentType        String
+  benefitScope       String?
+  causeType          String?
+  formulaType        String         @default("EXPRESSION")
+  formulaExpression  String
   multiplierFactor   Float          @default(1.0)
   baseAmount         Float          @default(0.00)
-  conditionsJson     String?        @db.Text
+  minAmount          Float?
+  maxAmount          Float?
+  allowedMissions    Json
+  allowedPersonnelCategories Json
+  allowedLossTypes   Json
+  allowedRanks       Json
+  minServiceYears    Int?
+  requiresSpouse     Boolean?
+  requiresChildren   Boolean?
+  insuranceMatrix    Json?
+  formulaTiers       Json?
+  priorityOrder      Int            @default(10)
   isActive           Boolean        @default(true)
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt

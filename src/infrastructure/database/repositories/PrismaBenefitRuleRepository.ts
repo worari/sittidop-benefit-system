@@ -1,4 +1,4 @@
-import { BenefitRule } from "@prisma/client";
+import { BenefitRule, Prisma } from "@prisma/client";
 import { prisma } from "../prisma";
 
 export class PrismaBenefitRuleRepository {
@@ -15,11 +15,11 @@ export class PrismaBenefitRuleRepository {
         return prisma.benefitRule.findFirst({ where: { ruleCode } });
     }
 
-    async create(data: Omit<BenefitRule, "id" | "createdAt" | "updatedAt">): Promise<BenefitRule> {
+    async create(data: Prisma.BenefitRuleUncheckedCreateInput): Promise<BenefitRule> {
         return prisma.benefitRule.create({ data });
     }
 
-    async update(id: string, data: Partial<BenefitRule>): Promise<BenefitRule> {
+    async update(id: string, data: Prisma.BenefitRuleUncheckedUpdateInput): Promise<BenefitRule> {
         return prisma.benefitRule.update({ where: { id }, data });
     }
 

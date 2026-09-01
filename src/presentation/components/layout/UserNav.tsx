@@ -25,8 +25,8 @@ export function UserNav() {
   const roleLabels: Record<Role, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info" | "purple" }> = {
     [Role.SUPERADMIN]: { label: "ผู้ดูแลระบบสูงสุด (SUPERADMIN)", variant: "destructive" },
     [Role.ADMIN]: { label: "ผู้ดูแลระบบกำลังพล (ADMIN)", variant: "purple" },
-    [Role.STAFF]: { label: "เจ้าหน้าที่กำลังพล (STAFF)", variant: "success" },
     [Role.COMMANDER]: { label: "ผู้บังคับบัญชา (COMMANDER)", variant: "warning" },
+    [Role.STAFF]: { label: "เจ้าหน้าที่กำลังพล (STAFF)", variant: "success" },
     [Role.AUDITOR]: { label: "ผู้ตรวจสอบภายใน (AUDITOR)", variant: "info" },
     [Role.READONLY]: { label: "กำลังพล/ทายาท (READONLY)", variant: "secondary" },
   };
@@ -85,7 +85,7 @@ export function UserNav() {
           <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-2 py-1">
             สลับสิทธิ์การใช้งาน 6 ระดับ (RBAC Role Switcher)
           </DropdownMenuLabel>
-          
+
           <DropdownMenuItem
             className="cursor-pointer text-xs flex items-center justify-between"
             onClick={() => handleQuickSwitch("superadmin@mod.go.th")}

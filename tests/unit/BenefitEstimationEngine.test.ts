@@ -72,7 +72,6 @@ describe("BenefitEstimationEngine", () => {
       const input: EstimateInput = {
         age: 45,
         hasDisability: true,
-        isDisabilityRegistered: true,
       };
       const summary = BenefitEstimationEngine.calculate(input);
 
@@ -87,7 +86,6 @@ describe("BenefitEstimationEngine", () => {
       const input: EstimateInput = {
         age: 65,
         hasDisability: true,
-        isDisabilityRegistered: true,
       };
       const summary = BenefitEstimationEngine.calculate(input);
 

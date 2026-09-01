@@ -48,7 +48,7 @@ export function UserManagementTable() {
   // Form
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
-  const [newRole, setNewRole] = useState<Role>(Role.STAFF);
+  const [newRole, setNewRole] = useState<Role>(Role.COMMANDER);
   const [newDepartment, setNewDepartment] = useState("กรมกำลังพลทหารบก (กพ.ทบ.)");
   const [newPassword, setNewPassword] = useState("password1234");
 
@@ -153,11 +153,10 @@ export function UserManagementTable() {
             <div
               key={roleKey}
               onClick={() => setRoleFilter(roleFilter === roleKey ? "ALL" : roleKey)}
-              className={`p-3 rounded-2xl border transition-all cursor-pointer space-y-1 ${
-                roleFilter === roleKey
+              className={`p-3 rounded-2xl border transition-all cursor-pointer space-y-1 ${roleFilter === roleKey
                   ? "border-emerald-600 bg-emerald-50/60 dark:bg-emerald-950/40 shadow-xs ring-1 ring-emerald-600"
                   : "border-slate-200 dark:border-slate-800 bg-card hover:border-slate-300"
-              }`}
+                }`}
             >
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-bold font-mono text-muted-foreground">{roleKey}</span>

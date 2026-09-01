@@ -6,10 +6,10 @@ export interface EstimateInput {
   nationalId?: string;
   birthDate?: string;
   age: number;
-  monthlyIncome: number;
-  hasDisability: boolean;
+  monthlyIncome?: number;
+  hasDisability?: boolean;
   disabilityType?: string;
-  hasStateWelfareCard: boolean;
+  hasStateWelfareCard?: boolean;
   livingCondition?: "ALONE" | "FAMILY" | "BEDRIDDEN" | "NURSING_HOME";
   hardshipFactors?: {
     noCaregiver?: boolean;

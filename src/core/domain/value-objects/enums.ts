@@ -1,8 +1,8 @@
 export enum Role {
   SUPERADMIN = "SUPERADMIN",
   ADMIN = "ADMIN",
-  STAFF = "STAFF",
   COMMANDER = "COMMANDER",
+  STAFF = "STAFF",
   AUDITOR = "AUDITOR",
   READONLY = "READONLY",
 }
