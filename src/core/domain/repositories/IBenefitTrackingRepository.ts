@@ -34,5 +34,10 @@ export interface IBenefitTrackingRepository {
             expectedReceiveDate?: Date;
         }
     ): Promise<BenefitTrackingEntity>;
+    update(
+        id: string,
+        data: Partial<Omit<BenefitTrackingEntity, "id" | "trackingNumber" | "createdAt" | "updatedAt">>
+    ): Promise<BenefitTrackingEntity>;
+    delete(id: string): Promise<void>;
     countByStatus(): Promise<Record<BenefitTrackingStatus, number>>;
 }

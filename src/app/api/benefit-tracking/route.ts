@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { BenefitTrackingService } from "@/core/use-cases/benefit-tracking/BenefitTrackingService";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/infrastructure/auth/auth-options";
+import { authorizePermission } from "@/infrastructure/auth/rbac-guard";
+import { Permission } from "@/core/domain/security/rbac";
 import { BenefitTrackingStatus } from "@/core/domain/value-objects/enums";
 
 const trackingService = new BenefitTrackingService();
@@ -39,8 +39,10 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+    const auth = await authorizePermission(Permission.MANAGE_BENEFIT_TRACKING, req);
+    if (!auth.authorized) return auth.response!;
+
     try {
-        const session = await getServerSession(authOptions);
         const body = await req.json();
 
         const newTracking = await trackingService.createTracking({
@@ -56,8 +58,8 @@ export async function POST(req: NextRequest) {
             recipientName: body.recipientName,
             notes: body.notes,
             expectedReceiveDate: body.expectedReceiveDate,
-            userId: (session?.user as any)?.id || "usr-staff-army",
-            userName: session?.user?.name || "พันตรี นพดล สายสวัสดิการ",
+            userId: auth.user?.id,
+            userName: auth.user?.name,
         });
 
         return NextResponse.json({ success: true, data: newTracking }, { status: 201 });

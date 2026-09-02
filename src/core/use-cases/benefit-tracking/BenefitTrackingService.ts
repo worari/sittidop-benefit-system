@@ -396,4 +396,78 @@ export class BenefitTrackingService {
     public async getStatusCounts(): Promise<Record<BenefitTrackingStatus, number>> {
         return await this.trackingRepo.countByStatus();
     }
+
+    public async updateTracking(data: {
+        trackingId: string;
+        benefitName?: string;
+        requestedAmount?: number;
+        notes?: string;
+        officerNotes?: string;
+        expectedReceiveDate?: string;
+        paymentMethod?: string;
+        bankName?: string;
+        bankAccountNumber?: string;
+        recipientName?: string;
+        updatedByUserId?: string;
+        updatedByUserName?: string;
+    }): Promise<BenefitTrackingEntity> {
+        const updateData: any = {};
+        if (data.benefitName !== undefined) updateData.benefitName = data.benefitName;
+        if (data.requestedAmount !== undefined) updateData.requestedAmount = data.requestedAmount;
+        if (data.notes !== undefined) updateData.notes = data.notes;
+        if (data.officerNotes !== undefined) updateData.officerNotes = data.officerNotes;
+        if (data.expectedReceiveDate !== undefined) updateData.expectedReceiveDate = data.expectedReceiveDate ? new Date(data.expectedReceiveDate) : null;
+        if (data.paymentMethod !== undefined) updateData.paymentMethod = data.paymentMethod;
+        if (data.bankName !== undefined) updateData.bankName = data.bankName;
+        if (data.bankAccountNumber !== undefined) updateData.bankAccountNumber = data.bankAccountNumber;
+        if (data.recipientName !== undefined) updateData.recipientName = data.recipientName;
+        if (data.updatedByUserId !== undefined) updateData.updatedByUserId = data.updatedByUserId;
+
+        const updated = await this.trackingRepo.update(data.trackingId, updateData);
+
+        await AuditLogger.log({
+            userId: data.updatedByUserId,
+            userName: data.updatedByUserName,
+            action: "TRACKING_UPDATED",
+            resource: "BenefitTracking",
+            resourceId: data.trackingId,
+            details: {
+                updatedFields: Object.keys(updateData),
+            },
+        });
+
+        return updated;
+    }
+
+    public async deleteTracking(data: {
+        trackingId: string;
+        deletedByUserId?: string;
+        deletedByUserName?: string;
+    }): Promise<void> {
+        const tracking = await this.trackingRepo.findById(data.trackingId);
+        if (!tracking) {
+            throw new Error("ไม่พบรายการติดตามสถานะที่ระบุ");
+        }
+
+        if (tracking.status === BenefitTrackingStatus.APPROVED || tracking.status === BenefitTrackingStatus.DISBURSED || tracking.status === BenefitTrackingStatus.RECEIVED) {
+            throw new Error("ไม่สามารถลบรายการที่อนุมัติแล้วหรือโอนเงินแล้วได้ กรุณายกเลิกรายการแทน");
+        }
+
+        await this.trackingRepo.delete(data.trackingId);
+
+        await AuditLogger.log({
+            userId: data.deletedByUserId,
+            userName: data.deletedByUserName,
+            action: "TRACKING_DELETED",
+            resource: "BenefitTracking",
+            resourceId: data.trackingId,
+            details: {
+                trackingNumber: tracking.trackingNumber,
+                benefitName: tracking.benefitName,
+                citizenName: tracking.citizenName,
+                status: tracking.status,
+                requestedAmount: tracking.requestedAmount,
+            },
+        });
+    }
 }

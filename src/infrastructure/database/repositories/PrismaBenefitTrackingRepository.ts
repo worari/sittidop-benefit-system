@@ -297,6 +297,7 @@ export class PrismaBenefitTrackingRepository implements IBenefitTrackingReposito
         if (status === BenefitTrackingStatus.DISBURSED) dataToUpdate.disbursementDate = now;
         if (status === BenefitTrackingStatus.RECEIVED) dataToUpdate.receivedDate = now;
         if (status === BenefitTrackingStatus.REJECTED) dataToUpdate.rejectionDate = now;
+        if (status === BenefitTrackingStatus.CANCELLED) dataToUpdate.rejectionDate = now;
 
         try {
             await prisma.benefitTracking.update({ where: { id }, data: dataToUpdate });
@@ -326,6 +327,49 @@ export class PrismaBenefitTrackingRepository implements IBenefitTrackingReposito
         tracking.updatedAt = now;
 
         return tracking;
+    }
+
+    async update(
+        id: string,
+        data: Partial<Omit<BenefitTrackingEntity, "id" | "trackingNumber" | "createdAt" | "updatedAt">>
+    ): Promise<BenefitTrackingEntity> {
+        const dataToUpdate: any = {};
+        if (data.status !== undefined) dataToUpdate.status = data.status as any;
+        if (data.benefitName !== undefined) dataToUpdate.benefitName = data.benefitName;
+        if (data.requestedAmount !== undefined) dataToUpdate.requestedAmount = data.requestedAmount;
+        if (data.approvedAmount !== undefined) dataToUpdate.approvedAmount = data.approvedAmount;
+        if (data.disbursedAmount !== undefined) dataToUpdate.disbursedAmount = data.disbursedAmount;
+        if (data.paymentMethod !== undefined) dataToUpdate.paymentMethod = data.paymentMethod;
+        if (data.bankName !== undefined) dataToUpdate.bankName = data.bankName;
+        if (data.bankAccountNumber !== undefined) dataToUpdate.bankAccountNumber = data.bankAccountNumber;
+        if (data.recipientName !== undefined) dataToUpdate.recipientName = data.recipientName;
+        if (data.notes !== undefined) dataToUpdate.notes = data.notes;
+        if (data.officerNotes !== undefined) dataToUpdate.officerNotes = data.officerNotes;
+        if (data.expectedReceiveDate !== undefined) dataToUpdate.expectedReceiveDate = data.expectedReceiveDate;
+        if (data.updatedByUserId !== undefined) dataToUpdate.updatedByUserId = data.updatedByUserId;
+
+        try {
+            await prisma.benefitTracking.update({ where: { id }, data: dataToUpdate });
+        } catch {
+            // fallback
+        }
+
+        const idx = storeManager.benefitTrackings.findIndex((t) => t.id === id);
+        if (idx === -1) throw new Error("BenefitTracking not found");
+
+        const tracking = storeManager.benefitTrackings[idx];
+        Object.assign(tracking, data, { updatedAt: new Date() });
+        return tracking;
+    }
+
+    async delete(id: string): Promise<void> {
+        try {
+            await prisma.benefitTracking.delete({ where: { id } });
+        } catch {
+            // fallback
+        }
+        const idx = storeManager.benefitTrackings.findIndex((t) => t.id === id);
+        if (idx !== -1) storeManager.benefitTrackings.splice(idx, 1);
     }
 
     async countByStatus(): Promise<Record<BenefitTrackingStatus, number>> {

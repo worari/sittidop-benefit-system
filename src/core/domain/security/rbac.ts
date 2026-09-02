@@ -30,6 +30,11 @@ export enum Permission {
   VIEW_REPORTS = "VIEW_REPORTS",
   EXPORT_REPORTS = "EXPORT_REPORTS",
 
+  // Benefit Tracking
+  MANAGE_BENEFIT_TRACKING = "MANAGE_BENEFIT_TRACKING",
+  VIEW_BENEFIT_TRACKING = "VIEW_BENEFIT_TRACKING",
+  UPDATE_BENEFIT_STATUS = "UPDATE_BENEFIT_STATUS",
+
   // Audit Logs & Security
   VIEW_AUDIT_LOGS = "VIEW_AUDIT_LOGS",
   MANAGE_SYSTEM = "MANAGE_SYSTEM",
@@ -50,6 +55,9 @@ export const RolePermissions: Record<Role, Permission[]> = {
     Permission.EXPORT_DOCUMENTS,
     Permission.VIEW_DOCUMENTS,
     Permission.IMPORT_EXCEL,
+    Permission.MANAGE_BENEFIT_TRACKING,
+    Permission.VIEW_BENEFIT_TRACKING,
+    Permission.UPDATE_BENEFIT_STATUS,
     Permission.VIEW_REPORTS,
     Permission.EXPORT_REPORTS,
     Permission.VIEW_AUDIT_LOGS,
@@ -69,6 +77,9 @@ export const RolePermissions: Record<Role, Permission[]> = {
     Permission.EXPORT_DOCUMENTS,
     Permission.VIEW_DOCUMENTS,
     Permission.IMPORT_EXCEL,
+    Permission.MANAGE_BENEFIT_TRACKING,
+    Permission.VIEW_BENEFIT_TRACKING,
+    Permission.UPDATE_BENEFIT_STATUS,
     Permission.VIEW_REPORTS,
     Permission.EXPORT_REPORTS,
     Permission.VIEW_AUDIT_LOGS,
@@ -79,6 +90,8 @@ export const RolePermissions: Record<Role, Permission[]> = {
     Permission.VIEW_FAMILY,
     Permission.VIEW_RULES,
     Permission.EXECUTE_CALCULATION,
+    Permission.VIEW_BENEFIT_TRACKING,
+    Permission.UPDATE_BENEFIT_STATUS,
     Permission.SIGN_DOCUMENTS,
     Permission.EXPORT_DOCUMENTS,
     Permission.VIEW_DOCUMENTS,
@@ -94,6 +107,8 @@ export const RolePermissions: Record<Role, Permission[]> = {
     Permission.VIEW_FAMILY,
     Permission.VIEW_RULES,
     Permission.EXECUTE_CALCULATION,
+    Permission.VIEW_BENEFIT_TRACKING,
+    Permission.UPDATE_BENEFIT_STATUS,
     Permission.EXPORT_DOCUMENTS,
     Permission.VIEW_DOCUMENTS,
     Permission.IMPORT_EXCEL,
@@ -104,6 +119,7 @@ export const RolePermissions: Record<Role, Permission[]> = {
     Permission.VIEW_PERSONNEL,
     Permission.VIEW_FAMILY,
     Permission.VIEW_RULES,
+    Permission.VIEW_BENEFIT_TRACKING,
     Permission.VIEW_DOCUMENTS,
     Permission.VIEW_REPORTS,
     Permission.EXPORT_REPORTS,
@@ -115,6 +131,7 @@ export const RolePermissions: Record<Role, Permission[]> = {
     Permission.VIEW_FAMILY,
     Permission.VIEW_RULES,
     Permission.EXECUTE_CALCULATION,
+    Permission.VIEW_BENEFIT_TRACKING,
     Permission.VIEW_DOCUMENTS,
   ],
 };
@@ -129,6 +146,7 @@ export const RouteAccessRules: { path: string; roles: Role[] }[] = [
   { path: "/documents", roles: [Role.SUPERADMIN, Role.ADMIN, Role.COMMANDER, Role.STAFF, Role.AUDITOR, Role.READONLY] },
   { path: "/import", roles: [Role.SUPERADMIN, Role.ADMIN, Role.COMMANDER, Role.STAFF] },
   { path: "/reports", roles: [Role.SUPERADMIN, Role.ADMIN, Role.COMMANDER, Role.STAFF, Role.AUDITOR] },
+  { path: "/benefit-tracking", roles: [Role.SUPERADMIN, Role.ADMIN, Role.COMMANDER, Role.STAFF, Role.AUDITOR, Role.READONLY] },
   { path: "/users", roles: [Role.SUPERADMIN, Role.ADMIN] },
   { path: "/audit-logs", roles: [Role.SUPERADMIN, Role.AUDITOR] },
 ];

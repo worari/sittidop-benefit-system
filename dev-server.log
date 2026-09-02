@@ -10,108 +10,33 @@
      · serverActions
 
  ✓ Starting...
- ✓ Ready in 2.3s
- ○ Compiling /login ...
- ✓ Compiled /login in 3.4s (786 modules)
- GET /login 200 in 3897ms
- ✓ Compiled in 662ms (329 modules)
- ○ Compiling /api/military/ranks ...
- ✓ Compiled /api/military/ranks in 941ms (794 modules)
-prisma:query 
-                SELECT enum_range(NULL::"MilitaryRank") AS enum_values
-            
- GET /api/military/ranks 200 in 1298ms
- ✓ Compiled /api/military/units in 178ms (796 modules)
-prisma:query SELECT "public"."MilitaryPersonnel"."id", "public"."MilitaryPersonnel"."normalUnit" FROM "public"."MilitaryPersonnel" WHERE "public"."MilitaryPersonnel"."normalUnit" <> $1 ORDER BY "public"."MilitaryPersonnel"."id" ASC OFFSET $2
-prisma:query SELECT "public"."MilitaryPersonnel"."id", "public"."MilitaryPersonnel"."fieldUnit" FROM "public"."MilitaryPersonnel" WHERE "public"."MilitaryPersonnel"."fieldUnit" IS NOT NULL ORDER BY "public"."MilitaryPersonnel"."id" ASC OFFSET $1
- GET /api/military/units 200 in 241ms
- ○ Compiling /api/rules ...
+ ✓ Ready in 2.1s
+ ○ Compiling /benefit-tracking ...
 Watchpack Error (initial scan): Error: EINVAL: invalid argument, lstat 'C:\DumpStack.log.tmp'
-Watchpack Error (initial scan): Error: EINVAL: invalid argument, lstat 'C:\pagefile.sys'
 Watchpack Error (initial scan): Error: EINVAL: invalid argument, lstat 'C:\hiberfil.sys'
+Watchpack Error (initial scan): Error: EINVAL: invalid argument, lstat 'C:\pagefile.sys'
 Watchpack Error (initial scan): Error: EINVAL: invalid argument, lstat 'C:\swapfile.sys'
- ✓ Compiled /api/rules in 659ms (1043 modules)
-prisma:query SELECT "public"."BenefitRule"."id", "public"."BenefitRule"."programId", "public"."BenefitRule"."ruleCode", "public"."BenefitRule"."ruleName", "public"."BenefitRule"."category", "public"."BenefitRule"."categoryName", "public"."BenefitRule"."categoryThaiName", "public"."BenefitRule"."description", "public"."BenefitRule"."legalBasis", "public"."BenefitRule"."paymentType", "public"."BenefitRule"."benefitScope", "public"."BenefitRule"."causeType", "public"."BenefitRule"."formulaType", "public"."BenefitRule"."formulaExpression", "public"."BenefitRule"."multiplierFactor", "public"."BenefitRule"."baseAmount", "public"."BenefitRule"."minAmount", "public"."BenefitRule"."maxAmount", "public"."BenefitRule"."allowedMissions", "public"."BenefitRule"."allowedPersonnelCategories", "public"."BenefitRule"."allowedLossTypes", "public"."BenefitRule"."allowedRanks", "public"."BenefitRule"."minServiceYears", "public"."BenefitRule"."requiresSpouse", "public"."BenefitRule"."requiresChildren", "public"."BenefitRule"."insuranceMatrix", "public"."BenefitRule"."formulaTiers", "public"."BenefitRule"."priorityOrder", "public"."BenefitRule"."isActive", "public"."BenefitRule"."createdAt", "public"."BenefitRule"."updatedAt" FROM "public"."BenefitRule" WHERE 1=1 OFFSET $1
- GET /api/rules 200 in 1255ms
- ○ Compiling /calculator ...
- ✓ Compiled /calculator in 1370ms (1286 modules)
- GET /calculator 200 in 1525ms
- ✓ Compiled /api/personnel in 329ms (1292 modules)
- GET /api/personnel 200 in 451ms
- GET /api/personnel 200 in 16ms
-prisma:query SELECT 1
-prisma:query INSERT INTO "public"."AuditLog" ("id","userId","userName","role","action","resource","resourceId","detailsJson","ipAddress","userAgent","timestamp") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING "public"."AuditLog"."id", "public"."AuditLog"."userId", "public"."AuditLog"."userName", "public"."AuditLog"."role", "public"."AuditLog"."action", "public"."AuditLog"."resource", "public"."AuditLog"."resourceId", "public"."AuditLog"."detailsJson", "public"."AuditLog"."ipAddress", "public"."AuditLog"."userAgent", "public"."AuditLog"."timestamp"
-prisma:error 
-Invalid `prisma.auditLog.create()` invocation:
-
-
-Foreign key constraint violated: `AuditLog_userId_fkey (index)`
- POST /api/personnel 200 in 55ms
- GET /api/personnel 200 in 18ms
-prisma:query INSERT INTO "public"."AuditLog" ("id","userId","userName","role","action","resource","resourceId","detailsJson","ipAddress","userAgent","timestamp") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING "public"."AuditLog"."id", "public"."AuditLog"."userId", "public"."AuditLog"."userName", "public"."AuditLog"."role", "public"."AuditLog"."action", "public"."AuditLog"."resource", "public"."AuditLog"."resourceId", "public"."AuditLog"."detailsJson", "public"."AuditLog"."ipAddress", "public"."AuditLog"."userAgent", "public"."AuditLog"."timestamp"
-prisma:error 
-Invalid `prisma.auditLog.create()` invocation:
-
-
-Foreign key constraint violated: `AuditLog_userId_fkey (index)`
- POST /api/personnel 200 in 30ms
- GET /api/personnel 200 in 16ms
-prisma:query INSERT INTO "public"."AuditLog" ("id","userId","userName","role","action","resource","resourceId","detailsJson","ipAddress","userAgent","timestamp") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING "public"."AuditLog"."id", "public"."AuditLog"."userId", "public"."AuditLog"."userName", "public"."AuditLog"."role", "public"."AuditLog"."action", "public"."AuditLog"."resource", "public"."AuditLog"."resourceId", "public"."AuditLog"."detailsJson", "public"."AuditLog"."ipAddress", "public"."AuditLog"."userAgent", "public"."AuditLog"."timestamp"
-prisma:error 
-Invalid `prisma.auditLog.create()` invocation:
-
-
-Foreign key constraint violated: `AuditLog_userId_fkey (index)`
- POST /api/personnel 200 in 39ms
- GET /api/personnel 200 in 16ms
-prisma:query INSERT INTO "public"."AuditLog" ("id","userId","userName","role","action","resource","resourceId","detailsJson","ipAddress","userAgent","timestamp") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING "public"."AuditLog"."id", "public"."AuditLog"."userId", "public"."AuditLog"."userName", "public"."AuditLog"."role", "public"."AuditLog"."action", "public"."AuditLog"."resource", "public"."AuditLog"."resourceId", "public"."AuditLog"."detailsJson", "public"."AuditLog"."ipAddress", "public"."AuditLog"."userAgent", "public"."AuditLog"."timestamp"
-prisma:error 
-Invalid `prisma.auditLog.create()` invocation:
-
-
-Foreign key constraint violated: `AuditLog_userId_fkey (index)`
- POST /api/personnel 200 in 38ms
- GET /api/personnel 200 in 16ms
- ✓ Compiled /api/personnel/[id] in 313ms (1291 modules)
-prisma:query INSERT INTO "public"."AuditLog" ("id","userId","userName","role","action","resource","resourceId","detailsJson","ipAddress","userAgent","timestamp") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING "public"."AuditLog"."id", "public"."AuditLog"."userId", "public"."AuditLog"."userName", "public"."AuditLog"."role", "public"."AuditLog"."action", "public"."AuditLog"."resource", "public"."AuditLog"."resourceId", "public"."AuditLog"."detailsJson", "public"."AuditLog"."ipAddress", "public"."AuditLog"."userAgent", "public"."AuditLog"."timestamp"
-prisma:error 
-Invalid `prisma.auditLog.create()` invocation:
-
-
-Foreign key constraint violated: `AuditLog_userId_fkey (index)`
- DELETE /api/personnel/mil-965255 200 in 1425ms
- GET /api/personnel 200 in 20ms
-prisma:query SELECT 1
-prisma:query INSERT INTO "public"."AuditLog" ("id","userId","userName","role","action","resource","resourceId","detailsJson","ipAddress","userAgent","timestamp") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING "public"."AuditLog"."id", "public"."AuditLog"."userId", "public"."AuditLog"."userName", "public"."AuditLog"."role", "public"."AuditLog"."action", "public"."AuditLog"."resource", "public"."AuditLog"."resourceId", "public"."AuditLog"."detailsJson", "public"."AuditLog"."ipAddress", "public"."AuditLog"."userAgent", "public"."AuditLog"."timestamp"
-prisma:error 
-Invalid `prisma.auditLog.create()` invocation:
-
-
-Foreign key constraint violated: `AuditLog_userId_fkey (index)`
- DELETE /api/personnel/mil-002 200 in 69ms
- GET /api/personnel 200 in 21ms
- ✓ Compiled /heirs in 437ms (1305 modules)
- GET /heirs 200 in 535ms
- GET /api/personnel 200 in 62ms
- GET /api/personnel 200 in 15ms
- ✓ Compiled /family in 320ms (1321 modules)
- GET /family 200 in 437ms
- GET /api/personnel 200 in 53ms
- GET /api/personnel 200 in 14ms
- ○ Compiling /personnel ...
- ✓ Compiled /personnel in 628ms (1341 modules)
- GET /personnel 200 in 714ms
- GET /api/personnel 200 in 57ms
- GET /api/personnel 200 in 15ms
- ○ Compiling /rules ...
- ✓ Compiled /rules in 575ms (1383 modules)
- GET /rules 200 in 695ms
- ✓ Compiled /api/rules/dimensions in 255ms (902 modules)
- ✓ Compiled in 274ms (484 modules)
- GET /api/rules/dimensions 200 in 714ms
+ ✓ Compiled /benefit-tracking in 3.3s (1267 modules)
+prisma:query SELECT COUNT(*) FROM (SELECT "public"."BenefitTracking"."id" FROM "public"."BenefitTracking" WHERE 1=1 OFFSET $1) AS "sub"
+prisma:query SELECT "public"."BenefitTracking"."id", "public"."BenefitTracking"."trackingNumber", "public"."BenefitTracking"."applicationId", "public"."BenefitTracking"."estimateId", "public"."BenefitTracking"."sourceType", "public"."BenefitTracking"."citizenId", "public"."BenefitTracking"."programId", "public"."BenefitTracking"."benefitName", "public"."BenefitTracking"."benefitCategory"::text, "public"."BenefitTracking"."requestedAmount", "public"."BenefitTracking"."approvedAmount", "public"."BenefitTracking"."disbursedAmount", "public"."BenefitTracking"."status"::text, "public"."BenefitTracking"."submissionDate", "public"."BenefitTracking"."approvalDate", "public"."BenefitTracking"."disbursementDate", "public"."BenefitTracking"."receivedDate", "public"."BenefitTracking"."rejectionDate", "public"."BenefitTracking"."expectedReceiveDate", "public"."BenefitTracking"."paymentReference", "public"."BenefitTracking"."paymentMethod", "public"."BenefitTracking"."bankName", "public"."BenefitTracking"."bankAccountNumber", "public"."BenefitTracking"."recipientName", "public"."BenefitTracking"."notes", "public"."BenefitTracking"."officerNotes", "public"."BenefitTracking"."documentsJson", "public"."BenefitTracking"."createdByUserId", "public"."BenefitTracking"."updatedByUserId", "public"."BenefitTracking"."createdAt", "public"."BenefitTracking"."updatedAt", "public"."BenefitTracking"."userId" FROM "public"."BenefitTracking" WHERE 1=1 ORDER BY "public"."BenefitTracking"."submissionDate" DESC LIMIT $1 OFFSET $2
+prisma:query SELECT COUNT("public"."BenefitTracking"."status"), "public"."BenefitTracking"."status"::text FROM "public"."BenefitTracking" WHERE 1=1 GROUP BY "public"."BenefitTracking"."status" OFFSET $1
+prisma:query SELECT "public"."BenefitEstimate"."id", "public"."BenefitEstimate"."nationalId", "public"."BenefitEstimate"."citizenId", "public"."BenefitEstimate"."estimateNumber", "public"."BenefitEstimate"."age", "public"."BenefitEstimate"."calculatedAge", "public"."BenefitEstimate"."monthlyIncome", "public"."BenefitEstimate"."inputMonthlyIncome", "public"."BenefitEstimate"."hasDisability", "public"."BenefitEstimate"."hasStateWelfareCard", "public"."BenefitEstimate"."isDisabilityRegistered", "public"."BenefitEstimate"."disabilityType", "public"."BenefitEstimate"."livingCondition", "public"."BenefitEstimate"."hardshipScore", "public"."BenefitEstimate"."vulnerabilityScore", "public"."BenefitEstimate"."vulnerabilityLevel"::text, "public"."BenefitEstimate"."eligibleProgramsCount", "public"."BenefitEstimate"."totalMonthlyEstimate", "public"."BenefitEstimate"."totalOneTimeEstimate", "public"."BenefitEstimate"."totalAnnualEstimate", "public"."BenefitEstimate"."annualTotalEstimate", "public"."BenefitEstimate"."breakdownJson", "public"."BenefitEstimate"."summaryNotes", "public"."BenefitEstimate"."estimateBreakdownJson", "public"."BenefitEstimate"."recommendationsJson", "public"."BenefitEstimate"."ipAddress", "public"."BenefitEstimate"."createdAt" FROM "public"."BenefitEstimate" WHERE 1=1 ORDER BY "public"."BenefitEstimate"."createdAt" DESC LIMIT $1 OFFSET $2
+ GET /benefit-tracking 200 in 4563ms
+ ✓ Compiled in 1278ms (439 modules)
+ ○ Compiling /api/benefit-tracking ...
+ ✓ Compiled /api/benefit-tracking in 760ms (1275 modules)
+prisma:query SELECT COUNT(*) FROM (SELECT "public"."BenefitTracking"."id" FROM "public"."BenefitTracking" WHERE 1=1 OFFSET $1) AS "sub"
+prisma:query SELECT "public"."BenefitTracking"."id", "public"."BenefitTracking"."trackingNumber", "public"."BenefitTracking"."applicationId", "public"."BenefitTracking"."estimateId", "public"."BenefitTracking"."sourceType", "public"."BenefitTracking"."citizenId", "public"."BenefitTracking"."programId", "public"."BenefitTracking"."benefitName", "public"."BenefitTracking"."benefitCategory"::text, "public"."BenefitTracking"."requestedAmount", "public"."BenefitTracking"."approvedAmount", "public"."BenefitTracking"."disbursedAmount", "public"."BenefitTracking"."status"::text, "public"."BenefitTracking"."submissionDate", "public"."BenefitTracking"."approvalDate", "public"."BenefitTracking"."disbursementDate", "public"."BenefitTracking"."receivedDate", "public"."BenefitTracking"."rejectionDate", "public"."BenefitTracking"."expectedReceiveDate", "public"."BenefitTracking"."paymentReference", "public"."BenefitTracking"."paymentMethod", "public"."BenefitTracking"."bankName", "public"."BenefitTracking"."bankAccountNumber", "public"."BenefitTracking"."recipientName", "public"."BenefitTracking"."notes", "public"."BenefitTracking"."officerNotes", "public"."BenefitTracking"."documentsJson", "public"."BenefitTracking"."createdByUserId", "public"."BenefitTracking"."updatedByUserId", "public"."BenefitTracking"."createdAt", "public"."BenefitTracking"."updatedAt", "public"."BenefitTracking"."userId" FROM "public"."BenefitTracking" WHERE 1=1 ORDER BY "public"."BenefitTracking"."submissionDate" DESC LIMIT $1 OFFSET $2
+ GET /api/benefit-tracking 200 in 1002ms
+prisma:query SELECT COUNT(*) FROM (SELECT "public"."BenefitTracking"."id" FROM "public"."BenefitTracking" WHERE "public"."BenefitTracking"."status" = CAST($1::text AS "public"."BenefitTrackingStatus") OFFSET $2) AS "sub"
+prisma:query SELECT "public"."BenefitTracking"."id", "public"."BenefitTracking"."trackingNumber", "public"."BenefitTracking"."applicationId", "public"."BenefitTracking"."estimateId", "public"."BenefitTracking"."sourceType", "public"."BenefitTracking"."citizenId", "public"."BenefitTracking"."programId", "public"."BenefitTracking"."benefitName", "public"."BenefitTracking"."benefitCategory"::text, "public"."BenefitTracking"."requestedAmount", "public"."BenefitTracking"."approvedAmount", "public"."BenefitTracking"."disbursedAmount", "public"."BenefitTracking"."status"::text, "public"."BenefitTracking"."submissionDate", "public"."BenefitTracking"."approvalDate", "public"."BenefitTracking"."disbursementDate", "public"."BenefitTracking"."receivedDate", "public"."BenefitTracking"."rejectionDate", "public"."BenefitTracking"."expectedReceiveDate", "public"."BenefitTracking"."paymentReference", "public"."BenefitTracking"."paymentMethod", "public"."BenefitTracking"."bankName", "public"."BenefitTracking"."bankAccountNumber", "public"."BenefitTracking"."recipientName", "public"."BenefitTracking"."notes", "public"."BenefitTracking"."officerNotes", "public"."BenefitTracking"."documentsJson", "public"."BenefitTracking"."createdByUserId", "public"."BenefitTracking"."updatedByUserId", "public"."BenefitTracking"."createdAt", "public"."BenefitTracking"."updatedAt", "public"."BenefitTracking"."userId" FROM "public"."BenefitTracking" WHERE "public"."BenefitTracking"."status" = CAST($1::text AS "public"."BenefitTrackingStatus") ORDER BY "public"."BenefitTracking"."submissionDate" DESC LIMIT $2 OFFSET $3
+ GET /api/benefit-tracking?status=PENDING 200 in 50ms
+ ✓ Compiled in 369ms (440 modules)
+prisma:query SELECT COUNT(*) FROM (SELECT "public"."BenefitTracking"."id" FROM "public"."BenefitTracking" WHERE "public"."BenefitTracking"."status" = CAST($1::text AS "public"."BenefitTrackingStatus") OFFSET $2) AS "sub"
+prisma:query SELECT "public"."BenefitTracking"."id", "public"."BenefitTracking"."trackingNumber", "public"."BenefitTracking"."applicationId", "public"."BenefitTracking"."estimateId", "public"."BenefitTracking"."sourceType", "public"."BenefitTracking"."citizenId", "public"."BenefitTracking"."programId", "public"."BenefitTracking"."benefitName", "public"."BenefitTracking"."benefitCategory"::text, "public"."BenefitTracking"."requestedAmount", "public"."BenefitTracking"."approvedAmount", "public"."BenefitTracking"."disbursedAmount", "public"."BenefitTracking"."status"::text, "public"."BenefitTracking"."submissionDate", "public"."BenefitTracking"."approvalDate", "public"."BenefitTracking"."disbursementDate", "public"."BenefitTracking"."receivedDate", "public"."BenefitTracking"."rejectionDate", "public"."BenefitTracking"."expectedReceiveDate", "public"."BenefitTracking"."paymentReference", "public"."BenefitTracking"."paymentMethod", "public"."BenefitTracking"."bankName", "public"."BenefitTracking"."bankAccountNumber", "public"."BenefitTracking"."recipientName", "public"."BenefitTracking"."notes", "public"."BenefitTracking"."officerNotes", "public"."BenefitTracking"."documentsJson", "public"."BenefitTracking"."createdByUserId", "public"."BenefitTracking"."updatedByUserId", "public"."BenefitTracking"."createdAt", "public"."BenefitTracking"."updatedAt", "public"."BenefitTracking"."userId" FROM "public"."BenefitTracking" WHERE "public"."BenefitTracking"."status" = CAST($1::text AS "public"."BenefitTrackingStatus") ORDER BY "public"."BenefitTracking"."submissionDate" DESC LIMIT $2 OFFSET $3
+ GET /api/benefit-tracking?status=APPROVED 200 in 19ms
+ ✓ Compiled /api/rules in 296ms (1264 modules)
 prisma:query SELECT 1
 prisma:query SELECT "public"."BenefitRule"."id", "public"."BenefitRule"."programId", "public"."BenefitRule"."ruleCode", "public"."BenefitRule"."ruleName", "public"."BenefitRule"."category", "public"."BenefitRule"."categoryName", "public"."BenefitRule"."categoryThaiName", "public"."BenefitRule"."description", "public"."BenefitRule"."legalBasis", "public"."BenefitRule"."paymentType", "public"."BenefitRule"."benefitScope", "public"."BenefitRule"."causeType", "public"."BenefitRule"."formulaType", "public"."BenefitRule"."formulaExpression", "public"."BenefitRule"."multiplierFactor", "public"."BenefitRule"."baseAmount", "public"."BenefitRule"."minAmount", "public"."BenefitRule"."maxAmount", "public"."BenefitRule"."allowedMissions", "public"."BenefitRule"."allowedPersonnelCategories", "public"."BenefitRule"."allowedLossTypes", "public"."BenefitRule"."allowedRanks", "public"."BenefitRule"."minServiceYears", "public"."BenefitRule"."requiresSpouse", "public"."BenefitRule"."requiresChildren", "public"."BenefitRule"."insuranceMatrix", "public"."BenefitRule"."formulaTiers", "public"."BenefitRule"."priorityOrder", "public"."BenefitRule"."isActive", "public"."BenefitRule"."createdAt", "public"."BenefitRule"."updatedAt" FROM "public"."BenefitRule" WHERE 1=1 OFFSET $1
- GET /api/rules 200 in 736ms
- GET /api/rules/dimensions 200 in 22ms
-prisma:query SELECT "public"."BenefitRule"."id", "public"."BenefitRule"."programId", "public"."BenefitRule"."ruleCode", "public"."BenefitRule"."ruleName", "public"."BenefitRule"."category", "public"."BenefitRule"."categoryName", "public"."BenefitRule"."categoryThaiName", "public"."BenefitRule"."description", "public"."BenefitRule"."legalBasis", "public"."BenefitRule"."paymentType", "public"."BenefitRule"."benefitScope", "public"."BenefitRule"."causeType", "public"."BenefitRule"."formulaType", "public"."BenefitRule"."formulaExpression", "public"."BenefitRule"."multiplierFactor", "public"."BenefitRule"."baseAmount", "public"."BenefitRule"."minAmount", "public"."BenefitRule"."maxAmount", "public"."BenefitRule"."allowedMissions", "public"."BenefitRule"."allowedPersonnelCategories", "public"."BenefitRule"."allowedLossTypes", "public"."BenefitRule"."allowedRanks", "public"."BenefitRule"."minServiceYears", "public"."BenefitRule"."requiresSpouse", "public"."BenefitRule"."requiresChildren", "public"."BenefitRule"."insuranceMatrix", "public"."BenefitRule"."formulaTiers", "public"."BenefitRule"."priorityOrder", "public"."BenefitRule"."isActive", "public"."BenefitRule"."createdAt", "public"."BenefitRule"."updatedAt" FROM "public"."BenefitRule" WHERE 1=1 OFFSET $1
- GET /api/rules 200 in 21ms
+ GET /api/rules 200 in 440ms
+Watchpack Error (stats): Error: EINVAL: invalid argument, lstat 'C:\pagefile.sys'

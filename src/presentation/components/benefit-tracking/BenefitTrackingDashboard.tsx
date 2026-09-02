@@ -42,6 +42,8 @@ import {
     Send,
     Sparkles,
     X,
+    PencilLine,
+    Trash2,
 } from "lucide-react";
 
 interface BenefitTrackingDashboardProps {
@@ -114,6 +116,15 @@ export function BenefitTrackingDashboard({
     const [officerNotes, setOfficerNotes] = useState<string>("");
     const [isProcessing, setIsProcessing] = useState(false);
     const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+
+    const [editModalOpen, setEditModalOpen] = useState(false);
+    const [editBenefitName, setEditBenefitName] = useState("");
+    const [editRequestedAmount, setEditRequestedAmount] = useState<number>(0);
+    const [editNotes, setEditNotes] = useState("");
+    const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState<BenefitTrackingEntity | null>(null);
+    const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+    const [cancelTarget, setCancelTarget] = useState<BenefitTrackingEntity | null>(null);
 
     const filteredTrackings = useMemo(() => {
         return trackings.filter((t) => {
@@ -196,6 +207,104 @@ export function BenefitTrackingDashboard({
             setIsProcessing(false);
         }
     };
+
+    const handleOpenEdit = (tracking: BenefitTrackingEntity) => {
+        setSelectedTracking(tracking);
+        setEditBenefitName(tracking.benefitName);
+        setEditRequestedAmount(tracking.requestedAmount);
+        setEditNotes(tracking.notes || "");
+        setEditModalOpen(true);
+    };
+
+    const handleSubmitEdit = async () => {
+        if (!selectedTracking) return;
+        setIsProcessing(true);
+        try {
+            const res = await fetch(`/api/benefit-tracking/${selectedTracking.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    benefitName: editBenefitName,
+                    requestedAmount: Number(editRequestedAmount),
+                    notes: editNotes,
+                }),
+            });
+            if (res.ok) {
+                const json = await res.json();
+                setTrackings((prev) => prev.map((t) => (t.id === selectedTracking.id ? json.data : t)));
+                setFeedbackMessage(`แก้ไขรายการ ${selectedTracking.trackingNumber} เรียบร้อยแล้ว`);
+                setEditModalOpen(false);
+            } else {
+                const err = await res.json();
+                setFeedbackMessage(`เกิดข้อผิดพลาด: ${err.error || res.statusText}`);
+            }
+        } catch {
+            setFeedbackMessage("เกิดข้อผิดพลาดในการเชื่อมต่อระบบ");
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleOpenDelete = (tracking: BenefitTrackingEntity) => {
+        setDeleteTarget(tracking);
+        setDeleteConfirmOpen(true);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!deleteTarget) return;
+        setIsProcessing(true);
+        try {
+            const res = await fetch(`/api/benefit-tracking/${deleteTarget.id}`, { method: "DELETE" });
+            if (res.ok) {
+                setTrackings((prev) => prev.filter((t) => t.id !== deleteTarget.id));
+                setFeedbackMessage(`ลบรายการ ${deleteTarget.trackingNumber} เรียบร้อยแล้ว`);
+                setDeleteConfirmOpen(false);
+                setDeleteTarget(null);
+            } else {
+                const err = await res.json();
+                setFeedbackMessage(`เกิดข้อผิดพลาด: ${err.error || res.statusText}`);
+            }
+        } catch {
+            setFeedbackMessage("เกิดข้อผิดพลาดในการเชื่อมต่อระบบ");
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleOpenCancel = (tracking: BenefitTrackingEntity) => {
+        setCancelTarget(tracking);
+        setCancelConfirmOpen(true);
+    };
+
+    const handleConfirmCancel = async () => {
+        if (!cancelTarget) return;
+        setIsProcessing(true);
+        try {
+            const res = await fetch(`/api/benefit-tracking/${cancelTarget.id}/status`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ status: BenefitTrackingStatus.CANCELLED, officerNotes: "ยกเลิกโดยผู้ดูแลระบบ" }),
+            });
+            if (res.ok) {
+                const json = await res.json();
+                setTrackings((prev) => prev.map((t) => (t.id === cancelTarget.id ? json.data : t)));
+                setFeedbackMessage(`ยกเลิกรายการ ${cancelTarget.trackingNumber} เรียบร้อยแล้ว`);
+                setCancelConfirmOpen(false);
+                setCancelTarget(null);
+            } else {
+                const err = await res.json();
+                setFeedbackMessage(`เกิดข้อผิดพลาด: ${err.error || res.statusText}`);
+            }
+        } catch {
+            setFeedbackMessage("เกิดข้อผิดพลาดในการเชื่อมต่อระบบ");
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const canEdit = ["SUPERADMIN", "ADMIN", "STAFF", "COMMANDER"].includes(userRole);
+    const canDelete = ["SUPERADMIN", "ADMIN"].includes(userRole);
+    const canCancel = ["SUPERADMIN", "ADMIN", "COMMANDER"].includes(userRole);
 
     const refreshData = async () => {
         try {
@@ -491,15 +600,47 @@ export function BenefitTrackingDashboard({
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button
-                                                size="sm"
-                                                variant="outline"
-                                                onClick={() => handleOpenUpdate(tracking)}
-                                                className="text-xs h-8 px-2.5 gap-1"
-                                            >
-                                                <Eye className="h-3.5 w-3.5 text-slate-500" />
-                                                ติดตาม / อัปเดต
-                                            </Button>
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => handleOpenUpdate(tracking)}
+                                                    className="text-xs h-8 px-2.5 gap-1"
+                                                >
+                                                    <Eye className="h-3.5 w-3.5 text-slate-500" />
+                                                    ติดตาม
+                                                </Button>
+                                                {canEdit && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => handleOpenEdit(tracking)}
+                                                        className="text-xs h-8 px-2 gap-1 text-blue-600 border-blue-200 hover:bg-blue-50 dark:text-blue-400 dark:border-blue-800 dark:hover:bg-blue-950"
+                                                    >
+                                                        <PencilLine className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                )}
+                                                {canCancel && tracking.status !== BenefitTrackingStatus.CANCELLED && tracking.status !== BenefitTrackingStatus.RECEIVED && tracking.status !== BenefitTrackingStatus.DISBURSED && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => handleOpenCancel(tracking)}
+                                                        className="text-xs h-8 px-2 gap-1 text-amber-600 border-amber-200 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-800 dark:hover:bg-amber-950"
+                                                    >
+                                                        <X className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                )}
+                                                {canDelete && tracking.status !== BenefitTrackingStatus.RECEIVED && tracking.status !== BenefitTrackingStatus.DISBURSED && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => handleOpenDelete(tracking)}
+                                                        className="text-xs h-8 px-2 gap-1 text-rose-600 border-rose-200 hover:bg-rose-50 dark:text-rose-400 dark:border-rose-800 dark:hover:bg-rose-950"
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 );
@@ -642,6 +783,113 @@ export function BenefitTrackingDashboard({
                             disabled={isProcessing}
                         >
                             {isProcessing ? "กำลังบันทึก..." : "บันทึกสถานะการติดตาม"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Edit Modal */}
+            <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                            <PencilLine className="h-5 w-5 text-blue-600" />
+                            แก้ไขรายการติดตาม
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                            เลขติดตาม: <span className="font-mono font-bold">{selectedTracking?.trackingNumber}</span>
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2 text-xs">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="editBenefitName">ชื่อสิทธิประโยชน์</Label>
+                            <Input
+                                id="editBenefitName"
+                                value={editBenefitName}
+                                onChange={(e) => setEditBenefitName(e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="editRequestedAmount">วงเงินที่ขอ (บาท)</Label>
+                            <Input
+                                id="editRequestedAmount"
+                                type="number"
+                                value={editRequestedAmount}
+                                onChange={(e) => setEditRequestedAmount(Number(e.target.value))}
+                                className="font-bold text-emerald-600"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="editNotes">หมายเหตุ</Label>
+                            <textarea
+                                id="editNotes"
+                                rows={3}
+                                value={editNotes}
+                                onChange={(e) => setEditNotes(e.target.value)}
+                                className="w-full rounded-lg border border-input bg-background p-2.5 text-xs focus:ring-2 focus:ring-blue-500 outline-none"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditModalOpen(false)}>ยกเลิก</Button>
+                        <Button className="bg-blue-600 hover:bg-blue-700 text-white font-semibold" onClick={handleSubmitEdit} disabled={isProcessing}>
+                            {isProcessing ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Delete Confirmation Modal */}
+            <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-bold flex items-center gap-2 text-rose-700">
+                            <Trash2 className="h-5 w-5" />
+                            ยืนยันการลบรายการ
+                        </DialogTitle>
+                    </DialogHeader>
+                    {deleteTarget && (
+                        <div className="space-y-3 py-2 text-xs">
+                            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900">
+                                <p className="font-bold text-rose-800 dark:text-rose-300">{deleteTarget.trackingNumber}</p>
+                                <p className="text-rose-700 dark:text-rose-400">{deleteTarget.benefitName}</p>
+                                <p className="text-muted-foreground">{deleteTarget.citizenName}</p>
+                            </div>
+                            <p className="text-muted-foreground">การลบไม่สามารถย้อนกลับได้ กรุณายืนยันการลบ</p>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)}>ยกเลิก</Button>
+                        <Button variant="destructive" onClick={handleConfirmDelete} disabled={isProcessing}>
+                            {isProcessing ? "กำลังลบ..." : "ยืนยันลบรายการ"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Cancel Confirmation Modal */}
+            <Dialog open={cancelConfirmOpen} onOpenChange={setCancelConfirmOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-bold flex items-center gap-2 text-amber-700">
+                            <X className="h-5 w-5" />
+                            ยืนยันการยกเลิกรายการ
+                        </DialogTitle>
+                    </DialogHeader>
+                    {cancelTarget && (
+                        <div className="space-y-3 py-2 text-xs">
+                            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900">
+                                <p className="font-bold text-amber-800 dark:text-amber-300">{cancelTarget.trackingNumber}</p>
+                                <p className="text-amber-700 dark:text-amber-400">{cancelTarget.benefitName}</p>
+                                <p className="text-muted-foreground">{cancelTarget.citizenName}</p>
+                            </div>
+                            <p className="text-muted-foreground">สถานะจะเปลี่ยนเป็น "ยกเลิก" และไม่สามารถดำเนินการต่อได้</p>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setCancelConfirmOpen(false)}>ยกเลิก</Button>
+                        <Button className="bg-amber-600 hover:bg-amber-700 text-white font-semibold" onClick={handleConfirmCancel} disabled={isProcessing}>
+                            {isProcessing ? "กำลังยกเลิก..." : "ยืนยันยกเลิกรายการ"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

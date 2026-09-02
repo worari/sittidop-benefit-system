@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { BenefitTrackingService } from "@/core/use-cases/benefit-tracking/BenefitTrackingService";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/infrastructure/auth/auth-options";
+import { authorizePermission } from "@/infrastructure/auth/rbac-guard";
+import { Permission } from "@/core/domain/security/rbac";
 import { BenefitTrackingStatus } from "@/core/domain/value-objects/enums";
 
 const trackingService = new BenefitTrackingService();
@@ -10,9 +10,11 @@ export async function PATCH(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
+    const auth = await authorizePermission(Permission.UPDATE_BENEFIT_STATUS, req);
+    if (!auth.authorized) return auth.response!;
+
     try {
         const { id } = await params;
-        const session = await getServerSession(authOptions);
         const body = await req.json();
 
         const updated = await trackingService.updateTrackingStatus({
@@ -28,9 +30,9 @@ export async function PATCH(
             notes: body.notes,
             officerNotes: body.officerNotes,
             expectedReceiveDate: body.expectedReceiveDate,
-            updatedByUserId: (session?.user as any)?.id || "usr-staff-army",
-            updatedByUserName: session?.user?.name || "พันตรี นพดล สายสวัสดิการ",
-            updatedByRole: (session?.user as any)?.role || "STAFF",
+            updatedByUserId: auth.user?.id,
+            updatedByUserName: auth.user?.name,
+            updatedByRole: auth.user?.role,
         });
 
         return NextResponse.json({ success: true, data: updated });
