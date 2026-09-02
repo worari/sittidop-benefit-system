@@ -778,19 +778,21 @@ model PasswordReset {
 }
 
 model EmailLog {
-  id          String    @id @default(cuid())
-  email       String
-  subject     String
-  body        String   @db.Text
-  type        String    // RESET_PASSWORD, VERIFICATION, etc.
-  recipientId String?   // User ID or other entity ID
+  id            String    @id @default(cuid())
+  email         String
+  subject       String
+  body          String   @db.Text
+  type          String    // RESET_PASSWORD, VERIFICATION, etc.
+  recipientId   String?
   recipientType String   // USER, CITIZEN, etc.
-  status      String    @default("PENDING") // PENDING, SENT, FAILED
-  errorMessage String?
-  sentAt      DateTime?
-  createdAt   DateTime  @default(now())
-  
+  status        String    @default("PENDING") // PENDING, SENT, FAILED
+  errorMessage  String?
+  sentAt        DateTime?
+  createdAt     DateTime  @default(now())
+  user          User?     @relation(fields: [recipientId], references: [id], onDelete: SetNull)
+
   @@index([email])
   @@index([status])
   @@index([createdAt])
+  @@index([recipientId])
 }
