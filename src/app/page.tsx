@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { ThemeToggle } from "../presentation/components/layout/ThemeToggle";
@@ -44,6 +44,10 @@ export default function LandingPage() {
   const [salary, setSalary] = useState<number>(43500);
   const [normalYears, setNormalYears] = useState<number>(16);
   const [multiplierYears, setMultiplierYears] = useState<number>(8);
+
+  const [rankOptions, setRankOptions] = useState<{ value: string; label: string }[]>([]);
+  const [unitOptions, setUnitOptions] = useState<string[]>([]);
+  const [appointmentDate, setAppointmentDate] = useState<string>("");
 
   // Category data state (session only)
   type Category = {
@@ -119,6 +123,44 @@ export default function LandingPage() {
   const [childrenCount, setChildrenCount] = useState<number>(2);
   const [selectedUnit, setSelectedUnit] = useState("ร.19 พัน.1 / ฉก.นราธิวาส (พล.ร.9)");
 
+  // Fetch rank & unit options from the database-backed endpoints on mount
+  useEffect(() => {
+    (async () => {
+      try {
+        const [rankRes, unitRes] = await Promise.all([
+          fetch("/api/military/ranks"),
+          fetch("/api/military/units"),
+        ]);
+        if (rankRes.ok) {
+          const data = await rankRes.json();
+          if (data.success && Array.isArray(data.data)) {
+            setRankOptions(data.data);
+          }
+        }
+        if (unitRes.ok) {
+          const data = await unitRes.json();
+          if (data.success && Array.isArray(data.data)) {
+            setUnitOptions(data.data);
+          }
+        }
+      } catch {
+        // keep empty; UI falls back to free text input
+      }
+    })();
+  }, []);
+
+  // When appointment date changes, compute normal service years from date of commission to today
+  useEffect(() => {
+    if (!appointmentDate) return;
+    const start = new Date(appointmentDate);
+    if (Number.isNaN(start.getTime())) return;
+    const today = new Date();
+    const years = (today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+    if (years > 0) {
+      setNormalYears(Number(years.toFixed(1)));
+    }
+  }, [appointmentDate]);
+
   // Calculations
   const totalYears = normalYears + multiplierYears;
   const promotedSalary = Math.round(salary * 1.57); // Estimated 7-step promotion
@@ -161,7 +203,7 @@ export default function LandingPage() {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-base tracking-tight text-slate-900 dark:text-slate-100">
-                  ระบบสิทธิประโยชน์กำลังพล ทบ.
+                  ระบบสิทธิและสวัสดิการกำลังพล กองทัพบก
                 </span>
                 <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
                   กองทัพบก
@@ -184,7 +226,7 @@ export default function LandingPage() {
             <Link href="/dashboard">
               <Button size="sm" className="bg-emerald-800 hover:bg-emerald-900 text-white text-xs sm:text-sm font-semibold gap-1.5 shadow-sm shadow-emerald-900/20">
                 <LayoutDashboard className="h-3.5 w-3.5 text-amber-400" />
-                <span className="hidden sm:inline">ศูนย์ปฏิบัติประสานงาน</span>
+                <span className="hidden sm:inline">ศูนย์ประสานงานช่วยเหลือกำลังพล</span>
                 <span className="sm:hidden">ระบบงาน</span>
               </Button>
             </Link>
@@ -317,11 +359,26 @@ export default function LandingPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold">ชั้นยศที่ครองตำแหน่ง</Label>
-                    <Input
-                      value={selectedRank}
-                      onChange={(e) => setSelectedRank(e.target.value)}
-                      className="text-xs h-9 font-medium"
-                    />
+                    {rankOptions.length > 0 ? (
+                      <select
+                        value={selectedRank}
+                        onChange={(e) => setSelectedRank(e.target.value)}
+                        aria-label="ชั้นยศที่ครองตำแหน่ง"
+                        className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        {rankOptions.map((r) => (
+                          <option key={r.value} value={r.label}>
+                            {r.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <Input
+                        value={selectedRank}
+                        onChange={(e) => setSelectedRank(e.target.value)}
+                        className="text-xs h-9 font-medium"
+                      />
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold">เงินเดือนพื้นฐาน (บาท)</Label>
@@ -337,6 +394,18 @@ export default function LandingPage() {
                 {/* Service Years & Combat Multipliers */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">วันบรรจุ (วันที่เข้ารับราชการ)</Label>
+                    <Input
+                      type="date"
+                      value={appointmentDate}
+                      onChange={(e) => setAppointmentDate(e.target.value)}
+                      className="text-xs h-9"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      คำนวณเวลาราชการปกติ (ปี) อัตโนมัติจากวันบรรจุถึงวันนี้
+                    </p>
+                  </div>
+                  <div className="space-y-1.5">
                     <Label className="text-xs font-bold">เวลาราชการปกติ (ปี)</Label>
                     <Input
                       type="number"
@@ -345,6 +414,9 @@ export default function LandingPage() {
                       className="text-xs h-9 font-mono"
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold flex items-center gap-1">
                       <Flame className="h-3 w-3 text-amber-500" />
@@ -357,32 +429,45 @@ export default function LandingPage() {
                       className="text-xs h-9 font-mono"
                     />
                   </div>
-                </div>
-
-                {/* Incident Loss Type */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold">กรณีความสูญเสียจากการปฏิบัติหน้าที่</Label>
-                  <select
-                    value={lossType}
-                    onChange={(e) => setLossType(e.target.value as any)}
-                    aria-label="กรณีความสูญเสียจากการปฏิบัติหน้าที่"
-                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  >
-                    <option value="KIA_COMBAT">เสียชีวิต</option>
-                    <option value="DISABILITY">พิการทุพพลภาพ</option>
-                    <option value="INJURY">บาดเจ็บ</option>
-                  </select>
-                </div>
-
-                {/* Army Unit & Children */}
-                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold">หน่วยสังกัดกองทัพบก</Label>
-                    <Input
-                      value={selectedUnit}
-                      onChange={(e) => setSelectedUnit(e.target.value)}
-                      className="text-xs h-9"
-                    />
+                    {unitOptions.length > 0 ? (
+                      <select
+                        value={selectedUnit}
+                        onChange={(e) => setSelectedUnit(e.target.value)}
+                        aria-label="หน่วยสังกัดกองทัพบก"
+                        className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      >
+                        {unitOptions.map((u) => (
+                          <option key={u} value={u}>
+                            {u}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <Input
+                        value={selectedUnit}
+                        onChange={(e) => setSelectedUnit(e.target.value)}
+                        className="text-xs h-9"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Incident Loss Type & Children Count */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold">กรณีความสูญเสียจากการปฏิบัติหน้าที่</Label>
+                    <select
+                      value={lossType}
+                      onChange={(e) => setLossType(e.target.value as any)}
+                      aria-label="กรณีความสูญเสียจากการปฏิบัติหน้าที่"
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    >
+                      <option value="KIA_COMBAT">เสียชีวิต</option>
+                      <option value="DISABILITY">พิการทุพพลภาพ</option>
+                      <option value="INJURY">บาดเจ็บ</option>
+                    </select>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs font-bold">จำนวนบุตรกำลังพล (คน)</Label>
@@ -462,7 +547,7 @@ export default function LandingPage() {
                       <span>4. สิทธิประโยชน์มิใช่ตัวเงินและสิทธิด้านอื่นๆ (Non-Monetary Rights)</span>
                     </div>
                     <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-950 dark:text-purple-300 text-[10px]">
-                      อนุมัติอัตโนมัติ
+                      คณะกรรมการพิจารณา
                     </Badge>
                   </div>
 

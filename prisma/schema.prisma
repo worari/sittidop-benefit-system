@@ -205,6 +205,8 @@ model User {
   createdTrackings     BenefitTracking[]         @relation("TrackingCreatedBy")
   updatedTrackings     BenefitTracking[]         @relation("TrackingUpdatedBy")
   auditLogs            AuditLog[]
+  passwordResets       PasswordReset[]
+  emailLogs            EmailLog[]
 
   @@index([email])
   @@index([role])
@@ -751,4 +753,44 @@ model SystemSetting {
   value       String   @db.Text
   description String?
   updatedAt   DateTime @updatedAt
+}
+
+// ------------------------------------------------------------------------------
+// 8. Authentication & Security
+// ------------------------------------------------------------------------------
+
+model PasswordReset {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token        String    @unique
+  tokenHash    String    @unique
+  expiresAt    DateTime
+  isUsed       Boolean   @default(false)
+  isValid      Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  usedAt       DateTime?
+  
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([isUsed])
+  @@index([tokenHash])
+}
+
+model EmailLog {
+  id          String    @id @default(cuid())
+  email       String
+  subject     String
+  body        String   @db.Text
+  type        String    // RESET_PASSWORD, VERIFICATION, etc.
+  recipientId String?   // User ID or other entity ID
+  recipientType String   // USER, CITIZEN, etc.
+  status      String    @default("PENDING") // PENDING, SENT, FAILED
+  errorMessage String?
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+  
+  @@index([email])
+  @@index([status])
+  @@index([createdAt])
 }

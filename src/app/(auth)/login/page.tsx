@@ -20,6 +20,11 @@ import {
   AlertCircle,
   Sparkles,
   KeyRound,
+  RotateCcw,
+  UserPlus,
+  Eye,
+  EyeOff,
+  X,
 } from "lucide-react";
 
 export default function LoginPage() {
@@ -28,6 +33,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("admin1234");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSuccess, setForgotSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,6 +67,33 @@ export default function LoginPage() {
   const handleQuickLogin = (demoEmail: string, demoPass: string) => {
     setEmail(demoEmail);
     setPassword(demoPass);
+  };
+
+  const handleForgotPassword = async () => {
+    if (!forgotEmail.includes("@")) {
+      setError("กรุณากรอกอีเมลให้ถูกต้อง");
+      return;
+    }
+    setForgotLoading(true);
+    setError(null);
+    try {
+      await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      setForgotSuccess(true);
+    } catch {
+      setError("เกิดข้อผิดพลาดในการส่งลิงค์รีเซ็ต");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const resetForgotForm = () => {
+    setShowForgotPassword(false);
+    setForgotEmail("");
+    setForgotSuccess(false);
   };
 
   const demoAccounts = [
@@ -106,6 +143,84 @@ export default function LoginPage() {
       color: "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30",
     },
   ];
+
+  // Forgot Password Modal
+  const forgotPasswordModal = showForgotPassword ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl shadow-2xl p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-bold">รีเซ็ตรหัสผ่าน</h2>
+          <button
+            onClick={resetForgotForm}
+            className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          กรอกอีเมลที่ลงทะเบียนไว้ เราจะส่งลิงค์รีเซ็ตรหัสผ่านไปยังอีเมลนั้น
+        </p>
+        <div className="space-y-4">
+          {!forgotSuccess ? (
+            <div className="space-y-3">
+              <Label htmlFor="forgot-email" className="block text-sm font-medium">
+                อีเมลที่ลงทะเบียน
+              </Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="forgot-email"
+                  type="email"
+                  required
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  className="pl-9 text-sm"
+                  placeholder="name@army.mod.go.th"
+                />
+              </div>
+              {error && (
+                <p className="text-xs text-rose-600 dark:text-rose-400 flex items-center gap-1">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  {error}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="p-4 rounded-xl bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900 space-y-3">
+              <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                <ShieldCheck className="h-5 w-5" />
+                <p className="font-medium">ส่งลิงค์รีเซ็ตรหัสผ่านเรียบร้อยแล้ว</p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                กรุณาตรวจสอบอีเมล <strong className="font-mono">{forgotEmail}</strong> เพื่อดำเนินการต่อ
+              </p>
+            </div>
+          )}
+        </div>
+        <div className="flex gap-2 mt-6">
+          <Button variant="outline" onClick={resetForgotForm} className="flex-1">
+            {forgotSuccess ? "กลับสู่หน้าเข้าสู่ระบบ" : "ยกเลิก"}
+          </Button>
+          {!forgotSuccess && (
+            <Button
+              onClick={handleForgotPassword}
+              disabled={forgotLoading}
+              className="flex-1 bg-emerald-800 hover:bg-emerald-900"
+            >
+              {forgotLoading ? (
+                <>
+                  <RotateCcw className="h-4 w-4 animate-spin" />
+                  กำลังส่ง...
+                </>
+              ) : (
+                "ส่งลิงค์รีเซ็ต"
+              )}
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  ) : null;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-emerald-950/20 via-slate-900 to-slate-950">
@@ -174,13 +289,20 @@ export default function LoginPage() {
                   <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="password"
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="pl-9 text-xs"
                     placeholder="••••••••"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-2.5 text-muted-foreground hover:text-slate-600"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -193,6 +315,30 @@ export default function LoginPage() {
                 {isLoading ? "กำลังตรวจสอบความปลอดภัย..." : "เข้าสู่ระบบงาน กองทัพบก"}
               </Button>
             </form>
+
+            {/* Forgot Password & Register Links */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto p-0 text-slate-500 hover:text-emerald-600"
+                  onClick={() => setShowForgotPassword(true)}
+                >
+                  ลืมรหัสผ่าน?
+                </Button>
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push("/register")}
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  สมัครสมาชิก
+                </Button>
+              </div>
+            </div>
           </CardContent>
 
           {/* Quick Demo Accounts Selection */}
@@ -235,6 +381,8 @@ export default function LoginPage() {
             ← กลับสู่หน้าหลักพอร์ทัลกำลังพล กองทัพบก
           </Link>
         </div>
+
+        {forgotPasswordModal}
       </div>
     </div>
   );

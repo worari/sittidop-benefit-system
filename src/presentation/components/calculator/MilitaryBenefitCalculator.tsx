@@ -45,6 +45,12 @@ import {
   Scale,
   Building2,
   Landmark,
+  Search,
+  Plus,
+  PencilLine,
+  Trash2,
+  RefreshCw,
+  Database,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -135,6 +141,10 @@ export function MilitaryBenefitCalculator() {
   const [calculating, setCalculating] = useState(false);
   const [activeComparisonTab, setActiveComparisonTab] = useState<"IN_ARMY" | "OUTSIDE_ARMY">("IN_ARMY");
 
+  // Personnel CRUD state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [actionMsg, setActionMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   useEffect(() => {
     fetch("/api/personnel")
       .then((res) => res.json())
@@ -222,6 +232,152 @@ export function MilitaryBenefitCalculator() {
     setStudyingChildrenCount(p.children?.filter((c) => c.isStudying)?.length || 0);
     setHospitalAdmissionDate(p.hospitalAdmissionDate || "");
     setHospitalDischargeDate(p.hospitalDischargeDate || "");
+  };
+
+  const buildPersonnelPayload = () => {
+    const nameParts = fullName.trim().split(/\s+/).filter(Boolean);
+    const rankPart = nameParts[0] || rankAbbr;
+    return {
+      militaryId,
+      citizenId: `CIT-${militaryId}`,
+      rank,
+      rankAbbr: rankPart,
+      firstName: nameParts[1] || "กำลังพล",
+      lastName: nameParts[2] || "ไทย",
+      militaryBranch: "ROYAL_THAI_ARMY",
+      benefitScope,
+      actionCause,
+      missionType,
+      personnelCategory,
+      lossType,
+      abbreviatedPosition: "ผบ.พัน.สน.",
+      normalUnit,
+      fieldPosition: "ผบ.ฉก.",
+      fieldUnit,
+      salary: Number(salary),
+      salaryLevel,
+      salaryStep: Number(salaryStep),
+      compensationLevel,
+      compensationAmount: Number(compensationAmount),
+      additionalPay: Number(additionalPay),
+      appointmentDate,
+      incidentDate,
+      multiplierDate,
+      serviceYearsNormal: Number(serviceYearsNormal),
+      serviceMonthsNormal: Number(serviceMonthsNormal),
+      serviceDaysNormal: Number(serviceDaysNormal),
+      serviceYearsMultiplier: Number(serviceYearsMultiplier),
+      serviceMonthsMultiplier: Number(serviceMonthsMultiplier),
+      serviceDaysMultiplier: Number(serviceDaysMultiplier),
+      totalServiceYears: Number(totalServiceYears),
+      totalServiceMonths: Number(totalServiceMonths),
+      totalServiceDays: Number(totalServiceDays),
+      actionType: "DIRECT_COMBAT",
+      incidentType: "COMBAT_ENGAGEMENT",
+      specialPensionType,
+      specialPensionTier: Number(specialPensionTier),
+      rankAppointmentTo,
+      salaryLevelAdjustment,
+      promotionSteps: Number(specialPensionTier),
+      promotedRank,
+      promotedRankAbbr,
+      promotedSalary: Number(promotedSalary),
+      hospitalAdmissionDate,
+      hospitalDischargeDate,
+      hospitalStayDays: calculateStayDays(hospitalAdmissionDate, hospitalDischargeDate),
+      spouse: hasSpouse ? {
+        nationalId: `SP-${militaryId}`,
+        fullName: spouseName,
+        isLegallyMarried: true,
+        hasPensionRights: true,
+        allocationPercentage: 50,
+      } : null,
+      children: [],
+      heirs: [],
+    };
+  };
+
+  const fetchPersonnel = async () => {
+    const res = await fetch("/api/personnel");
+    const json = await res.json();
+    if (json.success) setPersonnelList(json.data);
+  };
+
+  const handleSearchPersonnel = async () => {
+    try {
+      const res = await fetch(`/api/personnel?search=${encodeURIComponent(searchQuery)}`);
+      const json = await res.json();
+      if (json.success) {
+        setPersonnelList(json.data);
+        setActionMsg({ type: "success", text: `ค้นพบ ${json.total} รายการจากคำค้น "${searchQuery || "(ทั้งหมด)"}"` });
+      }
+    } catch (err) {
+      setActionMsg({ type: "error", text: "ค้นหาข้อมูลไม่สำเร็จ" });
+    }
+  };
+
+  const handleCreatePersonnel = async () => {
+    try {
+      const res = await fetch("/api/personnel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildPersonnelPayload()),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setSelectedPersonnelId(json.data.id);
+        setActionMsg({ type: "success", text: `เพิ่มกำลังพล ${json.data.rankAbbr} ${json.data.firstName} ${json.data.lastName} สำเร็จ` });
+        await fetchPersonnel();
+      } else {
+        setActionMsg({ type: "error", text: json.error || "เพิ่มกำลังพลไม่สำเร็จ" });
+      }
+    } catch (err) {
+      setActionMsg({ type: "error", text: "เพิ่มกำลังพลไม่สำเร็จ" });
+    }
+  };
+
+  const handleUpdatePersonnel = async () => {
+    if (!selectedPersonnelId) {
+      setActionMsg({ type: "error", text: "กรุณาเลือกกำลังพลจากรายการก่อนแก้ไข" });
+      return;
+    }
+    try {
+      const res = await fetch(`/api/personnel/${selectedPersonnelId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(buildPersonnelPayload()),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setActionMsg({ type: "success", text: "บันทึกการแก้ไขกำลังพลสำเร็จ" });
+        await fetchPersonnel();
+      } else {
+        setActionMsg({ type: "error", text: json.error || "บันทึกการแก้ไขไม่สำเร็จ" });
+      }
+    } catch (err) {
+      setActionMsg({ type: "error", text: "บันทึกการแก้ไขไม่สำเร็จ" });
+    }
+  };
+
+  const handleDeletePersonnel = async () => {
+    if (!selectedPersonnelId) {
+      setActionMsg({ type: "error", text: "กรุณาเลือกกำลังพลจากรายการก่อนลบ" });
+      return;
+    }
+    if (!window.confirm("ยืนยันการลบกำลังพลที่เลือกนี้หรือไม่?")) return;
+    try {
+      const res = await fetch(`/api/personnel/${selectedPersonnelId}`, { method: "DELETE" });
+      const json = await res.json();
+      if (json.success) {
+        setActionMsg({ type: "success", text: "ลบกำลังพลสำเร็จ" });
+        setSelectedPersonnelId("");
+        await fetchPersonnel();
+      } else {
+        setActionMsg({ type: "error", text: json.error || "ลบกำลังพลไม่สำเร็จ" });
+      }
+    } catch (err) {
+      setActionMsg({ type: "error", text: "ลบกำลังพลไม่สำเร็จ" });
+    }
   };
 
   const calculateStayDays = (adm: string, dis: string) => {
@@ -446,22 +602,82 @@ export function MilitaryBenefitCalculator() {
             </p>
           </div>
 
-          <div className="space-y-3">
-            <Label className="text-xs font-bold">เลือกจากทะเบียนกำลังพลตัวอย่าง</Label>
-            <select
-              value={selectedPersonnelId}
-              onChange={(e) => {
-                const found = personnelList.find((p) => p.id === e.target.value);
-                if (found) loadPersonnelData(found);
-              }}
-              className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
-            >
-              {personnelList.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.rankAbbr} {p.firstName} {p.lastName} - {p.normalUnit} ({p.militaryId})
-                </option>
-              ))}
-            </select>
+          {/* Personnel CRUD Panel */}
+          <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/40 dark:bg-emerald-950/20 p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Database className="h-4 w-4 text-emerald-600" />
+                <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                  จัดการข้อมูลกำลังพล (เพิ่ม / ลบ / แก้ไข / ค้นหา)
+                </span>
+              </div>
+              <Badge variant="outline" className="text-[10px]">
+                {personnelList.length} รายการ
+              </Badge>
+            </div>
+
+            {actionMsg && (
+              <div className={`text-xs rounded-lg px-3 py-2 ${actionMsg.type === "success" ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200" : "bg-red-100 text-red-700 dark:bg-red-900/60 dark:text-red-200"}`}>
+                {actionMsg.text}
+              </div>
+            )}
+
+            {/* Search */}
+            <div className="flex gap-2">
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSearchPersonnel(); }}
+                placeholder="ค้นหา: ชื่อ, เลขประจำตัวทหาร, สังกัด..."
+                className="text-xs h-9"
+              />
+              <Button variant="outline" size="sm" className="text-xs gap-1.5 shrink-0" onClick={handleSearchPersonnel}>
+                <Search className="h-3.5 w-3.5" />
+                ค้นหา
+              </Button>
+              <Button variant="ghost" size="sm" className="text-xs shrink-0" onClick={fetchPersonnel} title="แสดงทั้งหมด">
+                <RefreshCw className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
+            {/* Results select */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">เลือกกำลังพลจากรายการ</Label>
+              <select
+                value={selectedPersonnelId}
+                onChange={(e) => {
+                  const found = personnelList.find((p) => p.id === e.target.value);
+                  if (found) loadPersonnelData(found);
+                }}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
+              >
+                <option value="">-- กรุณาเลือกกำลังพล --</option>
+                {personnelList.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.rankAbbr} {p.firstName} {p.lastName} - {p.normalUnit} ({p.militaryId})
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-muted-foreground">
+                เลือกเพื่อโหลดลงฟอร์ม แก้ไขข้อมูลแล้วกด "บันทึกการแก้ไข" เพื่ออัปเดต
+              </p>
+            </div>
+
+            {/* CRUD actions */}
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5 flex-1" onClick={handleCreatePersonnel}>
+                <Plus className="h-3.5 w-3.5" />
+                เพิ่มกำลังพลใหม่ (บันทึกจากฟอร์ม)
+              </Button>
+              <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={handleUpdatePersonnel}>
+                <PencilLine className="h-3.5 w-3.5 text-emerald-600" />
+                บันทึกการแก้ไข
+              </Button>
+              <Button variant="outline" size="sm" className="text-xs gap-1.5 text-red-600 hover:text-red-700" onClick={handleDeletePersonnel}>
+                <Trash2 className="h-3.5 w-3.5" />
+                ลบ
+              </Button>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">

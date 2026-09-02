@@ -24,52 +24,57 @@ export const authOptions: AuthOptions = {
         email: { label: "Email", type: "email", placeholder: "admin@dop.go.th" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials, req) {
-        if (!credentials?.email || !credentials?.password) {
-          throw new Error("กรุณากรอกอีเมลและรหัสผ่าน");
-        }
+async authorize(credentials, req) {
+    try {
+      if (!credentials?.email || !credentials?.password) {
+        throw new Error("กรุณากรอกอีเมลและรหัสผ่าน");
+      }
 
-        const user = await userRepository.findByEmail(credentials.email);
-        if (!user || !user.isActive) {
-          throw new Error("ไม่พบข้อมูลผู้ใช้หรือบัญชีถูกระงับ");
-        }
+      const user = await userRepository.findByEmail(credentials.email);
+      if (!user || !user.isActive) {
+        throw new Error("ไม่พบข้อมูลผู้ใช้หรือบัญชีถูกระงับ");
+      }
 
-        const isPasswordValid = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!isPasswordValid) {
-          throw new Error("รหัสผ่านไม่ถูกต้อง");
-        }
+      const isPasswordValid = await bcrypt.compare(credentials.password, user.passwordHash ?? "");
+      if (!isPasswordValid) {
+        throw new Error("รหัสผ่านไม่ถูกต้อง");
+      }
 
-        // Record Audit Log for login
-        try {
-          const forwarded = req?.headers ? (req.headers as any)["x-forwarded-for"] : null;
-          const ip = forwarded ? (Array.isArray(forwarded) ? forwarded[0] : forwarded.split(",")[0]) : "127.0.0.1";
-          const userAgent = req?.headers ? (req.headers as any)["user-agent"] : "Unknown Browser";
+      // Record Audit Log for login
+      try {
+        const forwarded = req?.headers ? (req.headers as any)["x-forwarded-for"] : null;
+        const ip = forwarded ? (Array.isArray(forwarded) ? forwarded[0] : forwarded.split(",")[0]) : "127.0.0.1";
+        const userAgent = req?.headers ? (req.headers as any)["user-agent"] : "Unknown Browser";
 
-          await auditLogRepository.create({
-            userId: user.id,
-            userName: user.name,
-            role: user.role,
-            action: "LOGIN",
-            resource: "Auth",
-            resourceId: user.id,
-            detailsJson: JSON.stringify({ email: user.email, role: user.role, status: "SUCCESS" }),
-            ipAddress: ip,
-            userAgent: userAgent,
-          });
-        } catch {
-          // non-blocking
-        }
-
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
+        await auditLogRepository.create({
+          userId: user.id,
+          userName: user.name,
           role: user.role,
-          department: user.department || undefined,
-          image: user.avatarUrl || undefined,
-          citizenId: user.citizenId || undefined,
-        };
-      },
+          action: "LOGIN",
+          resource: "Auth",
+          resourceId: user.id,
+          detailsJson: JSON.stringify({ email: user.email, role: user.role, status: "SUCCESS" }),
+          ipAddress: ip,
+          userAgent: userAgent,
+        });
+      } catch {
+        // non-blocking
+      }
+
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        department: user.department || undefined,
+        image: user.avatarUrl || undefined,
+        citizenId: user.citizenId || undefined,
+      };
+    } catch (error) {
+      // Return null so NextAuth shows proper error page instead of 500
+      return null;
+    }
+  },
     }),
   ],
   callbacks: {

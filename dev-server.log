@@ -1,0 +1,159 @@
+
+> sittidop-benefit-system@1.0.0 dev
+> next dev
+
+   ▲ Next.js 15.5.24
+   - Local:        http://localhost:3000
+   - Network:      http://172.27.240.1:3000
+   - Environments: .env
+   - Experiments (use with caution):
+     · serverActions
+
+ ✓ Starting...
+ ✓ Ready in 2.5s
+ ○ Compiling / ...
+ ✓ Compiled / in 2.4s (798 modules)
+ ✓ Compiled in 875ms (335 modules)
+ GET / 200 in 3274ms
+ ○ Compiling /api/auth/[...nextauth] ...
+Watchpack Error (initial scan): Error: EINVAL: invalid argument, lstat 'C:\DumpStack.log.tmp'
+Watchpack Error (initial scan): Error: EINVAL: invalid argument, lstat 'C:\hiberfil.sys'
+Watchpack Error (initial scan): Error: EINVAL: invalid argument, lstat 'C:\pagefile.sys'
+Watchpack Error (initial scan): Error: EINVAL: invalid argument, lstat 'C:\swapfile.sys'
+ ✓ Compiled /api/auth/[...nextauth] in 1756ms (1051 modules)
+prisma:query BEGIN
+prisma:query DEALLOCATE ALL
+prisma:query BEGIN
+prisma:query 
+                SELECT enum_range(NULL::"MilitaryRank") AS enum_values
+            
+prisma:query DEALLOCATE ALL
+prisma:query COMMIT
+ GET /api/military/ranks 200 in 2931ms
+prisma:query SELECT "public"."MilitaryPersonnel"."id", "public"."MilitaryPersonnel"."normalUnit" FROM "public"."MilitaryPersonnel" WHERE "public"."MilitaryPersonnel"."normalUnit" <> $1 ORDER BY "public"."MilitaryPersonnel"."id" ASC OFFSET $2
+prisma:query COMMIT
+prisma:query BEGIN
+prisma:query DEALLOCATE ALL
+prisma:query SELECT "public"."MilitaryPersonnel"."id", "public"."MilitaryPersonnel"."fieldUnit" FROM "public"."MilitaryPersonnel" WHERE "public"."MilitaryPersonnel"."fieldUnit" IS NOT NULL ORDER BY "public"."MilitaryPersonnel"."id" ASC OFFSET $1
+prisma:query COMMIT
+ GET /api/military/units 200 in 3177ms
+[next-auth][warn][NEXTAUTH_URL] 
+https://next-auth.js.org/warnings#nextauth_url
+ GET /api/auth/session 200 in 4112ms
+ ○ Compiling /calculator ...
+ ✓ Compiled /calculator in 1379ms (1298 modules)
+ GET /calculator 200 in 1605ms
+ ✓ Compiled /api/personnel in 483ms (1307 modules)
+ GET /api/personnel 200 in 631ms
+ GET /api/personnel 200 in 20ms
+ ○ Compiling /rules ...
+ ✓ Compiled /rules in 706ms (1359 modules)
+ GET /rules 200 in 826ms
+ ○ Compiling /api/rules/dimensions ...
+ ✓ Compiled /api/rules/dimensions in 710ms (1364 modules)
+ GET /api/rules/dimensions 200 in 817ms
+prisma:query BEGIN
+ GET /api/rules/dimensions 200 in 34ms
+prisma:query DEALLOCATE ALL
+prisma:query SELECT "public"."BenefitRule"."id", "public"."BenefitRule"."programId", "public"."BenefitRule"."ruleCode", "public"."BenefitRule"."ruleName", "public"."BenefitRule"."category", "public"."BenefitRule"."categoryName", "public"."BenefitRule"."categoryThaiName", "public"."BenefitRule"."description", "public"."BenefitRule"."legalBasis", "public"."BenefitRule"."paymentType", "public"."BenefitRule"."benefitScope", "public"."BenefitRule"."causeType", "public"."BenefitRule"."formulaType", "public"."BenefitRule"."formulaExpression", "public"."BenefitRule"."multiplierFactor", "public"."BenefitRule"."baseAmount", "public"."BenefitRule"."minAmount", "public"."BenefitRule"."maxAmount", "public"."BenefitRule"."allowedMissions", "public"."BenefitRule"."allowedPersonnelCategories", "public"."BenefitRule"."allowedLossTypes", "public"."BenefitRule"."allowedRanks", "public"."BenefitRule"."minServiceYears", "public"."BenefitRule"."requiresSpouse", "public"."BenefitRule"."requiresChildren", "public"."BenefitRule"."insuranceMatrix", "public"."BenefitRule"."formulaTiers", "public"."BenefitRule"."priorityOrder", "public"."BenefitRule"."isActive", "public"."BenefitRule"."createdAt", "public"."BenefitRule"."updatedAt" FROM "public"."BenefitRule" WHERE 1=1 OFFSET $1
+prisma:query COMMIT
+ GET /api/rules 200 in 1037ms
+prisma:query BEGIN
+prisma:query DEALLOCATE ALL
+prisma:query SELECT "public"."BenefitRule"."id", "public"."BenefitRule"."programId", "public"."BenefitRule"."ruleCode", "public"."BenefitRule"."ruleName", "public"."BenefitRule"."category", "public"."BenefitRule"."categoryName", "public"."BenefitRule"."categoryThaiName", "public"."BenefitRule"."description", "public"."BenefitRule"."legalBasis", "public"."BenefitRule"."paymentType", "public"."BenefitRule"."benefitScope", "public"."BenefitRule"."causeType", "public"."BenefitRule"."formulaType", "public"."BenefitRule"."formulaExpression", "public"."BenefitRule"."multiplierFactor", "public"."BenefitRule"."baseAmount", "public"."BenefitRule"."minAmount", "public"."BenefitRule"."maxAmount", "public"."BenefitRule"."allowedMissions", "public"."BenefitRule"."allowedPersonnelCategories", "public"."BenefitRule"."allowedLossTypes", "public"."BenefitRule"."allowedRanks", "public"."BenefitRule"."minServiceYears", "public"."BenefitRule"."requiresSpouse", "public"."BenefitRule"."requiresChildren", "public"."BenefitRule"."insuranceMatrix", "public"."BenefitRule"."formulaTiers", "public"."BenefitRule"."priorityOrder", "public"."BenefitRule"."isActive", "public"."BenefitRule"."createdAt", "public"."BenefitRule"."updatedAt" FROM "public"."BenefitRule" WHERE 1=1 OFFSET $1
+prisma:query COMMIT
+ GET /api/rules 200 in 189ms
+ ○ Compiling /api/rules/[id] ...
+ ✓ Compiled /login in 1584ms (1381 modules)
+ GET /login 200 in 1499ms
+ ✓ Compiled /api/auth/reset-password in 390ms (1383 modules)
+ GET /api/auth/reset-password 405 in 474ms
+[next-auth][warn][NEXTAUTH_URL] 
+https://next-auth.js.org/warnings#nextauth_url
+prisma:query SELECT 1
+prisma:query BEGIN
+prisma:query DEALLOCATE ALL
+prisma:query DELETE FROM "public"."BenefitRule" WHERE ("public"."BenefitRule"."id" = $1 AND 1=1) RETURNING "public"."BenefitRule"."id", "public"."BenefitRule"."programId", "public"."BenefitRule"."ruleCode", "public"."BenefitRule"."ruleName", "public"."BenefitRule"."category", "public"."BenefitRule"."categoryName", "public"."BenefitRule"."categoryThaiName", "public"."BenefitRule"."description", "public"."BenefitRule"."legalBasis", "public"."BenefitRule"."paymentType", "public"."BenefitRule"."benefitScope", "public"."BenefitRule"."causeType", "public"."BenefitRule"."formulaType", "public"."BenefitRule"."formulaExpression", "public"."BenefitRule"."multiplierFactor", "public"."BenefitRule"."baseAmount", "public"."BenefitRule"."minAmount", "public"."BenefitRule"."maxAmount", "public"."BenefitRule"."allowedMissions", "public"."BenefitRule"."allowedPersonnelCategories", "public"."BenefitRule"."allowedLossTypes", "public"."BenefitRule"."allowedRanks", "public"."BenefitRule"."minServiceYears", "public"."BenefitRule"."requiresSpouse", "public"."BenefitRule"."requiresChildren", "public"."BenefitRule"."insuranceMatrix", "public"."BenefitRule"."formulaTiers", "public"."BenefitRule"."priorityOrder", "public"."BenefitRule"."isActive", "public"."BenefitRule"."createdAt", "public"."BenefitRule"."updatedAt"
+prisma:query COMMIT
+prisma:query BEGIN
+prisma:query DEALLOCATE ALL
+prisma:query INSERT INTO "public"."AuditLog" ("id","userId","userName","role","action","resource","resourceId","detailsJson","ipAddress","userAgent","timestamp") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING "public"."AuditLog"."id", "public"."AuditLog"."userId", "public"."AuditLog"."userName", "public"."AuditLog"."role", "public"."AuditLog"."action", "public"."AuditLog"."resource", "public"."AuditLog"."resourceId", "public"."AuditLog"."detailsJson", "public"."AuditLog"."ipAddress", "public"."AuditLog"."userAgent", "public"."AuditLog"."timestamp"
+prisma:query ROLLBACK
+prisma:error 
+Invalid `prisma.auditLog.create()` invocation:
+
+
+Foreign key constraint violated: `AuditLog_userId_fkey (index)`
+ DELETE /api/rules/cmtib2zf00009zsrm8xcadq5e 200 in 3320ms
+prisma:query BEGIN
+prisma:query DEALLOCATE ALL
+prisma:query SELECT "public"."BenefitRule"."id", "public"."BenefitRule"."programId", "public"."BenefitRule"."ruleCode", "public"."BenefitRule"."ruleName", "public"."BenefitRule"."category", "public"."BenefitRule"."categoryName", "public"."BenefitRule"."categoryThaiName", "public"."BenefitRule"."description", "public"."BenefitRule"."legalBasis", "public"."BenefitRule"."paymentType", "public"."BenefitRule"."benefitScope", "public"."BenefitRule"."causeType", "public"."BenefitRule"."formulaType", "public"."BenefitRule"."formulaExpression", "public"."BenefitRule"."multiplierFactor", "public"."BenefitRule"."baseAmount", "public"."BenefitRule"."minAmount", "public"."BenefitRule"."maxAmount", "public"."BenefitRule"."allowedMissions", "public"."BenefitRule"."allowedPersonnelCategories", "public"."BenefitRule"."allowedLossTypes", "public"."BenefitRule"."allowedRanks", "public"."BenefitRule"."minServiceYears", "public"."BenefitRule"."requiresSpouse", "public"."BenefitRule"."requiresChildren", "public"."BenefitRule"."insuranceMatrix", "public"."BenefitRule"."formulaTiers", "public"."BenefitRule"."priorityOrder", "public"."BenefitRule"."isActive", "public"."BenefitRule"."createdAt", "public"."BenefitRule"."updatedAt" FROM "public"."BenefitRule" WHERE 1=1 OFFSET $1
+prisma:query COMMIT
+ GET /api/rules 200 in 267ms
+[next-auth][warn][NEXTAUTH_URL] 
+https://next-auth.js.org/warnings#nextauth_url
+prisma:query BEGIN
+prisma:query DEALLOCATE ALL
+prisma:query DELETE FROM "public"."BenefitRule" WHERE ("public"."BenefitRule"."id" = $1 AND 1=1) RETURNING "public"."BenefitRule"."id", "public"."BenefitRule"."programId", "public"."BenefitRule"."ruleCode", "public"."BenefitRule"."ruleName", "public"."BenefitRule"."category", "public"."BenefitRule"."categoryName", "public"."BenefitRule"."categoryThaiName", "public"."BenefitRule"."description", "public"."BenefitRule"."legalBasis", "public"."BenefitRule"."paymentType", "public"."BenefitRule"."benefitScope", "public"."BenefitRule"."causeType", "public"."BenefitRule"."formulaType", "public"."BenefitRule"."formulaExpression", "public"."BenefitRule"."multiplierFactor", "public"."BenefitRule"."baseAmount", "public"."BenefitRule"."minAmount", "public"."BenefitRule"."maxAmount", "public"."BenefitRule"."allowedMissions", "public"."BenefitRule"."allowedPersonnelCategories", "public"."BenefitRule"."allowedLossTypes", "public"."BenefitRule"."allowedRanks", "public"."BenefitRule"."minServiceYears", "public"."BenefitRule"."requiresSpouse", "public"."BenefitRule"."requiresChildren", "public"."BenefitRule"."insuranceMatrix", "public"."BenefitRule"."formulaTiers", "public"."BenefitRule"."priorityOrder", "public"."BenefitRule"."isActive", "public"."BenefitRule"."createdAt", "public"."BenefitRule"."updatedAt"
+prisma:query COMMIT
+prisma:query BEGIN
+prisma:query DEALLOCATE ALL
+prisma:query INSERT INTO "public"."AuditLog" ("id","userId","userName","role","action","resource","resourceId","detailsJson","ipAddress","userAgent","timestamp") VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING "public"."AuditLog"."id", "public"."AuditLog"."userId", "public"."AuditLog"."userName", "public"."AuditLog"."role", "public"."AuditLog"."action", "public"."AuditLog"."resource", "public"."AuditLog"."resourceId", "public"."AuditLog"."detailsJson", "public"."AuditLog"."ipAddress", "public"."AuditLog"."userAgent", "public"."AuditLog"."timestamp"
+prisma:query ROLLBACK
+prisma:error 
+Invalid `prisma.auditLog.create()` invocation:
+
+
+Foreign key constraint violated: `AuditLog_userId_fkey (index)`
+ DELETE /api/rules/cmtib2zfv000ezsrmdq27qr3n 200 in 396ms
+prisma:query BEGIN
+prisma:query DEALLOCATE ALL
+prisma:query SELECT "public"."BenefitRule"."id", "public"."BenefitRule"."programId", "public"."BenefitRule"."ruleCode", "public"."BenefitRule"."ruleName", "public"."BenefitRule"."category", "public"."BenefitRule"."categoryName", "public"."BenefitRule"."categoryThaiName", "public"."BenefitRule"."description", "public"."BenefitRule"."legalBasis", "public"."BenefitRule"."paymentType", "public"."BenefitRule"."benefitScope", "public"."BenefitRule"."causeType", "public"."BenefitRule"."formulaType", "public"."BenefitRule"."formulaExpression", "public"."BenefitRule"."multiplierFactor", "public"."BenefitRule"."baseAmount", "public"."BenefitRule"."minAmount", "public"."BenefitRule"."maxAmount", "public"."BenefitRule"."allowedMissions", "public"."BenefitRule"."allowedPersonnelCategories", "public"."BenefitRule"."allowedLossTypes", "public"."BenefitRule"."allowedRanks", "public"."BenefitRule"."minServiceYears", "public"."BenefitRule"."requiresSpouse", "public"."BenefitRule"."requiresChildren", "public"."BenefitRule"."insuranceMatrix", "public"."BenefitRule"."formulaTiers", "public"."BenefitRule"."priorityOrder", "public"."BenefitRule"."isActive", "public"."BenefitRule"."createdAt", "public"."BenefitRule"."updatedAt" FROM "public"."BenefitRule" WHERE 1=1 OFFSET $1
+prisma:query COMMIT
+ GET /api/rules 200 in 198ms
+ GET /rules 200 in 804ms
+ ✓ Compiled in 1856ms (1107 modules)
+ GET /rules 200 in 328ms
+ ✓ Compiled in 522ms (493 modules)
+ GET /rules 200 in 53ms
+ ✓ Compiled in 423ms (493 modules)
+ GET /rules 200 in 52ms
+ ✓ Compiled in 279ms (493 modules)
+ GET /rules 200 in 474ms
+ ✓ Compiled in 1317ms (1093 modules)
+ GET /rules 200 in 982ms
+ GET /rules 200 in 49ms
+ ✓ Compiled in 512ms (493 modules)
+ GET /rules 200 in 63ms
+ ✓ Compiled in 525ms (493 modules)
+ GET /rules 200 in 60ms
+ ✓ Compiled in 1119ms (1107 modules)
+ GET /rules 200 in 931ms
+ GET /rules 200 in 47ms
+ ✓ Compiled in 547ms (493 modules)
+ GET /rules 200 in 64ms
+ ✓ Compiled in 280ms (493 modules)
+ GET /rules 200 in 57ms
+ ✓ Compiled in 407ms (493 modules)
+ GET /rules 200 in 302ms
+ ✓ Compiled in 334ms (493 modules)
+ GET /rules 200 in 56ms
+ ✓ Compiled in 395ms (493 modules)
+ GET /rules 200 in 54ms
+ GET /rules 200 in 437ms
+ ○ Compiling /api/auth/[...nextauth] ...
+ ✓ Compiled /api/auth/[...nextauth] in 846ms (880 modules)
+Watchpack Error (initial scan): Error: EINVAL: invalid argument, lstat 'C:\DumpStack.log.tmp'
+Watchpack Error (initial scan): Error: EINVAL: invalid argument, lstat 'C:\hiberfil.sys'
+Watchpack Error (initial scan): Error: EINVAL: invalid argument, lstat 'C:\swapfile.sys'
+Watchpack Error (initial scan): Error: EINVAL: invalid argument, lstat 'C:\pagefile.sys'
+ ✓ Compiled (886 modules)
+ GET /api/rules/dimensions 200 in 1364ms
+[next-auth][warn][NEXTAUTH_URL] 
+https://next-auth.js.org/warnings#nextauth_url
+ GET /api/auth/session 200 in 1338ms
+prisma:query BEGIN
+prisma:query DEALLOCATE ALL
+prisma:query SELECT "public"."BenefitRule"."id", "public"."BenefitRule"."programId", "public"."BenefitRule"."ruleCode", "public"."BenefitRule"."ruleName", "public"."BenefitRule"."category", "public"."BenefitRule"."categoryName", "public"."BenefitRule"."categoryThaiName", "public"."BenefitRule"."description", "public"."BenefitRule"."legalBasis", "public"."BenefitRule"."paymentType", "public"."BenefitRule"."benefitScope", "public"."BenefitRule"."causeType", "public"."BenefitRule"."formulaType", "public"."BenefitRule"."formulaExpression", "public"."BenefitRule"."multiplierFactor", "public"."BenefitRule"."baseAmount", "public"."BenefitRule"."minAmount", "public"."BenefitRule"."maxAmount", "public"."BenefitRule"."allowedMissions", "public"."BenefitRule"."allowedPersonnelCategories", "public"."BenefitRule"."allowedLossTypes", "public"."BenefitRule"."allowedRanks", "public"."BenefitRule"."minServiceYears", "public"."BenefitRule"."requiresSpouse", "public"."BenefitRule"."requiresChildren", "public"."BenefitRule"."insuranceMatrix", "public"."BenefitRule"."formulaTiers", "public"."BenefitRule"."priorityOrder", "public"."BenefitRule"."isActive", "public"."BenefitRule"."createdAt", "public"."BenefitRule"."updatedAt" FROM "public"."BenefitRule" WHERE 1=1 OFFSET $1
+prisma:query COMMIT
+ GET /api/rules 200 in 1802ms
