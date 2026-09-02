@@ -1,7 +1,44 @@
-import { PrismaClient, Role, BenefitCategory, PaymentFrequency, VulnerabilityLevel, ApplicationStatus, ApprovalDecision } from "@prisma/client";
+import { PrismaClient, Role, BenefitCategory, PaymentFrequency, VulnerabilityLevel, ApplicationStatus, ApprovalDecision, Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { defaultMilitaryRules } from "@/infrastructure/database/repositories/PrismaMilitaryRuleRepository";
+import { BenefitRuleDefinition } from "@/core/domain/entities/BenefitRule";
 
 const prisma = new PrismaClient();
+
+function toPrismaRuleData(rule: BenefitRuleDefinition) {
+  const conditions = rule.conditions || {};
+  return {
+    ruleCode: rule.ruleCode,
+    ruleName: rule.ruleName,
+    category: rule.category,
+    categoryName: rule.categoryName || rule.category || "",
+    categoryThaiName: rule.categoryThaiName || "",
+    description: rule.description || "",
+    legalBasis: rule.legalBasis || "",
+    paymentType: rule.paymentType || "ONE_TIME_LUMP_SUM",
+    benefitScope: rule.benefitScope || null,
+    causeType: rule.causeType || null,
+    formulaType: rule.formulaType || "EXPRESSION",
+    formulaExpression: rule.formulaExpression || "",
+    multiplierFactor: rule.multiplierFactor ?? 1,
+    baseAmount: rule.baseAmount ?? 0,
+    minAmount: rule.minAmount ?? null,
+    maxAmount: rule.maxAmount ?? null,
+    allowedMissions: conditions.allowedMissions || [],
+    allowedPersonnelCategories: conditions.allowedPersonnelCategories || [],
+    allowedLossTypes: conditions.allowedLossTypes || [],
+    allowedRanks: conditions.allowedRanks || [],
+    minServiceYears: conditions.minServiceYears ?? null,
+    requiresSpouse: conditions.requiresSpouse ?? null,
+    requiresChildren: conditions.requiresChildren ?? null,
+    insuranceMatrix: rule.insuranceMatrix && rule.insuranceMatrix.length > 0 ? (rule.insuranceMatrix as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+    formulaTiers: rule.formulaTiers && rule.formulaTiers.length > 0 ? (rule.formulaTiers as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+    priorityOrder: rule.priorityOrder ?? 10,
+    isActive: rule.isActive ?? true,
+    createdAt: rule.createdAt || new Date(),
+    updatedAt: rule.updatedAt || new Date(),
+  };
+}
 
 async function main() {
   console.log("🌱 Starting database seed for sittidop-benefit-system...");
@@ -171,7 +208,15 @@ async function main() {
     },
   });
 
-  // 5. Create Applications
+  // 5. Create Benefit Rules (RTA Rules Engine)
+  // แหล่งข้อมูลเดียวกับหน้า "สูตร & กฎเกณฑ์สิทธิและสวัสดิการ กองทัพบก (RTA Rules Engine)"
+  // ซึ่ง Sandbox Simulator / Matrix Tester จะดึงข้อมูลจากกฎเกณฑ์ชุดนี้ใน benefitRule table
+  const seededRules = await Promise.all(
+    defaultMilitaryRules.map((r) => prisma.benefitRule.create({ data: toPrismaRuleData(r) }))
+  );
+  console.log(`✅ Seeded ${seededRules.length} benefit rules into benefitRule table`);
+
+  // 6. Create Applications
   await prisma.application.create({
     data: {
       applicationNumber: "APP-2569-0001",

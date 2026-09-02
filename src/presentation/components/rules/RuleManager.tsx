@@ -1302,6 +1302,19 @@ export function RuleManager() {
                 addPlaceholder="พิมพ์ประเภทความสูญเสียใหม่ เช่น บาดเจ็บต้องตัดนิ้ว..."
               />
             </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-bold">ประเภทกำลังพลที่ได้รับสิทธิ (Personnel Categories)</Label>
+              <DimensionChipsEditor
+                options={personnelCategoryOptions}
+                dimensionType="PERSONNEL_CATEGORY"
+                selected={newPersonnelCategories}
+                onChange={setNewPersonnelCategories}
+                tone="purple"
+                onOptionsChanged={fetchDimensionOptions}
+                addPlaceholder="พิมพ์ประเภทกำลังพลใหม่ เช่น ทหารพราน, พลทหารเกณฑ์..."
+              />
+            </div>
           </div>
 
           <DialogFooter>
