@@ -425,11 +425,11 @@ export class ExcelImportService {
   /**
    * Commits and saves validated data into repository
    */
-  public static commitData(data: { personnel: any[]; family: any[]; benefits: any[] }): {
+  public static async commitData(data: { personnel: any[]; family: any[]; benefits: any[] }): Promise<{
     personnelSaved: number;
     familyLinked: number;
     benefitsSaved: number;
-  } {
+  }> {
     let personnelSaved = 0;
     let familyLinked = 0;
     let benefitsSaved = 0;
@@ -479,7 +479,7 @@ export class ExcelImportService {
 
     // 2. Save Benefits
     for (const b of data.benefits) {
-      militaryRuleRepository.createRule(b);
+      await militaryRuleRepository.createRule(b);
       benefitsSaved++;
     }
 

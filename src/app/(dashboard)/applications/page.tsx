@@ -3,12 +3,16 @@ import { ApplicationTable } from "../../../presentation/components/applications/
 import { Button } from "../../../presentation/components/ui/button";
 import { Sparkles, Plus } from "lucide-react";
 import Link from "next/link";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/infrastructure/auth/auth-options";
 
 export const dynamic = "force-dynamic";
 
 export default async function ApplicationsPage() {
   const repo = new PrismaApplicationRepository();
   const { applications } = await repo.findAll({ take: 100 });
+  const session = await getServerSession(authOptions);
+  const userRole = (session?.user as any)?.role || "OFFICER";
 
   return (
     <div className="space-y-6">
@@ -30,7 +34,7 @@ export default async function ApplicationsPage() {
         </Link>
       </div>
 
-      <ApplicationTable initialApplications={applications} />
+      <ApplicationTable initialApplications={applications} userRole={userRole} />
     </div>
   );
 }

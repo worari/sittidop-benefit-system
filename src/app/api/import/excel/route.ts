@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     // 2. Commit if requested and valid
     let commitResult = null;
     if (commit && validationResult.isValid) {
-      commitResult = ExcelImportService.commitData(validationResult.parsedData);
+      commitResult = await ExcelImportService.commitData(validationResult.parsedData);
 
       await AuditLogger.log({
         action: "EXCEL_IMPORT_COMMITTED",

@@ -32,6 +32,7 @@ import {
   Calculator,
   Eye,
   Edit,
+  Trash2,
   Award,
   AlertTriangle,
   CheckCircle2,
@@ -48,6 +49,9 @@ export function PersonnelTable() {
   const [selectedPersonnel, setSelectedPersonnel] = useState<MilitaryPersonnelRecord | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingPersonnelId, setEditingPersonnelId] = useState<string | null>(null);
+  const [editingPersonnel, setEditingPersonnel] = useState<Partial<MilitaryPersonnelRecord> | null>(null);
   const [loading, setLoading] = useState(true);
 
   // New Personnel Form State
@@ -55,16 +59,76 @@ export function PersonnelTable() {
   const [newRankAbbr, setNewRankAbbr] = useState("พ.ท.");
   const [newFirstName, setNewFirstName] = useState("");
   const [newLastName, setNewLastName] = useState("");
+  const [newDateOfBirth, setNewDateOfBirth] = useState("");
+  const [newAge, setNewAge] = useState(30);
+  const [newMaritalStatus, setNewMaritalStatus] = useState("โสด");
+  const [newReligion, setNewReligion] = useState("พุทธ");
+  const [newEducationLevel, setNewEducationLevel] = useState("ปริญญาตรี");
+  const [newPhone, setNewPhone] = useState("");
   const [newMilitaryId, setNewMilitaryId] = useState("");
   const [newCitizenId, setNewCitizenId] = useState("");
   const [newNormalUnit, setNewNormalUnit] = useState("");
   const [newFieldUnit, setNewFieldUnit] = useState("");
+  const [newFieldPosition, setNewFieldPosition] = useState("");
+  const [newFieldDutyOrderNo, setNewFieldDutyOrderNo] = useState("");
+  const [newFieldDutyOrderDate, setNewFieldDutyOrderDate] = useState("");
+  const [newFieldDutyOrderIssuer, setNewFieldDutyOrderIssuer] = useState("");
+  const [newMissionCategory, setNewMissionCategory] = useState("COUNTER_INSURGENCY");
   const [newSalary, setNewSalary] = useState(35000);
+  const [newSalaryLevel, setNewSalaryLevel] = useState("น.3");
+  const [newCompensationAmount, setNewCompensationAmount] = useState(3000);
+  const [newAdditionalPay, setNewAdditionalPay] = useState(2500);
   const [newTotalYears, setNewTotalYears] = useState(15);
   const [newLossType, setNewLossType] = useState("KIA_COMBAT_DEATH");
   const [newPromotionSteps, setNewPromotionSteps] = useState(7);
+  const [newAppointmentDate, setNewAppointmentDate] = useState("");
   const [newHospitalAdmissionDate, setNewHospitalAdmissionDate] = useState("");
   const [newHospitalDischargeDate, setNewHospitalDischargeDate] = useState("");
+  const [newProfilePhotoUrl, setNewProfilePhotoUrl] = useState<string>("");
+  const [newDocumentAttachments, setNewDocumentAttachments] = useState<Array<{ name: string; type: string; size: number; dataUrl?: string }>>([]);
+  const [newFamilyRecords, setNewFamilyRecords] = useState({
+    spouseNationalId: "",
+    spouseName: "",
+    spouseBirthDate: "",
+    spouseAge: 0,
+    spouseStatus: "มีชีวิต",
+    spousePhone: "",
+    parentNationalId: "",
+    parentName: "",
+    parentBirthDate: "",
+    parentAge: 0,
+    parentStatus: "มีชีวิต",
+    childNationalId: "",
+    childName: "",
+    childBirthDate: "",
+    childAge: 0,
+    childStatus: "มีชีวิต",
+  });
+
+  const readFileToDataUrl = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result ?? ""));
+      reader.onerror = () => reject(new Error("Unable to read file"));
+      reader.readAsDataURL(file);
+    });
+
+  const handleAttachmentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) return;
+
+    const mapped = await Promise.all(
+      files.map(async (file) => ({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        dataUrl: file.type.startsWith("image/") || file.type === "application/pdf" ? await readFileToDataUrl(file) : undefined,
+      }))
+    );
+
+    setNewDocumentAttachments((prev) => [...prev, ...mapped]);
+    event.target.value = "";
+  };
 
   const fetchPersonnel = async () => {
     try {
@@ -114,21 +178,32 @@ export function PersonnelTable() {
           rankAbbr: newRankAbbr,
           firstName: newFirstName,
           lastName: newLastName,
+          dateOfBirth: newDateOfBirth || undefined,
+          age: newAge,
+          maritalStatus: newMaritalStatus,
+          religion: newReligion,
+          educationLevel: newEducationLevel,
+          phone: newPhone,
+          profilePhotoUrl: newProfilePhotoUrl || undefined,
           militaryBranch: "ROYAL_THAI_ARMY",
           abbreviatedPosition: "นายทหารยุทธการ",
           normalUnit: newNormalUnit || "พล.ร.9",
-          fieldPosition: "ผบ.มว.ปล. สน.",
+          fieldPosition: newFieldPosition || "ผบ.มว.ปล. สน.",
           fieldUnit: newFieldUnit || "ฉก.นราธิวาส",
+          fieldDutyOrderNo: newFieldDutyOrderNo,
+          fieldDutyOrderDate: newFieldDutyOrderDate || undefined,
+          fieldDutyOrderIssuer: newFieldDutyOrderIssuer,
+          missionCategory: newMissionCategory,
           salary: Number(newSalary),
-          salaryLevel: "น.3",
+          salaryLevel: newSalaryLevel,
           salaryStep: 18.5,
-          compensationAmount: 3000,
-          additionalPay: 2500,
-          appointmentDate: "2015-05-01",
+          compensationAmount: Number(newCompensationAmount),
+          additionalPay: Number(newAdditionalPay),
+          appointmentDate: newAppointmentDate || "2015-05-01",
           serviceYearsNormal: Math.max(1, newTotalYears - 5),
           serviceYearsMultiplier: 5,
           totalServiceYears: Number(newTotalYears),
-          missionType: "COUNTER_INSURGENCY",
+          missionType: newMissionCategory,
           actionType: "DIRECT_COMBAT",
           incidentType: "COMBAT_ENGAGEMENT",
           lossType: newLossType,
@@ -137,12 +212,72 @@ export function PersonnelTable() {
           promotedSalary: Math.round(Number(newSalary) * 1.5),
           hospitalAdmissionDate: newHospitalAdmissionDate || undefined,
           hospitalDischargeDate: newHospitalDischargeDate || undefined,
+          familyRecords: newFamilyRecords,
+          documentAttachments: newDocumentAttachments,
         }),
       });
       const json = await res.json();
       if (json.success) {
         setIsAddModalOpen(false);
         fetchPersonnel();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const openEditModal = (personnel: MilitaryPersonnelRecord) => {
+    setEditingPersonnelId(personnel.id);
+    setEditingPersonnel({
+      ...personnel,
+      salary: Number(personnel.salary),
+      totalServiceYears: Number(personnel.totalServiceYears),
+      promotionSteps: Number(personnel.promotionSteps),
+      hospitalAdmissionDate: personnel.hospitalAdmissionDate ?? "",
+      hospitalDischargeDate: personnel.hospitalDischargeDate ?? "",
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleUpdatePersonnel = async () => {
+    if (!editingPersonnelId || !editingPersonnel) return;
+
+    try {
+      const payload = {
+        ...editingPersonnel,
+        salary: Number(editingPersonnel.salary ?? 0),
+        totalServiceYears: Number(editingPersonnel.totalServiceYears ?? 0),
+        promotionSteps: Number(editingPersonnel.promotionSteps ?? 0),
+      };
+
+      const res = await fetch(`/api/personnel/${editingPersonnelId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        setIsEditModalOpen(false);
+        setEditingPersonnelId(null);
+        setEditingPersonnel(null);
+        fetchPersonnel();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeletePersonnel = async (personnel: MilitaryPersonnelRecord) => {
+    if (!window.confirm(`ยืนยันการลบข้อมูลกำลังพล ${personnel.rankAbbr} ${personnel.firstName} ${personnel.lastName}?`)) {
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/personnel/${personnel.id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (json.success) {
+        setPersonnelList((prev) => prev.filter((item) => item.id !== personnel.id));
       }
     } catch (err) {
       console.error(err);
@@ -319,6 +454,24 @@ export function PersonnelTable() {
                           <Eye className="h-3.5 w-3.5" />
                           ดูประวัติ
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-[11px] px-2 gap-1 border-slate-300 hover:border-emerald-600 hover:text-emerald-700"
+                          onClick={() => openEditModal(p)}
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                          แก้ไข
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-[11px] px-2 gap-1 border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300"
+                          onClick={() => handleDeletePersonnel(p)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          ลบ
+                        </Button>
                         <Link href={`/calculator?personnelId=${p.id}`}>
                           <Button
                             size="sm"
@@ -476,6 +629,145 @@ export function PersonnelTable() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Personnel Modal */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold">แก้ไขข้อมูลกำลังพล</DialogTitle>
+            <DialogDescription className="text-xs">
+              ปรับปรุงข้อมูลพื้นฐานและสภาพความสูญเสียที่เกี่ยวข้องกับสิทธิประโยชน์
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingPersonnel && (
+            <div className="space-y-3 py-2 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">ยศทหาร</Label>
+                  <select
+                    value={editingPersonnel.rank ?? "LIEUTENANT_COLONEL"}
+                    onChange={(e) => setEditingPersonnel((prev) => ({ ...prev, rank: e.target.value, rankAbbr: e.target.value === "COLONEL" ? "พ.อ." : e.target.value === "LIEUTENANT_COLONEL" ? "พ.ท." : e.target.value === "CAPTAIN" ? "ร.อ." : e.target.value === "MASTER_SERGEANT_1ST" ? "จ.ส.อ." : "ส.อ." }))}
+                    className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs"
+                  >
+                    <option value="LIEUTENANT_COLONEL">พันโท (พ.ท.)</option>
+                    <option value="COLONEL">พันเอก (พ.อ.)</option>
+                    <option value="CAPTAIN">ร้อยเอก (ร.อ.)</option>
+                    <option value="MASTER_SERGEANT_1ST">จ่าสิบเอก (จ.ส.อ.)</option>
+                    <option value="SERGEANT">สิบเอก (ส.อ.)</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">เลขประจำตัวทหาร</Label>
+                  <Input
+                    value={editingPersonnel.militaryId ?? ""}
+                    onChange={(e) => setEditingPersonnel((prev) => ({ ...prev, militaryId: e.target.value }))}
+                    className="h-8 text-xs font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">ชื่อ</Label>
+                  <Input
+                    value={editingPersonnel.firstName ?? ""}
+                    onChange={(e) => setEditingPersonnel((prev) => ({ ...prev, firstName: e.target.value }))}
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">นามสกุล</Label>
+                  <Input
+                    value={editingPersonnel.lastName ?? ""}
+                    onChange={(e) => setEditingPersonnel((prev) => ({ ...prev, lastName: e.target.value }))}
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">สังกัดปกติ</Label>
+                  <Input
+                    value={editingPersonnel.normalUnit ?? ""}
+                    onChange={(e) => setEditingPersonnel((prev) => ({ ...prev, normalUnit: e.target.value }))}
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">สังกัดสนาม</Label>
+                  <Input
+                    value={editingPersonnel.fieldUnit ?? ""}
+                    onChange={(e) => setEditingPersonnel((prev) => ({ ...prev, fieldUnit: e.target.value }))}
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">เงินเดือน</Label>
+                  <Input
+                    type="number"
+                    value={editingPersonnel.salary ?? 0}
+                    onChange={(e) => setEditingPersonnel((prev) => ({ ...prev, salary: Number(e.target.value) }))}
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">รวมปีราชการ</Label>
+                  <Input
+                    type="number"
+                    value={editingPersonnel.totalServiceYears ?? 0}
+                    onChange={(e) => setEditingPersonnel((prev) => ({ ...prev, totalServiceYears: Number(e.target.value) }))}
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ชั้นปูนบำเหน็จ</Label>
+                  <Input
+                    type="number"
+                    value={editingPersonnel.promotionSteps ?? 0}
+                    onChange={(e) => setEditingPersonnel((prev) => ({ ...prev, promotionSteps: Number(e.target.value) }))}
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">ประเภทความสูญเสีย</Label>
+                <select
+                  value={editingPersonnel.lossType ?? "KIA_COMBAT_DEATH"}
+                  onChange={(e) => setEditingPersonnel((prev) => ({ ...prev, lossType: e.target.value }))}
+                  className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs"
+                >
+                  <option value="KIA_COMBAT_DEATH">เสียชีวิตจากการสู้รบ (KIA)</option>
+                  <option value="DUTY_DEATH">เสียชีวิตขณะปฏิบัติหน้าที่สนาม</option>
+                  <option value="TOTAL_PERMANENT_DISABILITY">ทุพพลภาพถาวรจากการรบ</option>
+                  <option value="SEVERE_WOUND_WIA">บาดเจ็บสาหัสจากการสู้รบ (WIA)</option>
+                  <option value="MODERATE_INJURY">บาดเจ็บปานกลาง</option>
+                  <option value="MINOR_INJURY">บาดเจ็บเล็กน้อย</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setIsEditModalOpen(false)}>
+              ยกเลิก
+            </Button>
+            <Button
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5"
+              onClick={handleUpdatePersonnel}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              บันทึกการแก้ไข
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add New Personnel Modal */}
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
@@ -488,149 +780,284 @@ export function PersonnelTable() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-2 text-xs">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">ยศทหาร</Label>
-                <select
-                  value={newRank}
-                  onChange={(e) => {
-                    setNewRank(e.target.value);
-                    if (e.target.value === "COLONEL") setNewRankAbbr("พ.อ.");
-                    else if (e.target.value === "LIEUTENANT_COLONEL") setNewRankAbbr("พ.ท.");
-                    else if (e.target.value === "CAPTAIN") setNewRankAbbr("ร.อ.");
-                    else if (e.target.value === "MASTER_SERGEANT_1ST") setNewRankAbbr("จ.ส.อ.");
-                    else setNewRankAbbr("ส.อ.");
-                  }}
-                  className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs"
-                >
-                  <option value="LIEUTENANT_COLONEL">พันโท (พ.ท.)</option>
-                  <option value="COLONEL">พันเอก (พ.อ.)</option>
-                  <option value="MAJOR">พันตรี (พ.ต.)</option>
-                  <option value="CAPTAIN">ร้อยเอก (ร.อ.)</option>
-                  <option value="FIRST_LIEUTENANT">ร้อยโท (ร.ท.)</option>
-                  <option value="MASTER_SERGEANT_1ST">จ่าสิบเอก (จ.ส.อ.)</option>
-                  <option value="SERGEANT">สิบเอก (ส.อ.)</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">เลขประจำตัวทหาร 10 หลัก</Label>
-                <Input
-                  value={newMilitaryId}
-                  onChange={(e) => setNewMilitaryId(e.target.value)}
-                  placeholder="MIL-xxxxxxx"
-                  className="h-8 text-xs font-mono"
-                />
+          <div className="space-y-4 py-2 text-xs">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30 p-3">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">ข้อมูลส่วนตัว / กำลังพลสายสนาม</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">ยศทหาร</Label>
+                  <select
+                    value={newRank}
+                    onChange={(e) => {
+                      setNewRank(e.target.value);
+                      if (e.target.value === "COLONEL") setNewRankAbbr("พ.อ.");
+                      else if (e.target.value === "LIEUTENANT_COLONEL") setNewRankAbbr("พ.ท.");
+                      else if (e.target.value === "CAPTAIN") setNewRankAbbr("ร.อ.");
+                      else if (e.target.value === "MASTER_SERGEANT_1ST") setNewRankAbbr("จ.ส.อ.");
+                      else setNewRankAbbr("ส.อ.");
+                    }}
+                    className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs"
+                  >
+                    <option value="LIEUTENANT_COLONEL">พันโท (พ.ท.)</option>
+                    <option value="COLONEL">พันเอก (พ.อ.)</option>
+                    <option value="MAJOR">พันตรี (พ.ต.)</option>
+                    <option value="CAPTAIN">ร้อยเอก (ร.อ.)</option>
+                    <option value="FIRST_LIEUTENANT">ร้อยโท (ร.ท.)</option>
+                    <option value="MASTER_SERGEANT_1ST">จ่าสิบเอก (จ.ส.อ.)</option>
+                    <option value="SERGEANT">สิบเอก (ส.อ.)</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">เลขประจำตัวทหาร 10 หลัก</Label>
+                  <Input value={newMilitaryId} onChange={(e) => setNewMilitaryId(e.target.value)} placeholder="MIL-xxxxxxx" className="h-8 text-xs font-mono" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ชื่อ</Label>
+                  <Input value={newFirstName} onChange={(e) => setNewFirstName(e.target.value)} placeholder="ชื่อกำลังพล" className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">นามสกุล</Label>
+                  <Input value={newLastName} onChange={(e) => setNewLastName(e.target.value)} placeholder="นามสกุล" className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ว/ด/ป. เกิด</Label>
+                  <Input type="date" value={newDateOfBirth} onChange={(e) => setNewDateOfBirth(e.target.value)} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">อายุ</Label>
+                  <Input type="number" value={newAge} onChange={(e) => setNewAge(Number(e.target.value || 0))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">สถานภาพ</Label>
+                  <select value={newMaritalStatus} onChange={(e) => setNewMaritalStatus(e.target.value)} className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs">
+                    <option value="โสด">โสด</option>
+                    <option value="สมรส">สมรส</option>
+                    <option value="หย่าร้าง">หย่าร้าง</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ศาสนา</Label>
+                  <Input value={newReligion} onChange={(e) => setNewReligion(e.target.value)} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">เลขบัตรประชาชน</Label>
+                  <Input value={newCitizenId} onChange={(e) => setNewCitizenId(e.target.value)} placeholder="13 หลัก" className="h-8 text-xs font-mono" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ระดับการศึกษา</Label>
+                  <Input value={newEducationLevel} onChange={(e) => setNewEducationLevel(e.target.value)} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">เบอร์โทร</Label>
+                  <Input value={newPhone} onChange={(e) => setNewPhone(e.target.value)} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ประเภทกำลังพล</Label>
+                  <select className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs">
+                    <option value="OFFICER">นายทหารสัญญาบัตร</option>
+                    <option value="NCO">นายทหารประทวน</option>
+                    <option value="RANGER">พล.อส.</option>
+                    <option value="ENLISTED">ทหารกองประจำการ</option>
+                  </select>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">ชื่อ</Label>
-                <Input
-                  value={newFirstName}
-                  onChange={(e) => setNewFirstName(e.target.value)}
-                  placeholder="ชื่อกำลังพล"
-                  className="h-8 text-xs"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">นามสกุล</Label>
-                <Input
-                  value={newLastName}
-                  onChange={(e) => setNewLastName(e.target.value)}
-                  placeholder="นามสกุล"
-                  className="h-8 text-xs"
-                />
+            <div className="rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30 p-3">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">ข้อมูลปกติ / สายสนาม</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">ชื่อตำแหน่งปกติคำย่อ</Label>
+                  <Input value={newFieldPosition} onChange={(e) => setNewFieldPosition(e.target.value)} placeholder="เช่น ผบ.มว.ปล. สน." className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">สังกัดปกติคำย่อ</Label>
+                  <Input value={newNormalUnit} onChange={(e) => setNewNormalUnit(e.target.value)} placeholder="เช่น ร.19 พัน.1" className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ตำแหน่งในสนาม</Label>
+                  <Input value={newFieldPosition} onChange={(e) => setNewFieldPosition(e.target.value)} placeholder="เช่น ผบ.กองร้อย" className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">สังกัดในสนาม</Label>
+                  <Input value={newFieldUnit} onChange={(e) => setNewFieldUnit(e.target.value)} placeholder="เช่น ฉก.นราธิวาส" className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">เลขที่คำสั่งปฏิบัติหน้าที่</Label>
+                  <Input value={newFieldDutyOrderNo} onChange={(e) => setNewFieldDutyOrderNo(e.target.value)} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">วันที่ออกคำสั่ง</Label>
+                  <Input type="date" value={newFieldDutyOrderDate} onChange={(e) => setNewFieldDutyOrderDate(e.target.value)} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">หน่วยที่ออกคำสั่ง</Label>
+                  <Input value={newFieldDutyOrderIssuer} onChange={(e) => setNewFieldDutyOrderIssuer(e.target.value)} placeholder="เช่น กรมทหารราบ" className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ประเภทภารกิจ</Label>
+                  <select value={newMissionCategory} onChange={(e) => setNewMissionCategory(e.target.value)} className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs">
+                    <option value="COUNTER_INSURGENCY">จชต.</option>
+                    <option value="BORDER_DEFENSE">กกล.</option>
+                    <option value="INTERNAL_SECURITY">แผนป้องกันประเทศ</option>
+                    <option value="ROUTINE_SERVICE">การปฏิบัติราชการเวลาปกติ</option>
+                    <option value="DISASTER_RELIEF">การช่วยเหลือและบรรเทาสาธารณภัย</option>
+                    <option value="PEACEKEEPING_UN">การช่วยเหลือตามมนุษยชน</option>
+                  </select>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">สังกัดปกติ (ต้นสังกัด)</Label>
-                <Input
-                  value={newNormalUnit}
-                  onChange={(e) => setNewNormalUnit(e.target.value)}
-                  placeholder="เช่น ร.19 พัน.1 (พล.ร.9)"
-                  className="h-8 text-xs"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">สังกัดสนาม / หน่วยเฉพาะกิจ</Label>
-                <Input
-                  value={newFieldUnit}
-                  onChange={(e) => setNewFieldUnit(e.target.value)}
-                  placeholder="เช่น ฉก.นราธิวาส"
-                  className="h-8 text-xs"
-                />
+            <div className="rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30 p-3">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">ข้อมูลเงินเดือน / การคำนวณสิทธิ</p>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">ระดับเงินเดือน</Label>
+                  <Input value={newSalaryLevel} onChange={(e) => setNewSalaryLevel(e.target.value)} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ยอดรับเงินเดือน</Label>
+                  <Input type="number" value={newSalary} onChange={(e) => setNewSalary(Number(e.target.value))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ยอดเงินเยียวยา</Label>
+                  <Input type="number" value={newCompensationAmount} onChange={(e) => setNewCompensationAmount(Number(e.target.value))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">เงินเพิ่ม (พ.ส.ร. + ฝ่าอันตราย)</Label>
+                  <Input type="number" value={newAdditionalPay} onChange={(e) => setNewAdditionalPay(Number(e.target.value))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">วันทวีคูณ</Label>
+                  <Input type="date" className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ว.ด.ป./บรรจุ</Label>
+                  <Input type="date" value={newAppointmentDate} onChange={(e) => setNewAppointmentDate(e.target.value)} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">อายุราชการรวม (ปี)</Label>
+                  <Input type="number" value={newTotalYears} onChange={(e) => setNewTotalYears(Number(e.target.value))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ชั้นยศปูนบำเหน็จ</Label>
+                  <Input type="number" value={newPromotionSteps} onChange={(e) => setNewPromotionSteps(Number(e.target.value))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ประเภทความสูญเสีย</Label>
+                  <select value={newLossType} onChange={(e) => setNewLossType(e.target.value)} className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs">
+                    <option value="KIA_COMBAT_DEATH">เสียชีวิตจากการสู้รบ (KIA)</option>
+                    <option value="DUTY_DEATH">เสียชีวิตขณะปฏิบัติหน้าที่สนาม</option>
+                    <option value="TOTAL_PERMANENT_DISABILITY">ทุพพลภาพถาวรจากการรบ</option>
+                    <option value="SEVERE_WOUND_WIA">บาดเจ็บสาหัสจากการสู้รบ (WIA)</option>
+                    <option value="MODERATE_INJURY">บาดเจ็บปานกลาง</option>
+                    <option value="MINOR_INJURY">บาดเจ็บเล็กน้อย</option>
+                  </select>
+                </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">เงินเดือนปัจจุบัน (บาท)</Label>
-                <Input
-                  type="number"
-                  value={newSalary}
-                  onChange={(e) => setNewSalary(Number(e.target.value))}
-                  className="h-8 text-xs"
-                />
+            <div className="rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30 p-3">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">ข้อมูลครอบครัว / ทายาท / บิดา มารดา คู่สมรส บุตร</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">เลขบัตรประชาชนคู่สมรส</Label>
+                  <Input value={newFamilyRecords.spouseNationalId} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, spouseNationalId: e.target.value }))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ชื่อคู่สมรส</Label>
+                  <Input value={newFamilyRecords.spouseName} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, spouseName: e.target.value }))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">วันเกิดคู่สมรส</Label>
+                  <Input type="date" value={newFamilyRecords.spouseBirthDate} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, spouseBirthDate: e.target.value }))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">อายุคู่สมรส</Label>
+                  <Input type="number" value={newFamilyRecords.spouseAge} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, spouseAge: Number(e.target.value || 0) }))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">สถานะคู่สมรส</Label>
+                  <Input value={newFamilyRecords.spouseStatus} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, spouseStatus: e.target.value }))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">เบอร์โทรคู่สมรส</Label>
+                  <Input value={newFamilyRecords.spousePhone} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, spousePhone: e.target.value }))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">เลขบัตรบิดา/มารดา</Label>
+                  <Input value={newFamilyRecords.parentNationalId} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, parentNationalId: e.target.value }))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ชื่อบิดา/มารดา</Label>
+                  <Input value={newFamilyRecords.parentName} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, parentName: e.target.value }))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">วันเกิดบิดา/มารดา</Label>
+                  <Input type="date" value={newFamilyRecords.parentBirthDate} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, parentBirthDate: e.target.value }))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">อายุบิดา/มารดา</Label>
+                  <Input type="number" value={newFamilyRecords.parentAge} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, parentAge: Number(e.target.value || 0) }))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">สถานะบิดา/มารดา</Label>
+                  <Input value={newFamilyRecords.parentStatus} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, parentStatus: e.target.value }))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">เลขบัตรบุตร</Label>
+                  <Input value={newFamilyRecords.childNationalId} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, childNationalId: e.target.value }))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">ชื่อลูก</Label>
+                  <Input value={newFamilyRecords.childName} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, childName: e.target.value }))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">วันเกิดบุตร</Label>
+                  <Input type="date" value={newFamilyRecords.childBirthDate} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, childBirthDate: e.target.value }))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">อายุบุตร</Label>
+                  <Input type="number" value={newFamilyRecords.childAge} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, childAge: Number(e.target.value || 0) }))} className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">สถานะบุตร</Label>
+                  <Input value={newFamilyRecords.childStatus} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, childStatus: e.target.value }))} className="h-8 text-xs" />
+                </div>
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs">รูปประจำตัวกำลังพล</Label>
+                  <Input type="file" accept="image/*" onChange={async (e) => {
+                    const files = e.target.files ?? [];
+                    if (!files[0]) return;
+                    const dataUrl = await readFileToDataUrl(files[0]);
+                    setNewProfilePhotoUrl(dataUrl);
+                  }} className="h-8 text-xs" />
+                  {newProfilePhotoUrl ? <img src={newProfilePhotoUrl} alt="profile" className="h-16 w-16 rounded-md object-cover border" /> : null}
+                </div>
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs">อายุราชการรวม (ปี)</Label>
-                <Input
-                  type="number"
-                  value={newTotalYears}
-                  onChange={(e) => setNewTotalYears(Number(e.target.value))}
-                  className="h-8 text-xs"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">ชั้นยศปูนบำเหน็จ</Label>
-                <Input
-                  type="number"
-                  value={newPromotionSteps}
-                  onChange={(e) => setNewPromotionSteps(Number(e.target.value))}
-                  className="h-8 text-xs"
-                />
+            </div>
+
+            <div className="rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30 p-3">
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">เอกสารแนบ / ไฟล์ประกอบ</p>
+              <div className="space-y-2">
+                <Input type="file" multiple accept=".pdf,image/png,image/jpeg,.png,.jpg,.jpeg" onChange={handleAttachmentUpload} className="h-8 text-xs" />
+                {newDocumentAttachments.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {newDocumentAttachments.map((item, index) => (
+                      <span key={`${item.name}-${index}`} className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] text-emerald-700">{item.name}</span>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </div>
 
             <div className="space-y-1">
-              <Label className="text-xs">ประเภทความสูญเสีย</Label>
-              <select
-                value={newLossType}
-                onChange={(e) => setNewLossType(e.target.value)}
-                className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs"
-              >
-                <option value="KIA_COMBAT_DEATH">เสียชีวิตจากการสู้รบ (KIA)</option>
-                <option value="DUTY_DEATH">เสียชีวิตขณะปฏิบัติหน้าที่สนาม</option>
-                <option value="TOTAL_PERMANENT_DISABILITY">ทุพพลภาพถาวรจากการรบ</option>
-                <option value="SEVERE_WOUND_WIA">บาดเจ็บสาหัสจากการสู้รบ (WIA)</option>
-                <option value="MODERATE_INJURY">บาดเจ็บปานกลาง</option>
-                <option value="MINOR_INJURY">บาดเจ็บเล็กน้อย</option>
-              </select>
+              <Label className="text-xs">วันที่เข้ารักษาพยาบาล</Label>
+              <Input type="date" value={newHospitalAdmissionDate} onChange={(e) => setNewHospitalAdmissionDate(e.target.value)} className="h-8 text-xs" />
             </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">วันที่เข้ารักษาพยาบาล</Label>
-                <Input
-                  type="date"
-                  value={newHospitalAdmissionDate}
-                  onChange={(e) => setNewHospitalAdmissionDate(e.target.value)}
-                  className="h-8 text-xs"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">วันที่ออกจากโรงพยาบาล</Label>
-                <Input
-                  type="date"
-                  value={newHospitalDischargeDate}
-                  onChange={(e) => setNewHospitalDischargeDate(e.target.value)}
-                  className="h-8 text-xs"
-                />
-              </div>
+            <div className="space-y-1">
+              <Label className="text-xs">วันที่ออกจากโรงพยาบาล</Label>
+              <Input type="date" value={newHospitalDischargeDate} onChange={(e) => setNewHospitalDischargeDate(e.target.value)} className="h-8 text-xs" />
             </div>
           </div>
 

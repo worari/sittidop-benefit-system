@@ -224,6 +224,13 @@ model MilitaryPersonnel {
   rankAbbr       String
   firstName      String
   lastName       String
+  dateOfBirth    DateTime?
+  age            Int?
+  maritalStatus  String?
+  religion       String?
+  educationLevel String?
+  phone          String?
+  profilePhotoUrl String?
   militaryBranch MilitaryBranch @default(ROYAL_THAI_ARMY)
 
   abbreviatedPosition String
@@ -231,6 +238,10 @@ model MilitaryPersonnel {
   normalUnit          String
   fieldPosition       String?
   fieldUnit           String?
+  fieldDutyOrderNo    String?
+  fieldDutyOrderDate  DateTime?
+  fieldDutyOrderIssuer String?
+  missionCategory     String?
 
   salary             Float
   salaryLevel        String
@@ -278,16 +289,20 @@ model MilitaryPersonnel {
   promotedRank     MilitaryRank?
   promotedRankAbbr String?
   promotionSteps   Int           @default(7)
+  promotedSalary   Float         @default(0.00)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user              User?
-  spouse            Spouse?
-  children          Child[]
-  heirs             Heir[]
-  estimates         MilitaryBenefitEstimate[]
-  claimApplications BenefitClaimApplication[]
+  user                   User?
+  spouse                 Spouse?
+  children               Child[]
+  heirs                  Heir[]
+  estimates              MilitaryBenefitEstimate[]
+  claimApplications      BenefitClaimApplication[]
+  lossIncidentReports    LossIncidentReport[]
+  familyRecordsJson      String?
+  documentAttachmentJson String?
 
   @@index([militaryId])
   @@index([rank])
@@ -302,9 +317,15 @@ model Spouse {
   title                String
   firstName            String
   lastName             String
+  dateOfBirth          DateTime?
+  age                  Int?
+  maritalStatus        String?
+  isAlive              Boolean           @default(true)
   isLegallyMarried     Boolean           @default(true)
   marriageCertNumber   String?
   phone                String?
+  address              String?
+  educationLevel       String?
   bankName             String?
   bankAccountNumber    String?
   hasPensionRights     Boolean           @default(true)
@@ -323,8 +344,11 @@ model Child {
   lastName             String
   dateOfBirth          DateTime
   age                  Int
+  isAlive              Boolean           @default(true)
   isStudying           Boolean           @default(true)
   educationLevel       String?
+  phone                String?
+  address              String?
   scholarshipEligible  Boolean           @default(true)
   annualScholarship    Float             @default(15000.00)
   hasSuccessorRight    Boolean           @default(false)
@@ -343,9 +367,13 @@ model Heir {
   title                 String
   firstName             String
   lastName              String
+  dateOfBirth           DateTime?
+  age                   Int?
   relationship          RelationshipType
   phone                 String?
   address               String?           @db.Text
+  educationLevel        String?
+  isAlive               Boolean           @default(true)
   bankName              String?
   bankAccountNumber     String?
   allocationPercentage  Float             @default(0.00)
@@ -481,6 +509,19 @@ model BenefitRule {
   updatedAt          DateTime       @updatedAt
 
   @@index([programId])
+}
+
+model BenefitDimensionOption {
+  id         String   @id
+  label      String
+  type       String
+  isSystem   Boolean  @default(false)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([type])
+  @@index([type, sortOrder])
 }
 
 // ------------------------------------------------------------------------------
@@ -706,6 +747,41 @@ model BenefitTracking {
   @@index([applicationId])
   @@index([estimateId])
   @@index([sourceType])
+}
+
+model LossIncidentReport {
+  id                String            @id @default(cuid())
+  personnelId       String?
+  personnel         MilitaryPersonnel? @relation(fields: [personnelId], references: [id], onDelete: SetNull)
+  militaryId        String?
+  rankAbbr          String?
+  fullName          String?
+  incidentDate      DateTime
+  incidentTime      String
+  mgrsCoordinate    String
+  latitude          Float?
+  longitude         Float?
+  village           String?
+  houseNo           String?
+  road              String?
+  subdistrict       String?
+  district          String?
+  province          String?
+  eventSummary      String            @db.Text
+  behaviorSummary   String?           @db.Text
+  engagementBehavior String
+  enemyAction       String
+  createdByUserId   String?
+  createdByUserName String?
+  updatedByUserId   String?
+  updatedByUserName String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([personnelId])
+  @@index([militaryId])
+  @@index([incidentDate])
+  @@index([province])
 }
 
 // ------------------------------------------------------------------------------

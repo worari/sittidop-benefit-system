@@ -40,3 +40,13 @@ prisma:query SELECT 1
 prisma:query SELECT "public"."BenefitRule"."id", "public"."BenefitRule"."programId", "public"."BenefitRule"."ruleCode", "public"."BenefitRule"."ruleName", "public"."BenefitRule"."category", "public"."BenefitRule"."categoryName", "public"."BenefitRule"."categoryThaiName", "public"."BenefitRule"."description", "public"."BenefitRule"."legalBasis", "public"."BenefitRule"."paymentType", "public"."BenefitRule"."benefitScope", "public"."BenefitRule"."causeType", "public"."BenefitRule"."formulaType", "public"."BenefitRule"."formulaExpression", "public"."BenefitRule"."multiplierFactor", "public"."BenefitRule"."baseAmount", "public"."BenefitRule"."minAmount", "public"."BenefitRule"."maxAmount", "public"."BenefitRule"."allowedMissions", "public"."BenefitRule"."allowedPersonnelCategories", "public"."BenefitRule"."allowedLossTypes", "public"."BenefitRule"."allowedRanks", "public"."BenefitRule"."minServiceYears", "public"."BenefitRule"."requiresSpouse", "public"."BenefitRule"."requiresChildren", "public"."BenefitRule"."insuranceMatrix", "public"."BenefitRule"."formulaTiers", "public"."BenefitRule"."priorityOrder", "public"."BenefitRule"."isActive", "public"."BenefitRule"."createdAt", "public"."BenefitRule"."updatedAt" FROM "public"."BenefitRule" WHERE 1=1 OFFSET $1
  GET /api/rules 200 in 440ms
 Watchpack Error (stats): Error: EINVAL: invalid argument, lstat 'C:\pagefile.sys'
+Watchpack Error (stats): Error: EINVAL: invalid argument, lstat 'C:\pagefile.sys'
+Watchpack Error (stats): Error: EINVAL: invalid argument, lstat 'C:\pagefile.sys'
+Watchpack Error (stats): Error: EINVAL: invalid argument, lstat 'C:\pagefile.sys'
+Watchpack Error (stats): Error: EINVAL: invalid argument, lstat 'C:\pagefile.sys'
+ ✓ Compiled in 936ms (440 modules)
+Watchpack Error (stats): Error: EINVAL: invalid argument, lstat 'C:\pagefile.sys'
+ ✓ Compiled in 813ms (440 modules)
+ ✓ Compiled in 453ms (440 modules)
+ ✓ Compiled in 690ms (440 modules)
+ ✓ Compiled in 387ms (440 modules)

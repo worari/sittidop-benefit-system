@@ -86,6 +86,7 @@ export const RolePermissions: Record<Role, Permission[]> = {
   ],
 
   [Role.COMMANDER]: [
+    Permission.MANAGE_BENEFIT_TRACKING,
     Permission.VIEW_PERSONNEL,
     Permission.VIEW_FAMILY,
     Permission.VIEW_RULES,
@@ -101,6 +102,7 @@ export const RolePermissions: Record<Role, Permission[]> = {
   ],
 
   [Role.STAFF]: [
+    Permission.MANAGE_BENEFIT_TRACKING,
     Permission.MANAGE_PERSONNEL,
     Permission.VIEW_PERSONNEL,
     Permission.MANAGE_FAMILY,

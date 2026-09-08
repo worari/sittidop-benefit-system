@@ -10,7 +10,7 @@ export interface ApprovalRecordEntity {
   decision: ApprovalDecision;
   comments?: string | null;
   approvedAmount?: number | null;
-  createdAt: Date;
+  createdAt?: Date;
 }
 
 export interface ApplicationEntity {
@@ -22,6 +22,7 @@ export interface ApplicationEntity {
   citizenProvince?: string;
   programId: string;
   programName?: string;
+  programDescription?: string | null;
   programCategory?: string;
   requestedAmount: number;
   approvedAmount?: number | null;
@@ -35,6 +36,7 @@ export interface ApplicationEntity {
   createdByUserId?: string | null;
   assignedOfficerId?: string | null;
   assignedOfficerName?: string | null;
+  reviewerName?: string | null;
   approvalRecords?: ApprovalRecordEntity[];
   createdAt: Date;
   updatedAt: Date;

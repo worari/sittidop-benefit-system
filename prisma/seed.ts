@@ -1,6 +1,6 @@
 import { PrismaClient, Role, BenefitCategory, PaymentFrequency, VulnerabilityLevel, ApplicationStatus, ApprovalDecision, Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { defaultMilitaryRules } from "@/infrastructure/database/repositories/PrismaMilitaryRuleRepository";
+import { defaultDimensionOptions, defaultMilitaryRules } from "@/infrastructure/database/repositories/PrismaMilitaryRuleRepository";
 import { BenefitRuleDefinition } from "@/core/domain/entities/BenefitRule";
 
 const prisma = new PrismaClient();
@@ -48,6 +48,7 @@ async function main() {
   await prisma.application.deleteMany();
   await prisma.benefitEstimate.deleteMany();
   await prisma.benefitRule.deleteMany();
+  await prisma.benefitDimensionOption.deleteMany();
   await prisma.benefitProgram.deleteMany();
   await prisma.auditLog.deleteMany();
   await prisma.user.deleteMany();
@@ -208,7 +209,19 @@ async function main() {
     },
   });
 
-  // 5. Create Benefit Rules (RTA Rules Engine)
+  // 5. Create master dimension options for the rules engine
+  await prisma.benefitDimensionOption.createMany({
+    data: defaultDimensionOptions.map((option, index) => ({
+      id: option.id,
+      label: option.label,
+      type: option.type,
+      isSystem: option.isSystem ?? false,
+      sortOrder: index + 1,
+    })),
+  });
+  console.log(`✅ Seeded ${defaultDimensionOptions.length} dimension options into benefitDimensionOption table`);
+
+  // 6. Create Benefit Rules (RTA Rules Engine)
   // แหล่งข้อมูลเดียวกับหน้า "สูตร & กฎเกณฑ์สิทธิและสวัสดิการ กองทัพบก (RTA Rules Engine)"
   // ซึ่ง Sandbox Simulator / Matrix Tester จะดึงข้อมูลจากกฎเกณฑ์ชุดนี้ใน benefitRule table
   const seededRules = await Promise.all(
@@ -216,7 +229,7 @@ async function main() {
   );
   console.log(`✅ Seeded ${seededRules.length} benefit rules into benefitRule table`);
 
-  // 6. Create Applications
+  // 7. Create Applications
   await prisma.application.create({
     data: {
       applicationNumber: "APP-2569-0001",
@@ -234,7 +247,7 @@ async function main() {
     },
   });
 
-  // 6. Create Audit Log
+  // 8. Create Audit Log
   await prisma.auditLog.create({
     data: {
       userId: admin.id,

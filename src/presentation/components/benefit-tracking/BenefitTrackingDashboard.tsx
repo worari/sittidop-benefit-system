@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { BenefitTrackingEntity } from "../../../core/domain/entities/BenefitTracking";
 import { BenefitTrackingStatus } from "../../../core/domain/value-objects/enums";
 import type { EstimationOverviewItem } from "../../../core/domain/value-objects/types";
@@ -41,6 +41,7 @@ import {
     Truck,
     Send,
     Sparkles,
+    PlusCircle,
     X,
     PencilLine,
     Trash2,
@@ -52,6 +53,25 @@ interface BenefitTrackingDashboardProps {
     initialEstimationOverview?: EstimationOverviewItem[];
     userRole?: string;
     onRefresh?: () => void;
+}
+
+interface ProgramOption {
+    id: string;
+    code: string;
+    thaiName: string;
+}
+
+interface CreateTrackingPayload {
+    citizenNationalId: string;
+    programId: string;
+    benefitName: string;
+    requestedAmount: number;
+    paymentMethod: string;
+    bankName?: string;
+    bankAccountNumber?: string;
+    recipientName?: string;
+    notes?: string;
+    expectedReceiveDate?: string;
 }
 
 const statusConfig: Record<
@@ -75,6 +95,42 @@ const unknownStatusConfig = {
     color: "text-slate-400",
 };
 
+function parseDocumentList(documentsJson?: string | null): string[] {
+    if (!documentsJson) return [];
+
+    try {
+        const parsed = JSON.parse(documentsJson);
+        if (Array.isArray(parsed)) {
+            return parsed.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+        }
+        if (typeof parsed === "string" && parsed.trim()) {
+            return [parsed.trim()];
+        }
+    } catch {
+        // fall through to plain string parsing below
+    }
+
+    return documentsJson
+        .split(/[,\n]/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+}
+
+function buildReviewTimeline(tracking: BenefitTrackingEntity | null) {
+    if (!tracking) return [];
+
+    const timeline = [
+        { label: "ยื่นคำขอ", date: tracking.submissionDate, accent: "bg-sky-500" },
+        { label: "ตรวจสอบเอกสาร", date: tracking.status === BenefitTrackingStatus.PENDING ? null : tracking.submissionDate, accent: "bg-amber-500" },
+        { label: "อนุมัติ", date: tracking.approvalDate, accent: "bg-emerald-500" },
+        { label: "โอนเงิน", date: tracking.disbursementDate, accent: "bg-blue-500" },
+        { label: "ได้รับสิทธิ", date: tracking.receivedDate, accent: "bg-violet-500" },
+        { label: "ปฏิเสธ / ยกเลิก", date: tracking.rejectionDate, accent: "bg-rose-500" },
+    ].filter((item) => !!item.date);
+
+    return timeline;
+}
+
 function getStatusConfig(status: BenefitTrackingStatus | string | undefined | null) {
     return statusConfig[status as BenefitTrackingStatus] ?? {
         ...unknownStatusConfig,
@@ -93,6 +149,18 @@ const statusOptions = [
     { key: BenefitTrackingStatus.REJECTED, label: statusConfig[BenefitTrackingStatus.REJECTED].label },
 ];
 
+function isValidThaiNationalId(id: string): boolean {
+    if (!/^\d{13}$/.test(id)) return false;
+
+    let sum = 0;
+    for (let i = 0; i < 12; i++) {
+        sum += Number(id[i]) * (13 - i);
+    }
+
+    const checkDigit = (11 - (sum % 11)) % 10;
+    return checkDigit === Number(id[12]);
+}
+
 export function BenefitTrackingDashboard({
     initialTrackings,
     initialCounts,
@@ -105,6 +173,7 @@ export function BenefitTrackingDashboard({
     const [overview, setOverview] = useState<EstimationOverviewItem[]>(initialEstimationOverview || []);
     const [proposingKey, setProposingKey] = useState<string | null>(null);
     const [search, setSearch] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const [statusFilter, setStatusFilter] = useState<string>("ALL");
     const [selectedTracking, setSelectedTracking] = useState<BenefitTrackingEntity | null>(null);
 
@@ -126,9 +195,34 @@ export function BenefitTrackingDashboard({
     const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
     const [cancelTarget, setCancelTarget] = useState<BenefitTrackingEntity | null>(null);
 
+    const [createModalOpen, setCreateModalOpen] = useState(false);
+    const [createCitizenNationalId, setCreateCitizenNationalId] = useState("");
+    const [createProgramId, setCreateProgramId] = useState("");
+    const [createBenefitName, setCreateBenefitName] = useState("");
+    const [createRequestedAmount, setCreateRequestedAmount] = useState<number>(0);
+    const [createExpectedReceiveDate, setCreateExpectedReceiveDate] = useState("");
+    const [createRecipientName, setCreateRecipientName] = useState("");
+    const [createBankName, setCreateBankName] = useState("");
+    const [createBankAccountNumber, setCreateBankAccountNumber] = useState("");
+    const [createNotes, setCreateNotes] = useState("");
+    const [programOptions, setProgramOptions] = useState<ProgramOption[]>([]);
+    const [loadingPrograms, setLoadingPrograms] = useState(false);
+    const [createSubmitAttempted, setCreateSubmitAttempted] = useState(false);
+    const [createConfirmOpen, setCreateConfirmOpen] = useState(false);
+    const [pendingCreatePayload, setPendingCreatePayload] = useState<CreateTrackingPayload | null>(null);
+
+    const selectedDocumentList = useMemo(
+        () => parseDocumentList(selectedTracking?.documentsJson),
+        [selectedTracking]
+    );
+    const selectedReviewTimeline = useMemo(
+        () => buildReviewTimeline(selectedTracking),
+        [selectedTracking]
+    );
+
     const filteredTrackings = useMemo(() => {
         return trackings.filter((t) => {
-            const s = search.toLowerCase();
+            const s = debouncedSearch.toLowerCase();
             const matchesSearch =
                 t.trackingNumber.toLowerCase().includes(s) ||
                 t.benefitName.toLowerCase().includes(s) ||
@@ -139,7 +233,16 @@ export function BenefitTrackingDashboard({
             const matchesStatus = statusFilter === "ALL" || t.status === statusFilter;
             return matchesSearch && matchesStatus;
         });
-    }, [trackings, search, statusFilter]);
+    }, [trackings, debouncedSearch, statusFilter]);
+
+    const normalizedCreateNationalId = createCitizenNationalId.replace(/\D/g, "").slice(0, 13);
+    const nationalIdValidationError = useMemo(() => {
+        if (!createSubmitAttempted) return null;
+        if (!normalizedCreateNationalId) return "กรุณากรอกเลขบัตรประชาชน 13 หลัก";
+        if (!/^\d{13}$/.test(normalizedCreateNationalId)) return "เลขบัตรประชาชนต้องเป็นตัวเลข 13 หลัก";
+        if (!isValidThaiNationalId(normalizedCreateNationalId)) return "เลขบัตรประชาชนไม่ถูกต้อง (checksum ไม่ผ่าน)";
+        return null;
+    }, [createSubmitAttempted, normalizedCreateNationalId]);
 
     const handleOpenUpdate = (tracking: BenefitTrackingEntity) => {
         setSelectedTracking(tracking);
@@ -303,8 +406,46 @@ export function BenefitTrackingDashboard({
     };
 
     const canEdit = ["SUPERADMIN", "ADMIN", "STAFF", "COMMANDER"].includes(userRole);
-    const canDelete = ["SUPERADMIN", "ADMIN"].includes(userRole);
+    const canDelete = ["SUPERADMIN", "ADMIN", "STAFF", "COMMANDER"].includes(userRole);
     const canCancel = ["SUPERADMIN", "ADMIN", "COMMANDER"].includes(userRole);
+    const canCreate = ["SUPERADMIN", "ADMIN", "STAFF", "COMMANDER"].includes(userRole);
+
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            setDebouncedSearch(search.trim());
+        }, 300);
+
+        return () => window.clearTimeout(timer);
+    }, [search]);
+
+    useEffect(() => {
+        if (!createModalOpen || programOptions.length > 0) return;
+
+        const fetchPrograms = async () => {
+            setLoadingPrograms(true);
+            try {
+                const res = await fetch("/api/benefits?activeOnly=true");
+                if (!res.ok) return;
+                const json = await res.json();
+                const data = Array.isArray(json.data) ? json.data : [];
+                setProgramOptions(data);
+            } catch {
+                // ignore fetch errors in UI
+            } finally {
+                setLoadingPrograms(false);
+            }
+        };
+
+        fetchPrograms();
+    }, [createModalOpen, programOptions.length]);
+
+    useEffect(() => {
+        if (!createProgramId) return;
+        const selectedProgram = programOptions.find((p) => p.id === createProgramId);
+        if (selectedProgram && !createBenefitName.trim()) {
+            setCreateBenefitName(selectedProgram.thaiName);
+        }
+    }, [createProgramId, createBenefitName, programOptions]);
 
     const refreshData = async () => {
         try {
@@ -360,6 +501,87 @@ export function BenefitTrackingDashboard({
             setFeedbackMessage("เกิดข้อผิดพลาดในการเชื่อมต่อระบบ กรุณาลองใหม่อีกครั้ง");
         } finally {
             setProposingKey(null);
+        }
+    };
+
+    const resetCreateForm = () => {
+        setCreateCitizenNationalId("");
+        setCreateProgramId("");
+        setCreateBenefitName("");
+        setCreateRequestedAmount(0);
+        setCreateExpectedReceiveDate("");
+        setCreateRecipientName("");
+        setCreateBankName("");
+        setCreateBankAccountNumber("");
+        setCreateNotes("");
+        setCreateSubmitAttempted(false);
+        setCreateConfirmOpen(false);
+        setPendingCreatePayload(null);
+    };
+
+    const buildCreatePayload = (): CreateTrackingPayload => ({
+        citizenNationalId: normalizedCreateNationalId,
+        programId: createProgramId,
+        benefitName: createBenefitName.trim(),
+        requestedAmount: Number(createRequestedAmount),
+        paymentMethod: "โอนเงินผ่านบัญชีธนาคาร",
+        bankName: createBankName.trim() || undefined,
+        bankAccountNumber: createBankAccountNumber.trim() || undefined,
+        recipientName: createRecipientName.trim() || undefined,
+        notes: createNotes.trim() || undefined,
+        expectedReceiveDate: createExpectedReceiveDate || undefined,
+    });
+
+    const handleOpenCreateConfirm = () => {
+        setCreateSubmitAttempted(true);
+
+        if (
+            !normalizedCreateNationalId ||
+            !createProgramId ||
+            !createBenefitName.trim() ||
+            createRequestedAmount <= 0
+        ) {
+            setFeedbackMessage("กรอกข้อมูลเพิ่มรายการให้ครบ: เลขบัตรประชาชน, โครงการ, ชื่อสิทธิ, และวงเงินที่ขอ");
+            return;
+        }
+
+        if (!/^\d{13}$/.test(normalizedCreateNationalId) || !isValidThaiNationalId(normalizedCreateNationalId)) {
+            setFeedbackMessage("เลขบัตรประชาชนไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
+            return;
+        }
+
+        setPendingCreatePayload(buildCreatePayload());
+        setCreateConfirmOpen(true);
+    };
+
+    const handleSubmitCreate = async () => {
+        if (!pendingCreatePayload) {
+            setFeedbackMessage("ไม่พบข้อมูลสำหรับบันทึกรายการ กรุณาตรวจสอบข้อมูลอีกครั้ง");
+            return;
+        }
+
+        setIsProcessing(true);
+        try {
+            const res = await fetch("/api/benefit-tracking", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(pendingCreatePayload),
+            });
+
+            const json = await res.json();
+            if (res.ok && json.success) {
+                setFeedbackMessage(`เพิ่มรายการติดตาม ${json.data?.trackingNumber || "ใหม่"} เรียบร้อยแล้ว`);
+                setCreateConfirmOpen(false);
+                setCreateModalOpen(false);
+                resetCreateForm();
+                await refreshData();
+            } else {
+                setFeedbackMessage(`เกิดข้อผิดพลาด: ${json.error || res.statusText}`);
+            }
+        } catch {
+            setFeedbackMessage("เกิดข้อผิดพลาดในการเชื่อมต่อระบบ กรุณาลองใหม่อีกครั้ง");
+        } finally {
+            setIsProcessing(false);
         }
     };
 
@@ -499,18 +721,39 @@ export function BenefitTrackingDashboard({
             </div>
 
             {/* Filters */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-                <div className="relative flex-1 max-w-md">
+            <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+                <div className="relative w-full lg:max-w-2xl">
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input
                         placeholder="ค้นหาเลขติดตาม, ชื่อผู้รับสิทธิ, เลขบัตร 13 หลัก, โครงการ..."
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="pl-9"
+                        className="pl-9 pr-10 h-10 text-sm"
                     />
+                    {search.trim().length > 0 && (
+                        <button
+                            type="button"
+                            aria-label="ล้างคำค้นหา"
+                            onClick={() => setSearch("")}
+                            className="absolute right-2 top-2 rounded p-1 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        >
+                            <X className="h-4 w-4" />
+                        </button>
+                    )}
                 </div>
 
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
+                    {canCreate && (
+                        <Button
+                            size="sm"
+                            onClick={() => setCreateModalOpen(true)}
+                            className="h-9 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white whitespace-nowrap"
+                        >
+                            <PlusCircle className="h-4 w-4" />
+                            เพิ่มรายการติดตาม
+                        </Button>
+                    )}
+
                     <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
                     {statusOptions.map((opt) => (
                         <Button
@@ -747,6 +990,43 @@ export function BenefitTrackingDashboard({
                                 )}
                             </div>
 
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                <div className="space-y-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3">
+                                    <Label className="text-xs font-bold text-slate-800 dark:text-slate-200">เอกสารที่ต้องยื่น</Label>
+                                    {selectedDocumentList.length > 0 ? (
+                                        <ul className="space-y-1.5 text-[11px] text-slate-700 dark:text-slate-300">
+                                            {selectedDocumentList.map((doc, index) => (
+                                                <li key={`${doc}-${index}`} className="flex items-start gap-2">
+                                                    <span className="mt-0.5 h-2 w-2 rounded-full bg-emerald-500" />
+                                                    <span>{doc}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p className="text-[11px] text-muted-foreground">ยังไม่มีข้อมูลเอกสารที่ต้องยื่นสำหรับรายการนี้</p>
+                                    )}
+                                </div>
+
+                                <div className="space-y-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3">
+                                    <Label className="text-xs font-bold text-slate-800 dark:text-slate-200">ประวัติการตรวจสอบ</Label>
+                                    {selectedReviewTimeline.length > 0 ? (
+                                        <div className="space-y-2">
+                                            {selectedReviewTimeline.map((item) => (
+                                                <div key={item.label} className="flex items-start gap-2 text-[11px] text-slate-700 dark:text-slate-300">
+                                                    <span className={`mt-1 h-2.5 w-2.5 rounded-full ${item.accent}`} />
+                                                    <div>
+                                                        <p className="font-semibold">{item.label}</p>
+                                                        <p className="text-muted-foreground">{formatThaiDate(item.date)}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-[11px] text-muted-foreground">ยังไม่มีประวัติการเปลี่ยนสถานะสำหรับรายการนี้</p>
+                                    )}
+                                </div>
+                            </div>
+
                             {[BenefitTrackingStatus.DISBURSED, BenefitTrackingStatus.RECEIVED].includes(newStatus) && (
                                 <div className="space-y-1.5">
                                     <Label htmlFor="paymentReference">เลขอ้างอิงการโอนเงิน / Payment Reference</Label>
@@ -783,6 +1063,199 @@ export function BenefitTrackingDashboard({
                             disabled={isProcessing}
                         >
                             {isProcessing ? "กำลังบันทึก..." : "บันทึกสถานะการติดตาม"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Create Tracking Modal */}
+            <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
+                <DialogContent className="sm:max-w-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-bold flex items-center gap-2 text-emerald-700">
+                            <PlusCircle className="h-5 w-5" />
+                            เพิ่มรายการติดตามสถานะสิทธิและเงินสงเคราะห์
+                        </DialogTitle>
+                        <DialogDescription className="text-xs">
+                            เพิ่มคำขอติดตามแบบ Manual เพื่อให้ระบบติดตามสถานะได้ครบตั้งแต่รอดำเนินการจนถึงโอนเงิน
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-4 py-2 text-xs">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="createCitizenNationalId">เลขบัตรประชาชนผู้รับสิทธิ (13 หลัก)</Label>
+                                <Input
+                                    id="createCitizenNationalId"
+                                    placeholder="110xxxxxxxxxx"
+                                    value={createCitizenNationalId}
+                                    onChange={(e) => setCreateCitizenNationalId(e.target.value.replace(/\D/g, "").slice(0, 13))}
+                                    maxLength={13}
+                                    className={nationalIdValidationError ? "border-rose-400 focus-visible:ring-rose-500" : ""}
+                                />
+                                {nationalIdValidationError && (
+                                    <p className="text-[11px] text-rose-600 dark:text-rose-400">{nationalIdValidationError}</p>
+                                )}
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="createProgramId">โครงการสิทธิประโยชน์</Label>
+                                <select
+                                    id="createProgramId"
+                                    value={createProgramId}
+                                    onChange={(e) => setCreateProgramId(e.target.value)}
+                                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-xs"
+                                >
+                                    <option value="">{loadingPrograms ? "กำลังโหลดโครงการ..." : "-- เลือกโครงการ --"}</option>
+                                    {programOptions.map((program) => (
+                                        <option key={program.id} value={program.id}>
+                                            {program.code} - {program.thaiName}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="createBenefitName">ชื่อสิทธิประโยชน์</Label>
+                                <Input
+                                    id="createBenefitName"
+                                    value={createBenefitName}
+                                    onChange={(e) => setCreateBenefitName(e.target.value)}
+                                    placeholder="เช่น เงินช่วยเหลือครอบครัวผู้เสียชีวิต"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="createRequestedAmount">วงเงินที่ขอ (บาท)</Label>
+                                <Input
+                                    id="createRequestedAmount"
+                                    type="number"
+                                    min={0}
+                                    value={createRequestedAmount}
+                                    onChange={(e) => setCreateRequestedAmount(Number(e.target.value))}
+                                    className="font-bold text-emerald-600"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="createExpectedReceiveDate">วันที่คาดว่าจะได้รับ</Label>
+                                <Input
+                                    id="createExpectedReceiveDate"
+                                    type="date"
+                                    value={createExpectedReceiveDate}
+                                    onChange={(e) => setCreateExpectedReceiveDate(e.target.value)}
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="createRecipientName">ชื่อผู้รับเงิน</Label>
+                                <Input
+                                    id="createRecipientName"
+                                    value={createRecipientName}
+                                    onChange={(e) => setCreateRecipientName(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="createBankName">ธนาคาร</Label>
+                                <Input
+                                    id="createBankName"
+                                    value={createBankName}
+                                    onChange={(e) => setCreateBankName(e.target.value)}
+                                    placeholder="เช่น ธนาคารกรุงไทย"
+                                />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="createBankAccountNumber">เลขบัญชี</Label>
+                                <Input
+                                    id="createBankAccountNumber"
+                                    value={createBankAccountNumber}
+                                    onChange={(e) => setCreateBankAccountNumber(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label htmlFor="createNotes">หมายเหตุ</Label>
+                            <textarea
+                                id="createNotes"
+                                rows={3}
+                                value={createNotes}
+                                onChange={(e) => setCreateNotes(e.target.value)}
+                                placeholder="รายละเอียดเพิ่มเติมของคำขอ..."
+                                className="w-full rounded-lg border border-input bg-background p-2.5 text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
+                            />
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setCreateModalOpen(false);
+                                resetCreateForm();
+                            }}
+                        >
+                            ยกเลิก
+                        </Button>
+                        <Button
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                            onClick={handleOpenCreateConfirm}
+                            disabled={isProcessing}
+                        >
+                            ตรวจสอบก่อนบันทึก
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={createConfirmOpen} onOpenChange={setCreateConfirmOpen}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg font-bold text-emerald-700">ยืนยันการเพิ่มรายการติดตาม</DialogTitle>
+                        <DialogDescription className="text-xs">
+                            ตรวจสอบข้อมูลก่อนบันทึกเข้าระบบจริง
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-2 text-xs rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/60 dark:bg-emerald-950/30 p-3">
+                        <div className="flex justify-between gap-3">
+                            <span className="text-muted-foreground">เลขบัตรประชาชน</span>
+                            <span className="font-mono font-semibold">{normalizedCreateNationalId}</span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                            <span className="text-muted-foreground">โครงการ</span>
+                            <span className="font-semibold text-right">
+                                {programOptions.find((p) => p.id === createProgramId)?.thaiName || "-"}
+                            </span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                            <span className="text-muted-foreground">ชื่อสิทธิ</span>
+                            <span className="font-semibold text-right">{createBenefitName || "-"}</span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                            <span className="text-muted-foreground">วงเงินที่ขอ</span>
+                            <span className="font-bold text-emerald-700">{formatCurrency(createRequestedAmount || 0)}</span>
+                        </div>
+                        <div className="flex justify-between gap-3">
+                            <span className="text-muted-foreground">วันที่คาดว่าจะได้รับ</span>
+                            <span className="font-semibold">{createExpectedReceiveDate ? formatThaiDate(createExpectedReceiveDate) : "-"}</span>
+                        </div>
+                    </div>
+
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setCreateConfirmOpen(false)}>
+                            กลับไปแก้ไข
+                        </Button>
+                        <Button
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                            onClick={handleSubmitCreate}
+                            disabled={isProcessing}
+                        >
+                            {isProcessing ? "กำลังบันทึก..." : "ยืนยันและบันทึก"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

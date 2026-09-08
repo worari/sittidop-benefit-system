@@ -446,10 +446,10 @@ export class MilitaryStore {
     return [...this.documents];
   }
 
-  public calculateBenefitForPersonnel(personnelId: string) {
+  public async calculateBenefitForPersonnel(personnelId: string) {
     const personnel = this.getPersonnelById(personnelId);
     if (!personnel) throw new Error("Personnel not found");
-    const rules = militaryRuleRepository.getAllRules();
+    const rules = await militaryRuleRepository.getAllRules();
     return MilitaryRuleEngine.calculate(personnel, rules);
   }
 }

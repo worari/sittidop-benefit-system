@@ -449,8 +449,8 @@ export class BenefitTrackingService {
             throw new Error("ไม่พบรายการติดตามสถานะที่ระบุ");
         }
 
-        if (tracking.status === BenefitTrackingStatus.APPROVED || tracking.status === BenefitTrackingStatus.DISBURSED || tracking.status === BenefitTrackingStatus.RECEIVED) {
-            throw new Error("ไม่สามารถลบรายการที่อนุมัติแล้วหรือโอนเงินแล้วได้ กรุณายกเลิกรายการแทน");
+        if (tracking.status === BenefitTrackingStatus.DISBURSED || tracking.status === BenefitTrackingStatus.RECEIVED) {
+            throw new Error("ไม่สามารถลบรายการที่โอนเงินแล้วหรือได้รับสิทธิแล้วได้ กรุณายกเลิกรายการแทน");
         }
 
         await this.trackingRepo.delete(data.trackingId);

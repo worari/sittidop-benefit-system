@@ -49,7 +49,7 @@ export class ApplicationService {
     programId: string;
     requestedAmount: number;
     applicantRemarks?: string;
-    documents?: { name: string; verified: boolean }[];
+    documents?: unknown;
     userId?: string;
     userName?: string;
   }): Promise<ApplicationEntity> {
@@ -128,6 +128,11 @@ export class ApplicationService {
     reviewerName: string;
     reviewerRole: string;
   }): Promise<ApplicationEntity> {
+    const current = await this.appRepo.findById(data.applicationId);
+    if (!current) {
+      throw new Error("ไม่พบคำขอที่ต้องการพิจารณา");
+    }
+
     let nextStatus: ApplicationStatus;
     switch (data.decision) {
       case ApprovalDecision.APPROVE:
@@ -137,10 +142,10 @@ export class ApplicationService {
         nextStatus = ApplicationStatus.REJECTED;
         break;
       case ApprovalDecision.REQUEST_DOCUMENTS:
-        nextStatus = ApplicationStatus.UNDER_REVIEW;
+        nextStatus = ApplicationStatus.DOCUMENT_VERIFIED;
         break;
       case ApprovalDecision.FORWARD:
-        nextStatus = ApplicationStatus.DOCUMENT_VERIFIED;
+        nextStatus = ApplicationStatus.UNDER_REVIEW;
         break;
       default:
         nextStatus = ApplicationStatus.UNDER_REVIEW;
@@ -157,7 +162,7 @@ export class ApplicationService {
       applicationId: data.applicationId,
       approverId: data.reviewerId,
       approverName: data.reviewerName,
-      previousStatus: updatedApp.status,
+      previousStatus: current.status,
       newStatus: nextStatus,
       decision: data.decision,
       comments: data.notes || null,
@@ -180,5 +185,80 @@ export class ApplicationService {
     });
 
     return updatedApp;
+  }
+
+  public async updateClaim(data: {
+    id: string;
+    programId?: string;
+    requestedAmount?: number;
+    applicantRemarks?: string;
+    documents?: unknown;
+    userId?: string;
+    userName?: string;
+    role?: string;
+  }): Promise<ApplicationEntity> {
+    const repo = this.appRepo as PrismaApplicationRepository;
+    const existing = await repo.findById(data.id);
+    if (!existing) {
+      throw new Error("ไม่พบคำขอที่ต้องการแก้ไข");
+    }
+
+    if (existing.status === ApplicationStatus.APPROVED || existing.status === ApplicationStatus.DISBURSED) {
+      throw new Error("ไม่สามารถแก้ไขคำขอที่อนุมัติหรือโอนเงินแล้ว");
+    }
+
+    const updated = await repo.update(data.id, {
+      programId: data.programId ?? existing.programId,
+      requestedAmount: data.requestedAmount ?? existing.requestedAmount,
+      applicantRemarks: data.applicantRemarks ?? existing.applicantRemarks,
+      documentsJson: data.documents !== undefined ? JSON.stringify(data.documents) : existing.documentsJson,
+      status: existing.status,
+    });
+
+    await AuditLogger.log({
+      userId: data.userId,
+      userName: data.userName,
+      role: data.role,
+      action: "CLAIM_UPDATED",
+      resource: "Application",
+      resourceId: data.id,
+      details: {
+        programId: updated.programId,
+        requestedAmount: updated.requestedAmount,
+      },
+    });
+
+    return updated;
+  }
+
+  public async deleteClaim(data: {
+    id: string;
+    userId?: string;
+    userName?: string;
+    role?: string;
+  }): Promise<void> {
+    const repo = this.appRepo as PrismaApplicationRepository;
+    const existing = await repo.findById(data.id);
+    if (!existing) {
+      throw new Error("ไม่พบคำขอที่ต้องการลบ");
+    }
+
+    if (existing.status === ApplicationStatus.APPROVED || existing.status === ApplicationStatus.DISBURSED) {
+      throw new Error("ไม่สามารถลบคำขอที่อนุมัติหรือโอนเงินแล้ว");
+    }
+
+    await repo.remove(data.id);
+
+    await AuditLogger.log({
+      userId: data.userId,
+      userName: data.userName,
+      role: data.role,
+      action: "CLAIM_DELETED",
+      resource: "Application",
+      resourceId: data.id,
+      details: {
+        applicationNumber: existing.applicationNumber,
+      },
+    });
   }
 }

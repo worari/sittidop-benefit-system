@@ -140,6 +140,10 @@ export function RuleManager() {
     }
   };
 
+  const refreshRuleCatalog = async () => {
+    await Promise.all([fetchRules(), fetchDimensionOptions()]);
+  };
+
   // Edit form state
   const [formFormula, setFormFormula] = useState("");
   const [formFactor, setFormFactor] = useState(1);
@@ -800,8 +804,106 @@ export function RuleManager() {
             <Play className="h-4 w-4 text-amber-500" />
             {simulating ? "กำลังจำลอง..." : "ทดสอบ Sandbox (5 มิติ)"}
           </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={refreshRuleCatalog}
+            className="text-xs gap-1.5 shadow-sm border-slate-300 dark:border-slate-700"
+          >
+            <RotateCcw className="h-4 w-4 text-emerald-600" />
+            รีเฟรชฐานข้อมูล
+          </Button>
         </div>
       </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-card p-4 shadow-xs">
+        <div className="sm:col-span-1">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">ฐานข้อมูลมิติ</p>
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Master data จาก /api/rules/dimensions</p>
+        </div>
+        <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-500/5 p-3">
+          <p className="text-[10px] text-muted-foreground">ประเภทภารกิจ</p>
+          <p className="text-lg font-extrabold text-emerald-800 dark:text-emerald-300">{missionOptions.length}</p>
+        </div>
+        <div className="rounded-xl border border-purple-200 dark:border-purple-900/60 bg-purple-500/5 p-3">
+          <p className="text-[10px] text-muted-foreground">ประเภทกำลังพล</p>
+          <p className="text-lg font-extrabold text-purple-800 dark:text-purple-300">{personnelCategoryOptions.length}</p>
+        </div>
+        <div className="rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-500/5 p-3">
+          <p className="text-[10px] text-muted-foreground">ประเภทความสูญเสีย</p>
+          <p className="text-lg font-extrabold text-rose-800 dark:text-rose-300">{lossTypeOptions.length}</p>
+        </div>
+      </div>
+
+      <Card className="border border-slate-200/80 dark:border-slate-800 shadow-sm overflow-hidden">
+        <CardHeader className="py-3 px-4 bg-slate-50/50 dark:bg-slate-900/40 border-b border-slate-200 dark:border-slate-800">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-sm font-bold">จัดการตัวเลือกมิติจากฐานข้อมูล</CardTitle>
+              <CardDescription className="text-xs">
+                เพิ่ม แก้ไข ลบ และค้นหาตัวเลือกของมิติหลักจากตาราง `BenefitDimensionOption`
+              </CardDescription>
+            </div>
+            <Button size="sm" variant="outline" onClick={fetchDimensionOptions} className="text-xs gap-1.5">
+              <RotateCcw className="h-4 w-4" />
+              โหลดใหม่
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4 p-4">
+          <div className="space-y-2">
+            <Label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+              <Target className="h-3.5 w-3.5 text-emerald-600" />
+              ประเภทภารกิจ
+            </Label>
+            <DimensionChipsEditor
+              options={missionOptions}
+              dimensionType="MISSION_TYPE"
+              selected={[]}
+              onChange={() => undefined}
+              tone="emerald"
+              onOptionsChanged={refreshRuleCatalog}
+              readOnlySelection
+              addPlaceholder="พิมพ์ชื่อภารกิจใหม่ เช่น ภารกิจลาดตระเวนชายแดนพิเศษ..."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 text-purple-600" />
+              ประเภทกำลังพล
+            </Label>
+            <DimensionChipsEditor
+              options={personnelCategoryOptions}
+              dimensionType="PERSONNEL_CATEGORY"
+              selected={[]}
+              onChange={() => undefined}
+              tone="purple"
+              onOptionsChanged={refreshRuleCatalog}
+              readOnlySelection
+              addPlaceholder="พิมพ์ประเภทกำลังพลใหม่ เช่น ทหารพราน, พลทหารเกณฑ์..."
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+              <HeartCrack className="h-3.5 w-3.5 text-rose-600" />
+              ประเภทความสูญเสีย
+            </Label>
+            <DimensionChipsEditor
+              options={lossTypeOptions}
+              dimensionType="LOSS_TYPE"
+              selected={[]}
+              onChange={() => undefined}
+              tone="rose"
+              onOptionsChanged={refreshRuleCatalog}
+              readOnlySelection
+              addPlaceholder="พิมพ์ประเภทความสูญเสียใหม่ เช่น บาดเจ็บต้องตัดนิ้ว..."
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* 4 Category Selection Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">

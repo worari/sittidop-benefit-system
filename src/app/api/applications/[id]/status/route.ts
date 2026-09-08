@@ -15,6 +15,16 @@ export async function PATCH(
     const session = await getServerSession(authOptions);
     const body = await req.json();
 
+    if (body.documents !== undefined) {
+      await appService.updateClaim({
+        id,
+        documents: body.documents,
+        userId: (session?.user as any)?.id || "usr-officer",
+        userName: session?.user?.name || "เจ้าหน้าที่ผู้พิจารณา",
+        role: (session?.user as any)?.role || "OFFICER",
+      });
+    }
+
     const updated = await appService.reviewClaim({
       applicationId: id,
       decision: body.decision as ApprovalDecision,

@@ -69,7 +69,7 @@ export class OfficialDocumentService {
       officerPosition = "เจ้ากรมกำลังพลทหารบก (จก.กพ.ทบ.)",
     } = options;
 
-    const rules = militaryRuleRepository.getAllRules();
+    const rules = await militaryRuleRepository.getAllRules();
     const calculation = MilitaryRuleEngine.calculate(personnel, rules);
 
     const docChildren: (Paragraph | Table)[] = [];

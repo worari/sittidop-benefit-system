@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { MilitaryRuleEngine } from "@/core/use-cases/estimation/MilitaryRuleEngine";
 import { MilitaryPersonnelInput, RuleFormulaContext } from "@/core/domain/value-objects/military-types";
 import { BenefitRuleDefinition } from "@/core/domain/entities/BenefitRule";
+import { defaultMilitaryRules } from "@/infrastructure/database/repositories/PrismaMilitaryRuleRepository";
 
 function buildContext(partial: Partial<RuleFormulaContext> = {}): RuleFormulaContext {
   return {
@@ -162,7 +163,7 @@ describe("MilitaryRuleEngine", () => {
     };
 
     it("should compute categories: Lump sum, Monthly, Annual, and Non-Monetary", () => {
-      const result = MilitaryRuleEngine.calculate(mockPersonnel);
+      const result = MilitaryRuleEngine.calculate(mockPersonnel, defaultMilitaryRules);
 
       expect(result).toBeDefined();
       expect(result.grandTotalLumpSum).toBeGreaterThan(0);
@@ -173,7 +174,7 @@ describe("MilitaryRuleEngine", () => {
     });
 
     it("should correctly allocate shares among heirs", () => {
-      const result = MilitaryRuleEngine.calculate(mockPersonnel);
+      const result = MilitaryRuleEngine.calculate(mockPersonnel, defaultMilitaryRules);
 
       expect(result.heirDistribution).toBeDefined();
       expect(result.heirDistribution.length).toBe(2);

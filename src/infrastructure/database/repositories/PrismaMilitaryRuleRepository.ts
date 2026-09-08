@@ -1,9 +1,11 @@
-import {
+﻿import {
   BenefitRuleDefinition,
   DimensionOption,
   DimensionType,
 } from "@/core/domain/entities/BenefitRule";
 import { BenefitCategoryCode } from "@/core/domain/value-objects/military-types";
+import { BenefitRule as PrismaBenefitRule, Prisma } from "@prisma/client";
+import { prisma } from "../prisma";
 
 // ============================================================================
 // Master list of extensible dimension options (5-Dimension Rules Engine)
@@ -126,130 +128,6 @@ export const defaultMilitaryRules: BenefitRuleDefinition[] = [
     },
     isActive: true,
     priorityOrder: 3,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: "rule-cat1-04",
-    ruleCode: "RULE-LUMP-PROMOTION-DIFF",
-    ruleName: "เงินเพิ่มพิเศษผลต่างการปูนบำเหน็จเลื่อนชั้นยศ (7-9 ชั้นยศ)",
-    category: BenefitCategoryCode.LUMP_SUM_PAYMENT,
-    categoryName: "One-Time Lump Sum",
-    categoryThaiName: "หมวด 1: รับเงินครั้งเดียว",
-    description: "เงินตกเบิกและผลต่างเงินเดือนจากการได้รับการปูนบำเหน็จเลื่อนชั้นยศเป็นกรณีพิเศษ",
-    legalBasis: "ระเบียบกระทรวงกลาโหมว่าด้วยการปูนบำเหน็จพิเศษ พ.ศ. 2560",
-    paymentType: "ONE_TIME_LUMP_SUM",
-    formulaType: "EXPRESSION",
-    formulaExpression: "({promotedSalary} - {salary}) * 12 * 3",
-    multiplierFactor: 3,
-    baseAmount: 0,
-    conditions: {
-      allowedLossTypes: ["KIA_COMBAT_DEATH", "DUTY_DEATH"],
-    },
-    isActive: true,
-    priorityOrder: 4,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: "rule-cat1-09",
-    ruleCode: "RULE-LUMP-HOSPITAL-STAY",
-    ruleName: "เงินบำรุงขวัญกำลังพล (Morale / Consolation Grant)",
-    category: BenefitCategoryCode.LUMP_SUM_PAYMENT,
-    categoryName: "One-Time Lump Sum",
-    categoryThaiName: "หมวด 1: รับเงินครั้งเดียว",
-    description: "เงินบำรุงขวัญกำลังพล: กรณีเสียชีวิตรับ 40,000 บาท; กรณีบาดเจ็บและพักรักษาตัวในโรงพยาบาลไม่เกิน 20 วันรับ 10,000 บาท; กรณีบาดเจ็บพักรักษาตัวเกิน 20 วันรับเพิ่มอีก 10,000 บาท รวม 20,000 บาท",
-    legalBasis: "ระเบียบกองทัพบกว่าด้วยการสงเคราะห์กำลังพลที่ได้รับบาดเจ็บจากการปฏิบัติราชการสนาม พ.ศ. 2562",
-    paymentType: "ONE_TIME_LUMP_SUM",
-    benefitScope: "IN_ARMY",
-    causeType: "BOTH",
-    formulaType: "EXPRESSION",
-    formulaExpression: "{hospitalStayDays} <= 20 ? 10000 : 20000",
-    multiplierFactor: 1,
-    baseAmount: 10000,
-    minAmount: 10000,
-    maxAmount: 40000,
-
-    // สูตร & กฎเกณฑ์ระดับเงินบำรุงขวัญ (Configurable Benefit Tiers)
-    // ตามระเบียบกองทัพบกว่าด้วยการสงเคราะห์กำลังพลที่ได้รับบาดเจ็บจากการปฏิบัติราชการสนาม พ.ศ. 2562
-    // กำหนดระดับเงินบำรุงขวัญดังนี้:
-    // 1. กรณีเสียชีวิตหรือพิการทุพพลภาพ -> 40,000 บาท
-    // 2. กรณีบาดเจ็บและพักรักษาตัวในโรงพยาบาลไม่เกิน 20 วัน -> 10,000 บาท
-    // 3. กรณีบาดเจ็บพักรักษาตัวเกิน 20 วัน -> รับเพิ่มเติมอีก 10,000 บาท (รวม 20,000 บาท)
-    formulaTiers: [
-      {
-        id: "tier-morale-death-disability",
-        label: "กรณีเสียชีวิตหรือพิการทุพพลภาพ",
-        lossTypes: ["DEATH", "DISABILITY"],
-        amount: 40000,
-      },
-      {
-        id: "tier-morale-injury-base",
-        label: "กรณีบาดเจ็บและพักรักษาตัวในโรงพยาบาล (ฐาน)",
-        lossTypes: ["INJURY"],
-        amount: 10000,
-      },
-      {
-        id: "tier-morale-injury-over20",
-        label: "กรณีบาดเจ็บพักรักษาตัวเกิน 20 วัน (รับเพิ่มเติม)",
-        lossTypes: ["INJURY"],
-        minDays: 21,
-        amount: 10000,
-        isAdditional: true,
-      },
-    ],
-
-    conditions: {
-      allowedLossTypes: ["KIA_COMBAT_DEATH", "DUTY_DEATH", "SEVERE_WOUND_WIA", "MODERATE_INJURY", "MINOR_INJURY", "TOTAL_PERMANENT_DISABILITY", "PARTIAL_DISABILITY", "ALL"],
-      allowedMissions: ["SOUTHERN_BORDER", "BORDER_DEFENSE", "INTERNAL_SECURITY", "COUNTER_INSURGENCY", "DISASTER_RELIEF", "ALL"],
-      allowedPersonnelCategories: ["COMMISSIONED_OFFICER", "NON_COMMISSIONED_OFFICER", "VOLUNTEER_RANGER", "CONSCRIPT_SOLDIER", "CIVILIAN_STAFF", "ALL"],
-    },
-    isActive: true,
-    priorityOrder: 5,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: "rule-cat1-05",
-    ruleCode: "RULE-LUMP-ARMY-FUND",
-    ruleName: "เงินกองทุนสวัสดิการกองทัพบก / บก.ทท.",
-    category: BenefitCategoryCode.LUMP_SUM_PAYMENT,
-    categoryName: "One-Time Lump Sum",
-    categoryThaiName: "หมวด 1: รับเงินครั้งเดียว",
-    description: "เงินช่วยเหลือจากกองทุนสวัสดิการกองทัพ คิดจากฐานเงินกองทุนบวกอายุราชการ",
-    legalBasis: "ระเบียบกองทุนสวัสดิการกองทัพบก พ.ศ. 2555",
-    paymentType: "ONE_TIME_LUMP_SUM",
-    formulaType: "EXPRESSION",
-    formulaExpression: "{baseAmount} + ({totalServiceYears} * 10000)",
-    multiplierFactor: 1,
-    baseAmount: 300000,
-    conditions: {
-      allowedLossTypes: ["KIA_COMBAT_DEATH", "DUTY_DEATH", "TOTAL_PERMANENT_DISABILITY"],
-    },
-    isActive: true,
-    priorityOrder: 5,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: "rule-cat1-06",
-    ruleCode: "RULE-LUMP-FUNERAL-AID",
-    ruleName: "เงินช่วยพิเศษค่าจัดการศพ 3 เท่าเงินเดือน",
-    category: BenefitCategoryCode.LUMP_SUM_PAYMENT,
-    categoryName: "One-Time Lump Sum",
-    categoryThaiName: "หมวด 1: รับเงินครั้งเดียว",
-    description: "เงินช่วยเหลือการจัดการศพตามระเบียบกระทรวงการคลัง 3 เท่าของเงินเดือนสุดท้าย",
-    legalBasis: "ระเบียบกระทรวงการคลังว่าด้วยเงินช่วยพิเศษกรณีข้าราชการถึงแก่ความตาย",
-    paymentType: "ONE_TIME_LUMP_SUM",
-    formulaType: "EXPRESSION",
-    formulaExpression: "{salary} * 3",
-    multiplierFactor: 3,
-    baseAmount: 0,
-    conditions: {
-      allowedLossTypes: ["KIA_COMBAT_DEATH", "DUTY_DEATH"],
-    },
-    isActive: true,
-    priorityOrder: 6,
     createdAt: new Date(),
     updatedAt: new Date(),
   },
@@ -653,9 +531,252 @@ class MilitaryRuleRepository {
   }
 }
 
+class PrismaMilitaryRuleRepository {
+  private toDomainRule(rule: PrismaBenefitRule): BenefitRuleDefinition {
+    const toStringArray = (value: Prisma.JsonValue | undefined | null): string[] => {
+      if (Array.isArray(value)) {
+        return value.filter((item): item is string => typeof item === "string");
+      }
+      return [];
+    };
+
+    return {
+      id: rule.id,
+      ruleCode: rule.ruleCode,
+      ruleName: rule.ruleName,
+      category: rule.category as BenefitCategoryCode,
+      categoryName: rule.categoryName || "",
+      categoryThaiName: rule.categoryThaiName || "",
+      description: rule.description || "",
+      legalBasis: rule.legalBasis || "",
+      paymentType: rule.paymentType as BenefitRuleDefinition["paymentType"],
+      benefitScope: rule.benefitScope ? (rule.benefitScope as BenefitRuleDefinition["benefitScope"]) : undefined,
+      causeType: rule.causeType ? (rule.causeType as BenefitRuleDefinition["causeType"]) : undefined,
+      formulaType: rule.formulaType as BenefitRuleDefinition["formulaType"],
+      formulaExpression: rule.formulaExpression,
+      multiplierFactor: rule.multiplierFactor,
+      baseAmount: rule.baseAmount,
+      minAmount: rule.minAmount ?? undefined,
+      maxAmount: rule.maxAmount ?? undefined,
+      conditions: {
+        allowedMissions: toStringArray(rule.allowedMissions),
+        allowedPersonnelCategories: toStringArray(rule.allowedPersonnelCategories),
+        allowedLossTypes: toStringArray(rule.allowedLossTypes),
+        allowedRanks: toStringArray(rule.allowedRanks),
+        minServiceYears: rule.minServiceYears ?? undefined,
+        requiresSpouse: rule.requiresSpouse ?? undefined,
+        requiresChildren: rule.requiresChildren ?? undefined,
+      },
+      insuranceMatrix:
+        rule.insuranceMatrix && typeof rule.insuranceMatrix === "object"
+          ? (rule.insuranceMatrix as unknown as BenefitRuleDefinition["insuranceMatrix"])
+          : undefined,
+      formulaTiers:
+        rule.formulaTiers && typeof rule.formulaTiers === "object"
+          ? (rule.formulaTiers as unknown as BenefitRuleDefinition["formulaTiers"])
+          : undefined,
+      isActive: rule.isActive,
+      priorityOrder: rule.priorityOrder,
+      createdAt: rule.createdAt,
+      updatedAt: rule.updatedAt,
+    };
+  }
+
+  public async getAllRules(): Promise<BenefitRuleDefinition[]> {
+    const rules = await prisma.benefitRule.findMany({ orderBy: { priorityOrder: "asc" } });
+    return rules.map((rule) => this.toDomainRule(rule));
+  }
+
+  public async getRulesByCategory(category: BenefitCategoryCode): Promise<BenefitRuleDefinition[]> {
+    const rules = await prisma.benefitRule.findMany({ where: { category }, orderBy: { priorityOrder: "asc" } });
+    return rules.map((rule) => this.toDomainRule(rule));
+  }
+
+  public async getRuleById(id: string): Promise<BenefitRuleDefinition | null> {
+    const rule = await prisma.benefitRule.findUnique({ where: { id } });
+    return rule ? this.toDomainRule(rule) : null;
+  }
+
+  public async createRule(data: Omit<BenefitRuleDefinition, "id" | "createdAt" | "updatedAt">): Promise<BenefitRuleDefinition> {
+    const created = await prisma.benefitRule.create({
+      data: {
+        id: `rule-${Date.now().toString().slice(-6)}`,
+        ruleCode: data.ruleCode,
+        ruleName: data.ruleName,
+        category: data.category,
+        categoryName: data.categoryName,
+        categoryThaiName: data.categoryThaiName,
+        description: data.description,
+        legalBasis: data.legalBasis,
+        paymentType: data.paymentType,
+        benefitScope: data.benefitScope ?? null,
+        causeType: data.causeType ?? null,
+        formulaType: data.formulaType,
+        formulaExpression: data.formulaExpression,
+        multiplierFactor: data.multiplierFactor,
+        baseAmount: data.baseAmount,
+        minAmount: data.minAmount ?? null,
+        maxAmount: data.maxAmount ?? null,
+        allowedMissions: (data.conditions.allowedMissions || []) as Prisma.InputJsonValue,
+        allowedPersonnelCategories: (data.conditions.allowedPersonnelCategories || []) as Prisma.InputJsonValue,
+        allowedLossTypes: (data.conditions.allowedLossTypes || []) as Prisma.InputJsonValue,
+        allowedRanks: (data.conditions.allowedRanks || []) as Prisma.InputJsonValue,
+        minServiceYears: data.conditions.minServiceYears ?? null,
+        requiresSpouse: data.conditions.requiresSpouse ?? null,
+        requiresChildren: data.conditions.requiresChildren ?? null,
+        insuranceMatrix: data.insuranceMatrix ? (data.insuranceMatrix as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+        formulaTiers: data.formulaTiers ? (data.formulaTiers as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+        priorityOrder: data.priorityOrder,
+        isActive: data.isActive,
+      },
+    });
+
+    return this.toDomainRule(created);
+  }
+
+  public async updateRule(id: string, data: Partial<BenefitRuleDefinition>): Promise<BenefitRuleDefinition> {
+    const updated = await prisma.benefitRule.update({
+      where: { id },
+      data: {
+        ruleCode: data.ruleCode,
+        ruleName: data.ruleName,
+        category: data.category,
+        categoryName: data.categoryName,
+        categoryThaiName: data.categoryThaiName,
+        description: data.description,
+        legalBasis: data.legalBasis,
+        paymentType: data.paymentType,
+        benefitScope: data.benefitScope ?? undefined,
+        causeType: data.causeType ?? undefined,
+        formulaType: data.formulaType,
+        formulaExpression: data.formulaExpression,
+        multiplierFactor: data.multiplierFactor,
+        baseAmount: data.baseAmount,
+        minAmount: data.minAmount ?? null,
+        maxAmount: data.maxAmount ?? null,
+        allowedMissions: data.conditions?.allowedMissions as Prisma.InputJsonValue | undefined,
+        allowedPersonnelCategories: data.conditions?.allowedPersonnelCategories as Prisma.InputJsonValue | undefined,
+        allowedLossTypes: data.conditions?.allowedLossTypes as Prisma.InputJsonValue | undefined,
+        allowedRanks: data.conditions?.allowedRanks as Prisma.InputJsonValue | undefined,
+        minServiceYears: data.conditions?.minServiceYears ?? undefined,
+        requiresSpouse: data.conditions?.requiresSpouse ?? undefined,
+        requiresChildren: data.conditions?.requiresChildren ?? undefined,
+        insuranceMatrix: data.insuranceMatrix ? (data.insuranceMatrix as unknown as Prisma.InputJsonValue) : undefined,
+        formulaTiers: data.formulaTiers ? (data.formulaTiers as unknown as Prisma.InputJsonValue) : undefined,
+        priorityOrder: data.priorityOrder,
+        isActive: data.isActive,
+      },
+    });
+
+    return this.toDomainRule(updated);
+  }
+
+  public async deleteRule(id: string): Promise<boolean> {
+    try {
+      await prisma.benefitRule.delete({ where: { id } });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  public async resetToDefault(): Promise<void> {
+    await prisma.benefitRule.deleteMany();
+    await prisma.benefitDimensionOption.deleteMany();
+  }
+
+  public async getDimensionOptions(type?: DimensionType): Promise<DimensionOption[]> {
+    const options = await prisma.benefitDimensionOption.findMany({
+      where: type ? { type } : undefined,
+      orderBy: [{ sortOrder: "asc" }, { label: "asc" }],
+    });
+
+    return options.map((option) => ({
+      id: option.id,
+      label: option.label,
+      type: option.type as DimensionType,
+      isSystem: option.isSystem,
+    }));
+  }
+
+  public async createDimensionOption(data: { id?: string; label: string; type: DimensionType }): Promise<DimensionOption> {
+    const label = (data.label || "").trim();
+    if (!label) throw new Error("กรุณาระบุชื่อตัวเลือก (label is required)");
+
+    const existingIds = await prisma.benefitDimensionOption.findMany({ select: { id: true } });
+    const slug =
+      data.id?.trim() ||
+      `${data.type}_${label
+        .replace(/[^\p{L}\p{N}]+/gu, "_")
+        .replace(/^_+|_+$/g, "")
+        .toUpperCase()
+        .slice(0, 48)}`;
+    const safeId = existingIds.some((option) => option.id === slug)
+      ? `${slug}_${Date.now().toString().slice(-5)}`
+      : slug;
+
+    const created = await prisma.benefitDimensionOption.create({
+      data: { id: safeId, label, type: data.type, isSystem: false },
+    });
+
+    return {
+      id: created.id,
+      label: created.label,
+      type: created.type as DimensionType,
+      isSystem: created.isSystem,
+    };
+  }
+
+  public async updateDimensionOption(id: string, data: { label?: string }): Promise<DimensionOption> {
+    const updated = await prisma.benefitDimensionOption.update({
+      where: { id },
+      data: data.label !== undefined ? { label: data.label.trim() } : {},
+    });
+
+    return {
+      id: updated.id,
+      label: updated.label,
+      type: updated.type as DimensionType,
+      isSystem: updated.isSystem,
+    };
+  }
+
+  public async deleteDimensionOption(id: string, cascade: boolean): Promise<{ deleted: boolean; affectedRules: number }> {
+    const option = await prisma.benefitDimensionOption.findUnique({ where: { id } });
+    if (!option) throw new Error(`ไม่พบตัวเลือกมิติที่ระบุ (${id})`);
+
+    let affectedRules = 0;
+    if (cascade) {
+      const fieldName =
+        option.type === "MISSION_TYPE"
+          ? "allowedMissions"
+          : option.type === "PERSONNEL_CATEGORY"
+            ? "allowedPersonnelCategories"
+            : "allowedLossTypes";
+
+      const rules = await prisma.benefitRule.findMany();
+      for (const rule of rules) {
+        const rawValue = (rule as unknown as Record<string, Prisma.JsonValue>)[fieldName];
+        if (!Array.isArray(rawValue) || !rawValue.includes(id)) continue;
+
+        const nextValues = rawValue.filter((value) => value !== id);
+        await prisma.benefitRule.update({
+          where: { id: rule.id },
+          data: { [fieldName]: nextValues } as Prisma.BenefitRuleUpdateInput,
+        });
+        affectedRules += 1;
+      }
+    }
+
+    await prisma.benefitDimensionOption.delete({ where: { id } });
+    return { deleted: true, affectedRules };
+  }
+}
+
 const globalForMilitaryRules = globalThis as unknown as {
-  militaryRuleRepo: MilitaryRuleRepository | undefined;
+  militaryRuleRepo: PrismaMilitaryRuleRepository | undefined;
 };
 
-export const militaryRuleRepository = globalForMilitaryRules.militaryRuleRepo ?? new MilitaryRuleRepository();
+export const militaryRuleRepository = globalForMilitaryRules.militaryRuleRepo ?? new PrismaMilitaryRuleRepository();
 if (process.env.NODE_ENV !== "production") globalForMilitaryRules.militaryRuleRepo = militaryRuleRepository;
+

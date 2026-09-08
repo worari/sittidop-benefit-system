@@ -958,9 +958,13 @@ export class MilitaryRuleEngine {
    */
   public static calculate(
     personnel: MilitaryPersonnelInput,
-    rules: BenefitRuleDefinition[] = defaultMilitaryRules
+    rules: BenefitRuleDefinition[]
   ): MilitaryBenefitCalculationResult {
-    const activeRules = rules && rules.length > 0 ? rules : defaultMilitaryRules;
+    if (!rules || rules.length === 0) {
+      throw new Error("ไม่พบข้อมูลกฎเกณฑ์จากฐานข้อมูล");
+    }
+
+    const activeRules = rules;
     const defaultPromotedSalary =
       personnel.promotedSalary ||
       Math.round(personnel.salary * (1 + (personnel.specialPensionTier || personnel.promotionSteps || 7) * 0.08));

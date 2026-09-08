@@ -118,6 +118,56 @@ export default function LandingPage() {
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [editIndex, setEditIndex] = useState<number | null>(null);
   const [editData, setEditData] = useState<Partial<Category>>({});
+
+  const beginCategoryEdit = (category?: Category, index?: number) => {
+    const nextData = category
+      ? {
+          ...category,
+          items: [...category.items],
+        }
+      : {
+          code: "หมวดใหม่",
+          title: "ชื่อหมวดสิทธิประโยชน์",
+          rate: "0 - 0 บาท",
+          items: ["รายการสิทธิประโยชน์ 1"],
+          color: "border-slate-500/40 bg-slate-500/5",
+          badge: "สิทธิประโยชน์",
+        };
+
+    setEditIndex(index ?? null);
+    setEditData(nextData);
+  };
+
+  const saveCategory = () => {
+    const normalized = {
+      code: editData.code?.trim() || "หมวดใหม่",
+      title: editData.title?.trim() || "ชื่อหมวดสิทธิประโยชน์",
+      rate: editData.rate?.trim() || "0 - 0 บาท",
+      items: Array.isArray(editData.items)
+        ? editData.items.map((item) => item.trim()).filter(Boolean)
+        : [],
+      color: editData.color || "border-slate-500/40 bg-slate-500/5",
+      badge: editData.badge?.trim() || "สิทธิประโยชน์",
+    };
+
+    if (editIndex === null) {
+      setCategories((prev) => [...prev, normalized]);
+    } else {
+      setCategories((prev) => prev.map((category, index) => (index === editIndex ? { ...category, ...normalized } : category)));
+    }
+
+    setEditIndex(null);
+    setEditData({});
+  };
+
+  const deleteCategory = (index: number) => {
+    setCategories((prev) => prev.filter((_, currentIndex) => currentIndex !== index));
+    if (editIndex === index) {
+      setEditIndex(null);
+      setEditData({});
+    }
+  };
+
   const [lossType, setLossType] = useState<"KIA_COMBAT" | "DUTY_DEATH" | "DISABILITY" | "INJURY">("KIA_COMBAT");
   const [promotionSteps, setPromotionSteps] = useState<number>(7);
   const [childrenCount, setChildrenCount] = useState<number>(2);
@@ -620,85 +670,145 @@ export default function LandingPage() {
 
         {/* 4 Benefit Categories In-depth Showcase */}
         <section className="py-16 px-4 sm:px-6 max-w-6xl mx-auto space-y-8">
-          <div className="text-center space-y-2">
-            <Badge variant="outline" className="text-xs border-emerald-700/40 text-emerald-800 dark:text-emerald-300">
-              โครงสร้างสิทธิประโยชน์กำลังพล ทบ.
-            </Badge>
-            <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
-              4 หมวดหมู่สิทธิประโยชน์และเงินสงเคราะห์ที่ครอบคลุม
-            </h2>
-            <p className="text-xs sm:text-sm text-muted-foreground max-w-xl mx-auto">
-              อิงตามระเบียบกระทรวงกลาโหม กองทัพบก และ พ.ร.บ. สงเคราะห์ผู้ประสบภัยจากการปฏิบัติหน้าที่ราชการสนาม
-            </p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="text-center sm:text-left space-y-2">
+              <Badge variant="outline" className="text-xs border-emerald-700/40 text-emerald-800 dark:text-emerald-300">
+                โครงสร้างสิทธิประโยชน์กำลังพล ทบ.
+              </Badge>
+              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
+                4 หมวดหมู่สิทธิประโยชน์และเงินสงเคราะห์ที่ครอบคลุม
+              </h2>
+              <p className="text-xs sm:text-sm text-muted-foreground max-w-xl">
+                อิงตามระเบียบกระทรวงกลาโหม กองทัพบก และ พ.ร.บ. สงเคราะห์ผู้ประสบภัยจากการปฏิบัติหน้าที่ราชการสนาม
+              </p>
+            </div>
+
+            <Button
+              type="button"
+              onClick={() => beginCategoryEdit()}
+              className="bg-emerald-800 hover:bg-emerald-900 text-white font-semibold"
+            >
+              เพิ่มหมวดข้อมูล
+            </Button>
           </div>
 
+          {editData && Object.keys(editData).length > 0 && (
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-card p-5 shadow-sm">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                  {editIndex === null ? "เพิ่มหมวดสิทธิประโยชน์" : "แก้ไขหมวดสิทธิประโยชน์"}
+                </h3>
+                <Button type="button" variant="outline" onClick={() => { setEditIndex(null); setEditData({}); }}>
+                  ยกเลิก
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">รหัสหมวด</Label>
+                  <Input
+                    value={editData.code ?? ""}
+                    onChange={(e) => setEditData((prev) => ({ ...prev, code: e.target.value }))}
+                    className="text-xs h-9"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">ชื่อหมวด</Label>
+                  <Input
+                    value={editData.title ?? ""}
+                    onChange={(e) => setEditData((prev) => ({ ...prev, title: e.target.value }))}
+                    className="text-xs h-9"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">อัตรา / ช่วงค่า</Label>
+                  <Input
+                    value={editData.rate ?? ""}
+                    onChange={(e) => setEditData((prev) => ({ ...prev, rate: e.target.value }))}
+                    className="text-xs h-9"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">ป้ายชื่อหมวด</Label>
+                  <Input
+                    value={editData.badge ?? ""}
+                    onChange={(e) => setEditData((prev) => ({ ...prev, badge: e.target.value }))}
+                    className="text-xs h-9"
+                  />
+                </div>
+
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label className="text-xs font-bold">รายการสิทธิประโยชน์ (หนึ่งบรรทัดต่อรายการ)</Label>
+                  <textarea
+                    value={(editData.items ?? []).join("\n")}
+                    onChange={(e) =>
+                      setEditData((prev) => ({
+                        ...prev,
+                        items: e.target.value.split("\n").map((item) => item.trim()).filter(Boolean),
+                      }))
+                    }
+                    className="min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  />
+                </div>
+
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label className="text-xs font-bold">คลาสสีแสดงผล</Label>
+                  <select
+                    value={editData.color ?? "border-slate-500/40 bg-slate-500/5"}
+                    onChange={(e) => setEditData((prev) => ({ ...prev, color: e.target.value }))}
+                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  >
+                    <option value="border-amber-500/40 bg-amber-500/5">ทอง</option>
+                    <option value="border-blue-500/40 bg-blue-500/5">น้ำเงิน</option>
+                    <option value="border-emerald-500/40 bg-emerald-500/5">เขียว</option>
+                    <option value="border-purple-500/40 bg-purple-500/5">ม่วง</option>
+                    <option value="border-slate-500/40 bg-slate-500/5">เทา</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="mt-4 flex justify-end gap-2">
+                <Button type="button" variant="outline" onClick={() => { setEditIndex(null); setEditData({}); }}>
+                  ยกเลิก
+                </Button>
+                <Button type="button" onClick={saveCategory} className="bg-emerald-800 hover:bg-emerald-900 text-white">
+                  {editIndex === null ? "บันทึกเพิ่มหมวด" : "บันทึกการแก้ไข"}
+                </Button>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[
-              {
-                code: "หมวดที่ 1",
-                title: "รับเงินครั้งเดียว (Lump Sum)",
-                rate: "1,500,000 - 8,000,000+ บาท",
-                items: [
-                  "เงินบำรุงขวัญ ทบ.",
-                  "เงินพระราชทาน",
-                  "เงินเยียวยา (สำนักนายก)",
-                  "เงินสินไหมทดแทนประกันชีวิต (พิทักษ์พล กห.หรือ ภัยสงคราม)",
-                  "เงินสินไหมทดแทนประกันชีวิต ",
-                ],
-                color: "border-amber-500/40 bg-amber-500/5",
-                badge: "เงินก้อนช่วยเหลือ",
-              },
-              {
-                code: "หมวดที่ 2",
-                title: "รับเงินรายเดือน (Recurring)",
-                rate: "15,000 - 55,000+ บาท/เดือน",
-                items: [
-                  "บำนาญพิเศษทายาทตามอัตราปูนบำเหน็จ",
-                  "เงินเพิ่มพิเศษสำหรับการสู้รบ (พ.ส.ร.)",
-                  "เงินบำนาญกำลังพลทุพพลภาพ ทบ.",
-                  "เงินช่วยเหลือรายเดือน (มูลนิธิสายใจไทย)",
-                ],
-                color: "border-blue-500/40 bg-blue-500/5",
-                badge: "บำนาญตลอดชีพ",
-              },
-              {
-                code: "หมวดที่ 3",
-                title: "รับเงินรายปี (Annual Grants)",
-                rate: "12,000 - 30,000 บาท/คน/ปี",
-                items: [
-                  "ทุนการศึกษาบุตรกำลังพล ทบ. (ไม่เกิน 3 คน)",
-                  "ทุนการศึกษาบุตร สปน.",
-                  "ทุนมูลนิธิสายใจไทยในพระบรมราชูปถัมภ์",
-                  "เงินสนับสนุนอุปกรณ์การศึกษารายปี",
-                ],
-                color: "border-emerald-500/40 bg-emerald-500/5",
-                badge: "ทุนการศึกษา",
-              },
-              {
-                code: "หมวดที่ 4",
-                title: "สิทธิประโยชน์มิใช่ตัวเงิน",
-                rate: "สิทธิเกียรติยศและสวัสดิการ",
-                items: [
-                  "สิทธิบรรจุทายาททดแทนเข้ารับราชการ ทบ. 1 อัตรา",
-                  "สิทธิรักษาพยาบาล รพ.ค่าย / รพ.พระมงกุฎเกล้า",
-                  "สิทธิขอพระราชทานเหรียญพิทักษ์เสรีชน",
-                  "สิทธิสินเชื่อเคหะ ทบ. อัตราดอกเบี้ยพิเศษ",
-                ],
-                color: "border-purple-500/40 bg-purple-500/5",
-                badge: "สิทธิเกียรติยศ",
-              },
-            ].map((cat, idx) => (
+            {categories.map((cat, idx) => (
               <div
-                key={idx}
+                key={`${cat.code}-${idx}`}
                 className={`rounded-2xl border p-5 bg-card hover:shadow-lg transition-all space-y-3 ${cat.color}`}
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <span className="font-mono text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950 px-2 py-0.5 rounded">
                     {cat.code}
                   </span>
-                  <Badge variant="outline" className="text-[9px]">
-                    {cat.badge}
-                  </Badge>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      aria-label={`แก้ไข ${cat.title}`}
+                      onClick={() => beginCategoryEdit(cat, idx)}
+                      className="rounded-md border border-slate-300 p-1.5 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      <Pen className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`ลบ ${cat.title}`}
+                      onClick={() => deleteCategory(idx)}
+                      className="rounded-md border border-rose-300 p-1.5 text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/40"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{cat.title}</h3>
@@ -706,12 +816,17 @@ export default function LandingPage() {
                 </div>
                 <ul className="space-y-1.5 text-[11px] text-muted-foreground">
                   {cat.items.map((item, itemIdx) => (
-                    <li key={itemIdx} className="flex items-start gap-1.5">
+                    <li key={`${cat.code}-${itemIdx}`} className="flex items-start gap-1.5">
                       <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0 mt-0.5" />
                       <span>{item}</span>
                     </li>
                   ))}
                 </ul>
+                <div className="pt-1">
+                  <Badge variant="outline" className="text-[9px]">
+                    {cat.badge}
+                  </Badge>
+                </div>
               </div>
             ))}
           </div>

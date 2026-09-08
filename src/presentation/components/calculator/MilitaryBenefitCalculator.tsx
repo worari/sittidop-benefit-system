@@ -21,7 +21,9 @@ import {
   formatServiceTime,
   formatThaiBE,
 } from "@/presentation/lib/military-date-utils";
+import { formatSalaryStep, getSalaryAmount, normalizeSalaryLevel, SALARY_LEVEL_OPTIONS, SALARY_STEP_OPTIONS } from "@/presentation/lib/salary-scale";
 import { ThaiBuddhistDatePicker } from "./ThaiBuddhistDatePicker";
+import { LossIncidentReportManager } from "./LossIncidentReportManager";
 import {
   Calculator,
   Shield,
@@ -51,6 +53,8 @@ import {
   Trash2,
   RefreshCw,
   Database,
+  FileDown,
+  FileCheck,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -86,10 +90,11 @@ export function MilitaryBenefitCalculator() {
   const [militaryId, setMilitaryId] = useState("MIL-49021884");
   const [rank, setRank] = useState("LIEUTENANT_COLONEL");
   const [rankAbbr, setRankAbbr] = useState("พ.ท.");
-  const [fullName, setFullName] = useState("พ.ท. วีรชาติ ภักดีสยาม");
+  const [firstName, setFirstName] = useState("วีรชาติ");
+  const [lastName, setLastName] = useState("ภักดีสยาม");
   const [normalUnit, setNormalUnit] = useState("ร.19 พัน.1 (พล.ร.9)");
   const [fieldUnit, setFieldUnit] = useState("ฉก.นราธิวาส (กกล.ทบ.)");
-  const [salary, setSalary] = useState(43500);
+  const [salary, setSalary] = useState(() => getSalaryAmount("น.3", 21.5));
   const [salaryLevel, setSalaryLevel] = useState("น.3");
   const [salaryStep, setSalaryStep] = useState(21.5);
   const [compensationLevel, setCompensationLevel] = useState("");
@@ -99,7 +104,9 @@ export function MilitaryBenefitCalculator() {
   // Dates
   const [appointmentDate, setAppointmentDate] = useState<string>("2010-05-01");
   const [incidentDate, setIncidentDate] = useState<string | undefined>("2026-03-12");
-  const [multiplierDate, setMultiplierDate] = useState<string | undefined>("2016-10-01");
+  const [multiplierYears, setMultiplierYears] = useState(8);
+  const [multiplierMonths, setMultiplierMonths] = useState(0);
+  const [multiplierDays, setMultiplierDays] = useState(0);
 
   // Service time (auto-calculated)
   const [serviceYearsNormal, setServiceYearsNormal] = useState(16);
@@ -140,6 +147,13 @@ export function MilitaryBenefitCalculator() {
   const [calculationResult, setCalculationResult] = useState<MilitaryBenefitCalculationResult | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [activeComparisonTab, setActiveComparisonTab] = useState<"IN_ARMY" | "OUTSIDE_ARMY">("IN_ARMY");
+  const [exportingFormat, setExportingFormat] = useState<"pdf" | "docx" | null>(null);
+  const [documentConfirmed, setDocumentConfirmed] = useState(false);
+  const [eSignatureName, setESignatureName] = useState("");
+  const [eSignaturePosition, setESignaturePosition] = useState("เจ้าหน้าที่ผู้จัดทำประมาณการสิทธิ");
+  const [reportRemark, setReportRemark] = useState("");
+  const [exportMsg, setExportMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [lastVerification, setLastVerification] = useState<{ code: string; hash: string; verifyUrl: string; format: "pdf" | "docx" } | null>(null);
 
   // Personnel CRUD state
   const [searchQuery, setSearchQuery] = useState("");
@@ -160,7 +174,11 @@ export function MilitaryBenefitCalculator() {
   useEffect(() => {
     const endDate = incidentDate;
     const normal = calculateServiceTime(appointmentDate, endDate);
-    const multiplier = calculateServiceTime(multiplierDate, endDate);
+    const multiplier = {
+      years: Number(multiplierYears) || 0,
+      months: Number(multiplierMonths) || 0,
+      days: Number(multiplierDays) || 0,
+    };
     const total = calculateTotalServiceTime(normal, multiplier, { multiplierFactor: 2 });
 
     setServiceYearsNormal(normal.years);
@@ -172,7 +190,7 @@ export function MilitaryBenefitCalculator() {
     setTotalServiceYears(total.years);
     setTotalServiceMonths(total.months);
     setTotalServiceDays(total.days);
-  }, [appointmentDate, incidentDate, multiplierDate]);
+  }, [appointmentDate, incidentDate, multiplierYears, multiplierMonths, multiplierDays]);
 
   // Auto-update promoted salary when tier changes
   useEffect(() => {
@@ -193,18 +211,18 @@ export function MilitaryBenefitCalculator() {
     setMilitaryId(p.militaryId);
     setRank(p.rank);
     setRankAbbr(p.rankAbbr);
-    setFullName(`${p.rankAbbr} ${p.firstName} ${p.lastName}`);
+    setFirstName(p.firstName);
+    setLastName(p.lastName);
     setNormalUnit(p.normalUnit);
     setFieldUnit(p.fieldUnit || p.normalUnit);
     setSalary(p.salary);
-    setSalaryLevel(p.salaryLevel);
+    setSalaryLevel(normalizeSalaryLevel(p.salaryLevel));
     setSalaryStep(p.salaryStep);
     setCompensationLevel(p.compensationLevel || "");
     setCompensationAmount(p.compensationAmount || 0);
     setAdditionalPay(p.additionalPay || 0);
     setAppointmentDate(p.appointmentDate);
     setIncidentDate(p.incidentDate);
-    setMultiplierDate(p.multiplierDate);
     setServiceYearsNormal(p.serviceYearsNormal);
     setServiceMonthsNormal(p.serviceMonthsNormal || 0);
     setServiceDaysNormal(p.serviceDaysNormal || 0);
@@ -232,18 +250,19 @@ export function MilitaryBenefitCalculator() {
     setStudyingChildrenCount(p.children?.filter((c) => c.isStudying)?.length || 0);
     setHospitalAdmissionDate(p.hospitalAdmissionDate || "");
     setHospitalDischargeDate(p.hospitalDischargeDate || "");
+    setMultiplierYears(p.serviceYearsMultiplier || 0);
+    setMultiplierMonths(p.serviceMonthsMultiplier || 0);
+    setMultiplierDays(p.serviceDaysMultiplier || 0);
   };
 
   const buildPersonnelPayload = () => {
-    const nameParts = fullName.trim().split(/\s+/).filter(Boolean);
-    const rankPart = nameParts[0] || rankAbbr;
     return {
       militaryId,
       citizenId: `CIT-${militaryId}`,
       rank,
-      rankAbbr: rankPart,
-      firstName: nameParts[1] || "กำลังพล",
-      lastName: nameParts[2] || "ไทย",
+      rankAbbr,
+      firstName: firstName.trim() || "กำลังพล",
+      lastName: lastName.trim() || "ไทย",
       militaryBranch: "ROYAL_THAI_ARMY",
       benefitScope,
       actionCause,
@@ -262,7 +281,6 @@ export function MilitaryBenefitCalculator() {
       additionalPay: Number(additionalPay),
       appointmentDate,
       incidentDate,
-      multiplierDate,
       serviceYearsNormal: Number(serviceYearsNormal),
       serviceMonthsNormal: Number(serviceMonthsNormal),
       serviceDaysNormal: Number(serviceDaysNormal),
@@ -396,18 +414,14 @@ export function MilitaryBenefitCalculator() {
     setCalculating(true);
     try {
       const stayDays = calculateStayDays(hospitalAdmissionDate, hospitalDischargeDate);
-      const nameParts = fullName.trim().split(/\s+/);
-      const rankPart = nameParts[0] || rankAbbr;
-      const firstName = nameParts[1] || "กำลังพล";
-      const lastName = nameParts[2] || "ไทย";
 
       const payload = {
         militaryId,
         citizenId: "3100600492811",
         rank,
-        rankAbbr: rankPart,
-        firstName,
-        lastName,
+        rankAbbr,
+        firstName: firstName.trim() || "กำลังพล",
+        lastName: lastName.trim() || "ไทย",
         militaryBranch: "ROYAL_THAI_ARMY",
         abbreviatedPosition: "ผบ.พัน.สน.",
         normalUnit,
@@ -421,7 +435,6 @@ export function MilitaryBenefitCalculator() {
         additionalPay: Number(additionalPay),
         appointmentDate,
         incidentDate,
-        multiplierDate,
         serviceYearsNormal: Number(serviceYearsNormal),
         serviceMonthsNormal: Number(serviceMonthsNormal),
         serviceDaysNormal: Number(serviceDaysNormal),
@@ -490,6 +503,99 @@ export function MilitaryBenefitCalculator() {
       console.error(err);
     } finally {
       setCalculating(false);
+    }
+  };
+
+  const handleExportEstimateReport = async (format: "pdf" | "docx") => {
+    if (!calculationResult) return;
+
+    if (!documentConfirmed) {
+      setExportMsg({ type: "error", text: "กรุณาตรวจยืนยันเอกสารก่อนพิมพ์รายงาน" });
+      return;
+    }
+
+    if (!eSignatureName.trim()) {
+      setExportMsg({ type: "error", text: "กรุณาระบุชื่อผู้ลงนามลายเซ็นอิเล็กทรอนิกส์" });
+      return;
+    }
+
+    const verificationCode = `EST-${Date.now().toString().slice(-8)}`;
+
+    setExportingFormat(format);
+    setExportMsg(null);
+
+    try {
+      const payload = {
+        personnel: {
+          militaryId,
+          rankAbbr,
+          firstName,
+          lastName,
+          normalUnit,
+          fieldUnit,
+          salary,
+          promotedSalary,
+          specialPensionTier,
+          promotedRankAbbr,
+          rankAppointmentTo,
+          salaryLevelAdjustment,
+          totalServiceYears,
+          totalServiceMonths,
+          totalServiceDays,
+        },
+        calculation: calculationResult,
+        remarks: reportRemark,
+        verification: {
+          confirmed: documentConfirmed,
+          signerName: eSignatureName.trim(),
+          signerPosition: eSignaturePosition.trim(),
+          signedAt: new Date().toISOString(),
+          verificationCode,
+        },
+      };
+
+      const res = await fetch("/api/calculator/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ format, payload }),
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        throw new Error(errJson?.error || "พิมพ์รายงานไม่สำเร็จ");
+      }
+
+      const responseCode = res.headers.get("x-verification-code") || verificationCode;
+      const responseHash = res.headers.get("x-verification-hash") || "";
+      const responseVerifyUrl =
+        res.headers.get("x-verify-url") ||
+        `${window.location.origin}/verify?code=${encodeURIComponent(responseCode)}${responseHash ? `&hash=${encodeURIComponent(responseHash)}` : ""}`;
+
+      setLastVerification({
+        code: responseCode,
+        hash: responseHash,
+        verifyUrl: responseVerifyUrl,
+        format,
+      });
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Benefit_Estimation_${militaryId}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+      setExportMsg({
+        type: "success",
+        text: `พิมพ์รายงานประมาณการสิทธิสำเร็จ (${format.toUpperCase()}) พร้อม e-sign โดย ${eSignatureName.trim()} | Code: ${responseCode}`,
+      });
+    } catch (error: any) {
+      setExportMsg({ type: "error", text: error.message || "พิมพ์รายงานไม่สำเร็จ" });
+    } finally {
+      setExportingFormat(null);
     }
   };
 
@@ -590,6 +696,14 @@ export function MilitaryBenefitCalculator() {
         </div>
       </div>
 
+      <LossIncidentReportManager
+        personnelId={selectedPersonnelId}
+        militaryId={militaryId}
+        rankAbbr={rankAbbr}
+        firstName={firstName}
+        lastName={lastName}
+      />
+
       {/* Step 1: Select or Input Personnel */}
       {step === 1 && (
         <Card className="border border-slate-200 dark:border-slate-800 p-6 space-y-5">
@@ -682,10 +796,39 @@ export function MilitaryBenefitCalculator() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
             <div className="space-y-1.5">
-              <Label className="text-xs">ยศและชื่อ-สกุล</Label>
+              <Label className="text-xs">ยศ</Label>
+              <select
+                value={rank}
+                onChange={(e) => {
+                  setRank(e.target.value);
+                  const found = RANK_OPTIONS.find((r) => r.value === e.target.value);
+                  if (found) {
+                    const abbrMatch = found.label.match(/\(([^)]+)\)/);
+                    setRankAbbr(abbrMatch ? abbrMatch[1] : found.value);
+                  }
+                }}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
+              >
+                {RANK_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">ชื่อ</Label>
               <Input
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="text-xs"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">สกุล</Label>
+              <Input
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
                 className="text-xs"
               />
             </div>
@@ -714,20 +857,49 @@ export function MilitaryBenefitCalculator() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">ระดับชั้นเงินเดือน (เช่น น.3)</Label>
-              <Input
+              <Label className="text-xs">ระดับชั้นเงินเดือน</Label>
+              <select
                 value={salaryLevel}
-                onChange={(e) => setSalaryLevel(e.target.value)}
-                className="text-xs font-mono"
-              />
+                onChange={(e) => {
+                  const nextLevel = normalizeSalaryLevel(e.target.value);
+                  setSalaryLevel(nextLevel);
+                  setSalary(getSalaryAmount(nextLevel, salaryStep));
+                }}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs font-mono"
+              >
+                {SALARY_LEVEL_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">ขั้น</Label>
+              <select
+                value={salaryStep}
+                onChange={(e) => {
+                  const nextStep = Number(e.target.value);
+                  setSalaryStep(nextStep);
+                  setSalary(getSalaryAmount(salaryLevel, nextStep));
+                }}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs font-mono"
+              >
+                {SALARY_STEP_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    ขั้น {formatSalaryStep(option)}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">เงินเดือนปัจจุบัน (บาท)</Label>
               <Input
                 type="number"
                 value={salary}
-                onChange={(e) => setSalary(Number(e.target.value))}
-                className="text-xs font-mono font-bold"
+                readOnly
+                className="text-xs font-mono font-bold bg-slate-50 dark:bg-slate-900/60"
+                title="คำนวณอัตโนมัติจากระดับชั้นเงินเดือนและขั้น"
               />
             </div>
             <div className="space-y-1.5">
@@ -786,11 +958,42 @@ export function MilitaryBenefitCalculator() {
               value={incidentDate}
               onChange={setIncidentDate}
             />
-            <ThaiBuddhistDatePicker
-              label="วันทวีคูณ"
-              value={multiplierDate}
-              onChange={setMultiplierDate}
-            />
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">เวลาราชการทวีคูณรวม</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">ปี</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={multiplierYears}
+                    onChange={(e) => setMultiplierYears(Number(e.target.value))}
+                    className="text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">เดือน</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={multiplierMonths}
+                    onChange={(e) => setMultiplierMonths(Number(e.target.value))}
+                    className="text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] text-muted-foreground">วัน</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={multiplierDays}
+                    onChange={(e) => setMultiplierDays(Number(e.target.value))}
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground">กรอกระยะเวลาราชการทวีคูณที่ได้จากช่วงปฏิบัติงานสนาม</p>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -972,6 +1175,30 @@ export function MilitaryBenefitCalculator() {
                 onChange={(e) => setPromotedSalary(Number(e.target.value))}
                 className="text-xs font-mono font-bold text-amber-600"
               />
+            </div>
+
+            <div className="sm:col-span-2 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/30 p-4 space-y-2">
+              <div className="text-xs font-bold text-amber-900 dark:text-amber-300">
+                สรุปการคำนวณปูนบำเหน็จพิเศษ
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+                <div className="rounded-lg bg-white/80 dark:bg-slate-900 p-2 border border-amber-100 dark:border-amber-900/50">
+                  <p className="text-muted-foreground">แต่งตั้ง/เลื่อนยศพิเศษ</p>
+                  <p className="font-bold">{promotedRankAbbr} ({promotedRank})</p>
+                </div>
+                <div className="rounded-lg bg-white/80 dark:bg-slate-900 p-2 border border-amber-100 dark:border-amber-900/50">
+                  <p className="text-muted-foreground">จำนวนชั้นบำเหน็จ</p>
+                  <p className="font-bold">{specialPensionTier} ชั้น</p>
+                </div>
+                <div className="rounded-lg bg-white/80 dark:bg-slate-900 p-2 border border-amber-100 dark:border-amber-900/50">
+                  <p className="text-muted-foreground">ระดับเงินเดือนใหม่</p>
+                  <p className="font-bold">{salaryLevelAdjustment || "-"}</p>
+                </div>
+                <div className="rounded-lg bg-white/80 dark:bg-slate-900 p-2 border border-amber-100 dark:border-amber-900/50">
+                  <p className="text-muted-foreground">ยอดรับเงินเดือนใหม่</p>
+                  <p className="font-bold text-amber-700 dark:text-amber-400">{formatCurrency(promotedSalary)}</p>
+                </div>
+              </div>
             </div>
 
             {/* Hospitalization Stay Section */}
@@ -1373,6 +1600,97 @@ export function MilitaryBenefitCalculator() {
           </div>
 
           {/* Action Footer */}
+          <Card className="border border-slate-200 dark:border-slate-800 p-5 space-y-4">
+            <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <FileCheck className="h-4 w-4 text-emerald-600" />
+              ยืนยันเอกสารและลงนามลายเซ็นอิเล็กทรอนิกส์ก่อนพิมพ์รายงาน
+            </h4>
+
+            {exportMsg && (
+              <div className={`rounded-lg border px-3 py-2 text-xs ${exportMsg.type === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
+                {exportMsg.text}
+              </div>
+            )}
+
+            {lastVerification && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/40 px-3 py-2 text-xs space-y-1">
+                <p>
+                  <span className="font-semibold">รหัสตรวจสอบ:</span> <span className="font-mono">{lastVerification.code}</span>
+                </p>
+                <p className="break-all">
+                  <span className="font-semibold">Hash:</span> <span className="font-mono text-[11px]">{lastVerification.hash || "-"}</span>
+                </p>
+                <p className="break-all">
+                  <span className="font-semibold">ลิงก์ตรวจสอบ:</span>{" "}
+                  <a href={lastVerification.verifyUrl} className="text-blue-700 underline break-all" target="_blank" rel="noreferrer">
+                    {lastVerification.verifyUrl}
+                  </a>
+                </p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">ชื่อผู้ลงนามอิเล็กทรอนิกส์</Label>
+                <Input
+                  value={eSignatureName}
+                  onChange={(e) => setESignatureName(e.target.value)}
+                  className="text-xs"
+                  placeholder="เช่น พ.ท.วีรชาติ ภักดีสยาม"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">ตำแหน่ง</Label>
+                <Input
+                  value={eSignaturePosition}
+                  onChange={(e) => setESignaturePosition(e.target.value)}
+                  className="text-xs"
+                />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label className="text-xs font-bold">หมายเหตุเพิ่มเติมในรายงาน</Label>
+                <textarea
+                  rows={3}
+                  value={reportRemark}
+                  onChange={(e) => setReportRemark(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                  placeholder="เพิ่มหมายเหตุ เช่น ข้อจำกัดข้อมูล เอกสารอ้างอิง หรือข้อเสนอแนะ"
+                />
+              </div>
+            </div>
+
+            <label className="flex items-start gap-2 text-xs text-slate-700 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={documentConfirmed}
+                onChange={(e) => setDocumentConfirmed(e.target.checked)}
+                className="mt-0.5 h-4 w-4"
+              />
+              <span>
+                ผู้ใช้งานยืนยันว่าเอกสารและข้อมูลประมาณการสิทธิถูกต้องครบถ้วน และยินยอมลงนามลายเซ็นอิเล็กทรอนิกส์
+              </span>
+            </label>
+
+            <div className="flex flex-wrap gap-2">
+              <Button
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs gap-1.5"
+                onClick={() => handleExportEstimateReport("pdf")}
+                disabled={exportingFormat !== null}
+              >
+                <FileDown className="h-4 w-4" />
+                {exportingFormat === "pdf" ? "กำลังสร้าง PDF..." : "พิมพ์รายงาน PDF (.pdf)"}
+              </Button>
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5"
+                onClick={() => handleExportEstimateReport("docx")}
+                disabled={exportingFormat !== null}
+              >
+                <FileDown className="h-4 w-4" />
+                {exportingFormat === "docx" ? "กำลังสร้าง DOCX..." : "พิมพ์รายงาน DOCX (.docx)"}
+              </Button>
+            </div>
+          </Card>
+
           <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-200 dark:border-slate-800">
             <Button variant="outline" size="sm" onClick={() => setStep(1)} className="text-xs gap-1.5">
               <RotateCcw className="h-4 w-4" />

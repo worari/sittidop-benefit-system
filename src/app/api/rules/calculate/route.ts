@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma, BenefitRule as PrismaBenefitRule } from "@prisma/client";
 import { MilitaryRuleEngine } from "@/core/use-cases/estimation/MilitaryRuleEngine";
-import { defaultMilitaryRules } from "@/infrastructure/database/repositories/PrismaMilitaryRuleRepository";
 import { PrismaBenefitRuleRepository } from "@/infrastructure/database/repositories/PrismaBenefitRuleRepository";
 import { MilitaryPersonnelInput } from "@/core/domain/value-objects/military-types";
 import { AuditLogger } from "@/infrastructure/logging/audit-logger";
@@ -65,14 +64,15 @@ export async function POST(req: NextRequest) {
     const input: MilitaryPersonnelInput = await req.json();
 
     // Source of truth = benefitRule table in DB (same set managed by the RTA Rules Engine CRUD page).
-    // Falls back to the in-memory default set when the DB table is empty.
-    let rules: BenefitRuleDefinition[];
-    try {
-      const dbRules = await new PrismaBenefitRuleRepository().findAll();
-      rules = dbRules.length > 0 ? dbRules.map(toDomainRule) : defaultMilitaryRules;
-    } catch {
-      rules = defaultMilitaryRules;
+    const dbRules = await new PrismaBenefitRuleRepository().findAll();
+    if (!dbRules.length) {
+      return NextResponse.json(
+        { success: false, error: "ไม่พบข้อมูลกฎเกณฑ์ในฐานข้อมูล กรุณาเพิ่มหรือ seed ข้อมูล rules ก่อนใช้งาน" },
+        { status: 404 }
+      );
     }
+
+    const rules: BenefitRuleDefinition[] = dbRules.map(toDomainRule);
 
     const result = MilitaryRuleEngine.calculate(input, rules);
 

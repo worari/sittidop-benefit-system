@@ -4,21 +4,17 @@ import React, { useState } from "react";
 import { DimensionOption, DimensionType } from "@/core/domain/entities/BenefitRule";
 import { Button } from "@/presentation/components/ui/button";
 import { Input } from "@/presentation/components/ui/input";
-import { Label } from "@/presentation/components/ui/label";
 import { Plus, Pencil, Trash2, X, Check, Search } from "lucide-react";
 
 interface DimensionChipsEditorProps {
-    /** Master list of options for this dimension (from /api/rules/dimensions) */
     options: DimensionOption[];
     dimensionType: DimensionType;
-    /** Currently selected option ids bound to the rule being edited */
     selected: string[];
     onChange: (nextSelected: string[]) => void;
-    /** Chip color scheme */
     tone?: "emerald" | "purple" | "rose";
-    /** Notify parent to refresh master options after CRUD */
     onOptionsChanged?: () => void;
     addPlaceholder?: string;
+    readOnlySelection?: boolean;
 }
 
 const TONE_STYLES: Record<string, { active: string; edit: string }> = {
@@ -36,11 +32,6 @@ const TONE_STYLES: Record<string, { active: string; edit: string }> = {
     },
 };
 
-/**
- * Reusable chip editor for the extensible rule dimensions
- * (ประเภทภารกิจที่ได้รับสิทธิ / ประเภทกำลังพล / ประเภทความสูญเสีย).
- * Supports inline Add / Rename / Delete of master options with a search filter.
- */
 export function DimensionChipsEditor({
     options,
     dimensionType,
@@ -49,6 +40,7 @@ export function DimensionChipsEditor({
     tone = "emerald",
     onOptionsChanged,
     addPlaceholder = "พิมพ์ชื่อตัวเลือกใหม่...",
+    readOnlySelection = false,
 }: DimensionChipsEditorProps) {
     const [search, setSearch] = useState("");
     const [showAdd, setShowAdd] = useState(false);
@@ -68,6 +60,7 @@ export function DimensionChipsEditor({
     });
 
     const toggleOption = (id: string) => {
+        if (readOnlySelection) return;
         if (selected.includes(id)) {
             onChange(selected.filter((x) => x !== id));
         } else {
@@ -86,8 +79,9 @@ export function DimensionChipsEditor({
             });
             const json = await res.json();
             if (json.success && json.data?.id) {
-                // auto-select the newly created option on this rule
-                onChange([...selected, json.data.id]);
+                if (!readOnlySelection) {
+                    onChange([...selected, json.data.id]);
+                }
                 setNewLabel("");
                 setShowAdd(false);
                 onOptionsChanged?.();
@@ -139,14 +133,14 @@ export function DimensionChipsEditor({
 
         try {
             setDeletingId(opt.id);
-            const res = await fetch(
-                `/api/rules/dimensions?id=${encodeURIComponent(opt.id)}&cascade=true`,
-                { method: "DELETE" }
-            );
+            const res = await fetch(`/api/rules/dimensions?id=${encodeURIComponent(opt.id)}&cascade=true`, {
+                method: "DELETE",
+            });
             const json = await res.json();
             if (json.success) {
-                // remove from current selection as well
-                onChange(selected.filter((x) => x !== opt.id));
+                if (!readOnlySelection) {
+                    onChange(selected.filter((x) => x !== opt.id));
+                }
                 onOptionsChanged?.();
                 if (json.message) console.info(json.message);
             } else {
@@ -161,7 +155,6 @@ export function DimensionChipsEditor({
 
     return (
         <div className="space-y-2">
-            {/* Toolbar: search + add */}
             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                 <div className="relative flex-1">
                     <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -184,7 +177,6 @@ export function DimensionChipsEditor({
                 </Button>
             </div>
 
-            {/* Inline add form */}
             {showAdd && (
                 <div className="flex items-center gap-2 p-2 bg-background rounded-lg border border-slate-300 dark:border-slate-700">
                     <Input
@@ -208,7 +200,6 @@ export function DimensionChipsEditor({
                 </div>
             )}
 
-            {/* Chips */}
             <div className="flex flex-wrap gap-1.5 pt-1">
                 {filtered.length === 0 ? (
                     <p className="text-[11px] text-muted-foreground">ไม่พบตัวเลือกที่ตรงกับการค้นหา</p>
@@ -219,8 +210,7 @@ export function DimensionChipsEditor({
                         return (
                             <div
                                 key={opt.id}
-                                className={`group relative flex items-center gap-1 rounded-lg border transition-all ${isEditing ? `${styles.edit} bg-background px-1.5 py-0.5` : ""
-                                    }`}
+                                className={`group relative flex items-center gap-1 rounded-lg border transition-all ${isEditing ? `${styles.edit} bg-background px-1.5 py-0.5` : ""}`}
                             >
                                 {isEditing ? (
                                     <>
@@ -257,10 +247,12 @@ export function DimensionChipsEditor({
                                         <button
                                             type="button"
                                             onClick={() => toggleOption(opt.id)}
-                                            className={`text-xs px-2.5 py-1 rounded-lg border transition-all text-left ${isChecked
+                                            disabled={readOnlySelection}
+                                            className={`text-xs px-2.5 py-1 rounded-lg border transition-all text-left ${
+                                                isChecked && !readOnlySelection
                                                     ? styles.active
-                                                    : "bg-background text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700"
-                                                }`}
+                                                    : `bg-background text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 ${readOnlySelection ? "opacity-85" : ""}`
+                                            }`}
                                         >
                                             {opt.label}
                                             {opt.isSystem && (
@@ -269,7 +261,7 @@ export function DimensionChipsEditor({
                                                 </span>
                                             )}
                                         </button>
-                                        {/* Edit / Delete controls appear on hover */}
+
                                         <span className="hidden group-hover:flex items-center absolute -top-1.5 -right-1.5 gap-0.5">
                                             <button
                                                 type="button"
