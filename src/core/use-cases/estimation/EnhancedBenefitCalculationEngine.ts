@@ -12,6 +12,7 @@ import { BenefitEstimationEngine } from "./BenefitEstimationEngine";
 import { MilitaryRuleEngine } from "./MilitaryRuleEngine";
 import { BenefitRuleDefinition } from "../../domain/entities/BenefitRule";
 import { MilitaryPersonnelInput } from "../../domain/value-objects/military-types";
+import { defaultMilitaryRules } from "@/infrastructure/database/repositories/PrismaMilitaryRuleRepository";
 
 export class EnhancedBenefitCalculationEngine {
     /**
@@ -48,7 +49,8 @@ export class EnhancedBenefitCalculationEngine {
         personnel: MilitaryPersonnelInput,
         rules: BenefitRuleDefinition[]
     ): any {
-        return MilitaryRuleEngine.calculate(personnel, rules);
+        const activeRules = rules && rules.length > 0 ? rules : defaultMilitaryRules;
+        return MilitaryRuleEngine.calculate(personnel, activeRules);
     }
 
     /**

@@ -187,11 +187,112 @@ export async function PUT(
       }
     });
 
-    const updated = await prisma.militaryPersonnel.update({
+    // Run in a transaction if relations are present
+    await prisma.$transaction(async (tx) => {
+      if (Object.keys(updateData).length > 0) {
+        await tx.militaryPersonnel.update({
+          where: { id },
+          data: updateData,
+        });
+      }
+
+      // 1. Update/Upsert Spouse
+      if (body.spouse !== undefined) {
+        if (body.spouse === null) {
+          await tx.spouse.deleteMany({ where: { personnelId: id } });
+        } else {
+          const spouseData = {
+            nationalId: body.spouse.nationalId || "",
+            title: body.spouse.title || "",
+            firstName: body.spouse.firstName || "",
+            lastName: body.spouse.lastName || "",
+            dateOfBirth: body.spouse.dateOfBirth ? new Date(body.spouse.dateOfBirth) : null,
+            age: body.spouse.age !== undefined ? Number(body.spouse.age) : null,
+            maritalStatus: body.spouse.maritalStatus || null,
+            isAlive: body.spouse.isAlive ?? true,
+            isLegallyMarried: body.spouse.isLegallyMarried ?? true,
+            marriageCertNumber: body.spouse.marriageCertNumber || null,
+            phone: body.spouse.phone || null,
+            address: body.spouse.address || null,
+            educationLevel: body.spouse.educationLevel || null,
+            bankName: body.spouse.bankName || null,
+            bankAccountNumber: body.spouse.bankAccountNumber || null,
+            hasPensionRights: body.spouse.hasPensionRights ?? true,
+            allocationPercentage: Number(body.spouse.allocationPercentage ?? 50),
+          };
+          await tx.spouse.upsert({
+            where: { personnelId: id },
+            create: { ...spouseData, personnelId: id },
+            update: spouseData,
+          });
+        }
+      }
+
+      // 2. Update/Replace Children
+      if (body.children !== undefined && Array.isArray(body.children)) {
+        await tx.child.deleteMany({ where: { personnelId: id } });
+        if (body.children.length > 0) {
+          await tx.child.createMany({
+            data: body.children.map((child: any) => ({
+              personnelId: id,
+              nationalId: child.nationalId || "",
+              title: child.title || "",
+              firstName: child.firstName || "",
+              lastName: child.lastName || "",
+              dateOfBirth: child.dateOfBirth ? new Date(child.dateOfBirth) : new Date(),
+              age: Number(child.age ?? 0),
+              isAlive: child.isAlive ?? true,
+              isStudying: child.isStudying ?? true,
+              educationLevel: child.educationLevel || null,
+              phone: child.phone || null,
+              address: child.address || null,
+              scholarshipEligible: child.scholarshipEligible ?? true,
+              annualScholarship: Number(child.annualScholarship ?? 15000),
+              hasSuccessorRight: child.hasSuccessorRight ?? false,
+              allocationPercentage: Number(child.allocationPercentage ?? 25),
+            })),
+          });
+        }
+      }
+
+      // 3. Update/Replace Heirs
+      if (body.heirs !== undefined && Array.isArray(body.heirs)) {
+        await tx.heir.deleteMany({ where: { personnelId: id } });
+        if (body.heirs.length > 0) {
+          await tx.heir.createMany({
+            data: body.heirs.map((heir: any) => ({
+              personnelId: id,
+              nationalId: heir.nationalId || "",
+              title: heir.title || "",
+              firstName: heir.firstName || "",
+              lastName: heir.lastName || "",
+              dateOfBirth: heir.dateOfBirth ? new Date(heir.dateOfBirth) : null,
+              age: heir.age !== undefined ? Number(heir.age) : null,
+              relationship: heir.relationship || "OTHER_HEIR",
+              phone: heir.phone || null,
+              address: heir.address || null,
+              educationLevel: heir.educationLevel || null,
+              isAlive: heir.isAlive ?? true,
+              bankName: heir.bankName || null,
+              bankAccountNumber: heir.bankAccountNumber || null,
+              allocationPercentage: Number(heir.allocationPercentage ?? 0),
+              calculatedAmount: Number(heir.calculatedAmount ?? 0),
+              isDesignatedSuccessor: heir.isDesignatedSuccessor ?? false,
+              documentsVerified: heir.documentsVerified ?? false,
+            })),
+          });
+        }
+      }
+    });
+
+    const updated = await prisma.militaryPersonnel.findUnique({
       where: { id },
-      data: updateData,
       include: { spouse: true, children: true, heirs: true },
     });
+
+    if (!updated) {
+      return NextResponse.json({ success: false, error: "Personnel not found after update" }, { status: 404 });
+    }
 
     await AuditLogger.log({
       action: "UPDATE",

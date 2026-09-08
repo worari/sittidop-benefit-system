@@ -37,6 +37,9 @@ import {
   AlertTriangle,
   CheckCircle2,
   Users,
+  Users2,
+  HeartHandshake,
+  ArrowRight,
   Activity,
 } from "lucide-react";
 import Link from "next/link";
@@ -86,24 +89,6 @@ export function PersonnelTable() {
   const [newHospitalDischargeDate, setNewHospitalDischargeDate] = useState("");
   const [newProfilePhotoUrl, setNewProfilePhotoUrl] = useState<string>("");
   const [newDocumentAttachments, setNewDocumentAttachments] = useState<Array<{ name: string; type: string; size: number; dataUrl?: string }>>([]);
-  const [newFamilyRecords, setNewFamilyRecords] = useState({
-    spouseNationalId: "",
-    spouseName: "",
-    spouseBirthDate: "",
-    spouseAge: 0,
-    spouseStatus: "มีชีวิต",
-    spousePhone: "",
-    parentNationalId: "",
-    parentName: "",
-    parentBirthDate: "",
-    parentAge: 0,
-    parentStatus: "มีชีวิต",
-    childNationalId: "",
-    childName: "",
-    childBirthDate: "",
-    childAge: 0,
-    childStatus: "มีชีวิต",
-  });
 
   const readFileToDataUrl = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
@@ -212,7 +197,6 @@ export function PersonnelTable() {
           promotedSalary: Math.round(Number(newSalary) * 1.5),
           hospitalAdmissionDate: newHospitalAdmissionDate || undefined,
           hospitalDischargeDate: newHospitalDischargeDate || undefined,
-          familyRecords: newFamilyRecords,
           documentAttachments: newDocumentAttachments,
         }),
       });
@@ -472,6 +456,28 @@ export function PersonnelTable() {
                           <Trash2 className="h-3.5 w-3.5" />
                           ลบ
                         </Button>
+                        <Link href={`/family?personnelId=${p.id}`}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[11px] px-2 gap-1 border-purple-200 text-purple-700 hover:bg-purple-50 hover:border-purple-300"
+                            title="บันทึกข้อมูลครอบครัว (Tab 3)"
+                          >
+                            <Users2 className="h-3.5 w-3.5" />
+                            ครอบครัว
+                          </Button>
+                        </Link>
+                        <Link href={`/heirs?personnelId=${p.id}`}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[11px] px-2 gap-1 border-blue-200 text-blue-700 hover:bg-blue-50 hover:border-blue-300"
+                            title="บันทึกข้อมูลทายาท (Tab 4)"
+                          >
+                            <HeartHandshake className="h-3.5 w-3.5" />
+                            ทายาท
+                          </Button>
+                        </Link>
                         <Link href={`/calculator?personnelId=${p.id}`}>
                           <Button
                             size="sm"
@@ -613,17 +619,31 @@ export function PersonnelTable() {
             </div>
           )}
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 flex-wrap sm:justify-end">
             <Button variant="outline" size="sm" onClick={() => setIsDetailOpen(false)}>
               ปิดหน้าต่าง
             </Button>
             {selectedPersonnel && (
-              <Link href={`/calculator?personnelId=${selectedPersonnel.id}`}>
-                <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
-                  <Calculator className="h-4 w-4" />
-                  เปิดเครื่องมือคำนวณสิทธิ 4 หมวด
-                </Button>
-              </Link>
+              <>
+                <Link href={`/family?personnelId=${selectedPersonnel.id}`}>
+                  <Button size="sm" variant="outline" className="border-purple-200 text-purple-700 hover:bg-purple-50 gap-1.5">
+                    <Users2 className="h-4 w-4" />
+                    บันทึกข้อมูลครอบครัว (Tab 3)
+                  </Button>
+                </Link>
+                <Link href={`/heirs?personnelId=${selectedPersonnel.id}`}>
+                  <Button size="sm" variant="outline" className="border-blue-200 text-blue-700 hover:bg-blue-50 gap-1.5">
+                    <HeartHandshake className="h-4 w-4" />
+                    บันทึกข้อมูลทายาท (Tab 4)
+                  </Button>
+                </Link>
+                <Link href={`/calculator?personnelId=${selectedPersonnel.id}`}>
+                  <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+                    <Calculator className="h-4 w-4" />
+                    คำนวณสิทธิ 4 หมวด
+                  </Button>
+                </Link>
+              </>
             )}
           </DialogFooter>
         </DialogContent>
@@ -957,83 +977,32 @@ export function PersonnelTable() {
               </div>
             </div>
 
+            {/* Profile Photo Upload */}
             <div className="rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30 p-3">
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">ข้อมูลครอบครัว / ทายาท / บิดา มารดา คู่สมรส บุตร</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">เลขบัตรประชาชนคู่สมรส</Label>
-                  <Input value={newFamilyRecords.spouseNationalId} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, spouseNationalId: e.target.value }))} className="h-8 text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">ชื่อคู่สมรส</Label>
-                  <Input value={newFamilyRecords.spouseName} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, spouseName: e.target.value }))} className="h-8 text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">วันเกิดคู่สมรส</Label>
-                  <Input type="date" value={newFamilyRecords.spouseBirthDate} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, spouseBirthDate: e.target.value }))} className="h-8 text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">อายุคู่สมรส</Label>
-                  <Input type="number" value={newFamilyRecords.spouseAge} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, spouseAge: Number(e.target.value || 0) }))} className="h-8 text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">สถานะคู่สมรส</Label>
-                  <Input value={newFamilyRecords.spouseStatus} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, spouseStatus: e.target.value }))} className="h-8 text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">เบอร์โทรคู่สมรส</Label>
-                  <Input value={newFamilyRecords.spousePhone} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, spousePhone: e.target.value }))} className="h-8 text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">เลขบัตรบิดา/มารดา</Label>
-                  <Input value={newFamilyRecords.parentNationalId} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, parentNationalId: e.target.value }))} className="h-8 text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">ชื่อบิดา/มารดา</Label>
-                  <Input value={newFamilyRecords.parentName} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, parentName: e.target.value }))} className="h-8 text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">วันเกิดบิดา/มารดา</Label>
-                  <Input type="date" value={newFamilyRecords.parentBirthDate} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, parentBirthDate: e.target.value }))} className="h-8 text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">อายุบิดา/มารดา</Label>
-                  <Input type="number" value={newFamilyRecords.parentAge} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, parentAge: Number(e.target.value || 0) }))} className="h-8 text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">สถานะบิดา/มารดา</Label>
-                  <Input value={newFamilyRecords.parentStatus} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, parentStatus: e.target.value }))} className="h-8 text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">เลขบัตรบุตร</Label>
-                  <Input value={newFamilyRecords.childNationalId} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, childNationalId: e.target.value }))} className="h-8 text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">ชื่อลูก</Label>
-                  <Input value={newFamilyRecords.childName} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, childName: e.target.value }))} className="h-8 text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">วันเกิดบุตร</Label>
-                  <Input type="date" value={newFamilyRecords.childBirthDate} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, childBirthDate: e.target.value }))} className="h-8 text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">อายุบุตร</Label>
-                  <Input type="number" value={newFamilyRecords.childAge} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, childAge: Number(e.target.value || 0) }))} className="h-8 text-xs" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs">สถานะบุตร</Label>
-                  <Input value={newFamilyRecords.childStatus} onChange={(e) => setNewFamilyRecords((prev) => ({ ...prev, childStatus: e.target.value }))} className="h-8 text-xs" />
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <Label className="text-xs">รูปประจำตัวกำลังพล</Label>
-                  <Input type="file" accept="image/*" onChange={async (e) => {
-                    const files = e.target.files ?? [];
-                    if (!files[0]) return;
-                    const dataUrl = await readFileToDataUrl(files[0]);
-                    setNewProfilePhotoUrl(dataUrl);
-                  }} className="h-8 text-xs" />
-                  {newProfilePhotoUrl ? <img src={newProfilePhotoUrl} alt="profile" className="h-16 w-16 rounded-md object-cover border" /> : null}
-                </div>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-300">รูปประจำตัวกำลังพล</p>
+              <div className="space-y-2">
+                <Input type="file" accept="image/*" onChange={async (e) => {
+                  const files = e.target.files ?? [];
+                  if (!files[0]) return;
+                  const dataUrl = await readFileToDataUrl(files[0]);
+                  setNewProfilePhotoUrl(dataUrl);
+                }} className="h-8 text-xs" />
+                {newProfilePhotoUrl ? <img src={newProfilePhotoUrl} alt="profile" className="h-16 w-16 rounded-md object-cover border" /> : null}
+              </div>
+            </div>
+
+            {/* Workflow Info Callout */}
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/50 dark:bg-emerald-950/20 p-3.5 flex items-start gap-3">
+              <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 shrink-0">
+                <Users2 className="h-4 w-4" />
+              </div>
+              <div className="space-y-1">
+                <p className="font-semibold text-emerald-900 dark:text-emerald-200 text-xs">
+                  ระบบการบันทึกข้อมูลแยกตาม Workflow (Tab 2, 3, 4)
+                </p>
+                <p className="text-[11px] text-emerald-800 dark:text-emerald-300 leading-relaxed">
+                  เมื่อบันทึกข้อมูลทะเบียนกำลังพลหน้านี้แล้ว ท่านสามารถไปที่ <strong>แท็บ 3 (ข้อมูลครอบครัว)</strong> เพื่อบันทึกคู่สมรสและบุตร และ <strong>แท็บ 4 (ข้อมูลทายาท)</strong> เพื่อบันทึกทายาทและจัดสรรสัดส่วนร้อยละ (%) ได้อย่างเป็นอิสระและครบถ้วน
+                </p>
               </div>
             </div>
 
