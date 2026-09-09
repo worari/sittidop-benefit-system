@@ -38,7 +38,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-interface ChildFormState {
+export interface ChildFormState {
   nationalId: string;
   title: string;
   firstName: string;
@@ -55,7 +55,7 @@ interface ChildFormState {
   allocationPercentage: number;
 }
 
-interface SpouseFormState {
+export interface SpouseFormState {
   hasSpouse: boolean;
   nationalId: string;
   title: string;
@@ -300,22 +300,22 @@ export function FamilyTable() {
       const payload = {
         spouse: spouseData.hasSpouse
           ? {
-              nationalId: spouseData.nationalId,
-              title: spouseData.title,
-              firstName: spouseData.firstName,
-              lastName: spouseData.lastName,
-              dateOfBirth: spouseData.dateOfBirth || undefined,
-              age: Number(spouseData.age || 0),
-              isAlive: spouseData.isAlive,
-              isLegallyMarried: spouseData.isLegallyMarried,
-              marriageCertNumber: spouseData.marriageCertNumber,
-              phone: spouseData.phone,
-              address: spouseData.address,
-              bankName: spouseData.bankName,
-              bankAccountNumber: spouseData.bankAccountNumber,
-              hasPensionRights: spouseData.hasPensionRights,
-              allocationPercentage: Number(spouseData.allocationPercentage || 50),
-            }
+            nationalId: spouseData.nationalId,
+            title: spouseData.title,
+            firstName: spouseData.firstName,
+            lastName: spouseData.lastName,
+            dateOfBirth: spouseData.dateOfBirth || undefined,
+            age: Number(spouseData.age || 0),
+            isAlive: spouseData.isAlive,
+            isLegallyMarried: spouseData.isLegallyMarried,
+            marriageCertNumber: spouseData.marriageCertNumber,
+            phone: spouseData.phone,
+            address: spouseData.address,
+            bankName: spouseData.bankName,
+            bankAccountNumber: spouseData.bankAccountNumber,
+            hasPensionRights: spouseData.hasPensionRights,
+            allocationPercentage: Number(spouseData.allocationPercentage || 50),
+          }
           : null,
         children: childrenList.map((c) => ({
           nationalId: c.nationalId,

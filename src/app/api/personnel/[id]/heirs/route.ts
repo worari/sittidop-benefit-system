@@ -3,6 +3,8 @@ import { prisma } from "@/infrastructure/database/prisma";
 import { AuditLogger } from "@/infrastructure/logging/audit-logger";
 import { Role } from "@/core/domain/value-objects/enums";
 import { authorizeRoles } from "@/infrastructure/auth/rbac-guard";
+import { HeirValidation } from "@/core/validation/HeirValidation";
+import { HeirFormState } from "@/core/validation/HeirValidation";
 
 export async function GET(
   req: NextRequest,
@@ -57,11 +59,23 @@ export async function PUT(
       return NextResponse.json({ success: false, error: "Heirs must be an array" }, { status: 400 });
     }
 
+    // Validate heirs using HeirValidation
+    const validationResult = HeirValidation.validateAllHeirs(body.heirs as HeirFormState[]);
+    if (!validationResult.isValid) {
+      return NextResponse.json(
+        { success: false, error: validationResult.errors.join(", ") },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize heirs data
+    const sanitizedHeirs = body.heirs.map((heir: any) => HeirValidation.sanitizeHeir(heir as HeirFormState));
+
     await prisma.$transaction(async (tx) => {
       await tx.heir.deleteMany({ where: { personnelId: id } });
-      if (body.heirs.length > 0) {
+      if (sanitizedHeirs.length > 0) {
         await tx.heir.createMany({
-          data: body.heirs.map((heir: any) => ({
+          data: sanitizedHeirs.map((heir: any) => ({
             personnelId: id,
             nationalId: heir.nationalId || "",
             title: heir.title || "",

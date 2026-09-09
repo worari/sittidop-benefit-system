@@ -3,6 +3,8 @@ import { prisma } from "@/infrastructure/database/prisma";
 import { AuditLogger } from "@/infrastructure/logging/audit-logger";
 import { Role } from "@/core/domain/value-objects/enums";
 import { authorizeRoles } from "@/infrastructure/auth/rbac-guard";
+import { FamilyValidation } from "@/core/validation/FamilyValidation";
+import { SpouseFormState, ChildFormState } from "@/core/validation/FamilyValidation";
 
 export async function GET(
   req: NextRequest,
@@ -49,6 +51,18 @@ export async function PUT(
     if (!existing) {
       return NextResponse.json({ success: false, error: "Personnel not found" }, { status: 404 });
     }
+
+    // Validate family data using FamilyValidation
+    const validationResult = FamilyValidation.validateAllFamily(body.spouse as SpouseFormState, body.children as ChildFormState[]);
+    if (!validationResult.isValid) {
+      return NextResponse.json(
+        { success: false, error: validationResult.errors.join(", ") },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize family data
+    const sanitizedFamily = FamilyValidation.sanitizeFamily(body.spouse as SpouseFormState, body.children as ChildFormState[]);
 
     await prisma.$transaction(async (tx) => {
       // 1. Spouse

@@ -47,8 +47,10 @@ import {
   Calculator,
 } from "lucide-react";
 import Link from "next/link";
+import { HeirValidation } from "@/core/validation/HeirValidation";
+import { FamilyValidation } from "@/core/validation/FamilyValidation";
 
-interface HeirFormState {
+export interface HeirFormState {
   nationalId: string;
   title: string;
   firstName: string;

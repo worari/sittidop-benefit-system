@@ -58,8 +58,8 @@ export function PersonnelTable() {
   const [loading, setLoading] = useState(true);
 
   // New Personnel Form State
-  const [newRank, setNewRank] = useState("LIEUTENANT_COLONEL");
-  const [newRankAbbr, setNewRankAbbr] = useState("พ.ท.");
+  const [newRank, setNewRank] = useState("PRIVATE");
+  const [newRankAbbr, setNewRankAbbr] = useState("พลทหาร");
   const [newFirstName, setNewFirstName] = useState("");
   const [newLastName, setNewLastName] = useState("");
   const [newDateOfBirth, setNewDateOfBirth] = useState("");
@@ -665,15 +665,22 @@ export function PersonnelTable() {
                 <div className="space-y-1">
                   <Label className="text-xs">ยศทหาร</Label>
                   <select
-                    value={editingPersonnel.rank ?? "LIEUTENANT_COLONEL"}
-                    onChange={(e) => setEditingPersonnel((prev) => ({ ...prev, rank: e.target.value, rankAbbr: e.target.value === "COLONEL" ? "พ.อ." : e.target.value === "LIEUTENANT_COLONEL" ? "พ.ท." : e.target.value === "CAPTAIN" ? "ร.อ." : e.target.value === "MASTER_SERGEANT_1ST" ? "จ.ส.อ." : "ส.อ." }))}
+                    value={editingPersonnel.rank ?? "PRIVATE"}
+                    onChange={(e) => setEditingPersonnel((prev) => ({ ...prev, rank: e.target.value, rankAbbr: e.target.value === "PRIVATE" ? "พลทหาร" : e.target.value === "CORPORAL" ? "ส.ต.กองฯ" : e.target.value === "RANGER" ? "พล.อส." : e.target.value === "VOLUNTEER_RANGER" ? "อส.ทพ." : e.target.value === "SERGEANT" ? "ส.ต." : e.target.value === "FIRST_LIEUTENANT" ? "ร.ท." : e.target.value === "CAPTAIN" ? "ร.อ." : e.target.value === "MASTER_SERGEANT_1ST" ? "จ.ส.อ." : e.target.value === "MAJOR" ? "พ.ต." : e.target.value === "LIEUTENANT_COLONEL" ? "พ.ท." : e.target.value === "COLONEL" ? "พ.อ." : e.target.value === "GENERAL" ? "พล.อ." : "ส.อ." }))}
                     className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs"
                   >
-                    <option value="LIEUTENANT_COLONEL">พันโท (พ.ท.)</option>
-                    <option value="COLONEL">พันเอก (พ.อ.)</option>
+                    <option value="PRIVATE">พลทหาร (พลทหาร)</option>
+                    <option value="CORPORAL">ส.ต.กองฯ (ส.ต.กองฯ)</option>
+                    <option value="RANGER">พล.อส. (พล.อส.)</option>
+                    <option value="VOLUNTEER_RANGER">อส.ทพ. (อส.ทพ.)</option>
+                    <option value="SERGEANT">ส.ต. (ส.ต.)</option>
+                    <option value="FIRST_LIEUTENANT">ร้อยโท (ร.ท.)</option>
                     <option value="CAPTAIN">ร้อยเอก (ร.อ.)</option>
                     <option value="MASTER_SERGEANT_1ST">จ่าสิบเอก (จ.ส.อ.)</option>
-                    <option value="SERGEANT">สิบเอก (ส.อ.)</option>
+                    <option value="MAJOR">พันตรี (พ.ต.)</option>
+                    <option value="LIEUTENANT_COLONEL">พันโท (พ.ท.)</option>
+                    <option value="COLONEL">พันเอก (พ.อ.)</option>
+                    <option value="GENERAL">พล.อ. (พล.อ.)</option>
                   </select>
                 </div>
                 <div className="space-y-1">
@@ -810,21 +817,34 @@ export function PersonnelTable() {
                     value={newRank}
                     onChange={(e) => {
                       setNewRank(e.target.value);
-                      if (e.target.value === "COLONEL") setNewRankAbbr("พ.อ.");
-                      else if (e.target.value === "LIEUTENANT_COLONEL") setNewRankAbbr("พ.ท.");
+                      if (e.target.value === "PRIVATE") setNewRankAbbr("พลทหาร");
+                      else if (e.target.value === "CORPORAL") setNewRankAbbr("ส.ต.กองฯ");
+                      else if (e.target.value === "RANGER") setNewRankAbbr("พล.อส.");
+                      else if (e.target.value === "VOLUNTEER_RANGER") setNewRankAbbr("อส.ทพ.");
+                      else if (e.target.value === "SERGEANT") setNewRankAbbr("ส.ต.");
+                      else if (e.target.value === "FIRST_LIEUTENANT") setNewRankAbbr("ร.ท.");
                       else if (e.target.value === "CAPTAIN") setNewRankAbbr("ร.อ.");
                       else if (e.target.value === "MASTER_SERGEANT_1ST") setNewRankAbbr("จ.ส.อ.");
+                      else if (e.target.value === "MAJOR") setNewRankAbbr("พ.ต.");
+                      else if (e.target.value === "LIEUTENANT_COLONEL") setNewRankAbbr("พ.ท.");
+                      else if (e.target.value === "COLONEL") setNewRankAbbr("พ.อ.");
+                      else if (e.target.value === "GENERAL") setNewRankAbbr("พล.อ.");
                       else setNewRankAbbr("ส.อ.");
                     }}
                     className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs"
                   >
+                    <option value="PRIVATE">พลทหาร (พลทหาร)</option>
+                    <option value="CORPORAL">ส.ต.กองฯ (ส.ต.กองฯ)</option>
+                    <option value="RANGER">พล.อส. (พล.อส.)</option>
+                    <option value="VOLUNTEER_RANGER">อส.ทพ. (อส.ทพ.)</option>
+                    <option value="SERGEANT">ส.ต. (ส.ต.)</option>
+                    <option value="FIRST_LIEUTENANT">ร้อยโท (ร.ท.)</option>
+                    <option value="CAPTAIN">ร้อยเอก (ร.อ.)</option>
+                    <option value="MASTER_SERGEANT_1ST">จ่าสิบเอก (จ.ส.อ.)</option>
+                    <option value="MAJOR">พันตรี (พ.ต.)</option>
                     <option value="LIEUTENANT_COLONEL">พันโท (พ.ท.)</option>
                     <option value="COLONEL">พันเอก (พ.อ.)</option>
-                    <option value="MAJOR">พันตรี (พ.ต.)</option>
-                    <option value="CAPTAIN">ร้อยเอก (ร.อ.)</option>
-                    <option value="FIRST_LIEUTENANT">ร้อยโท (ร.ท.)</option>
-                    <option value="MASTER_SERGEANT_1ST">จ่าสิบเอก (จ.ส.อ.)</option>
-                    <option value="SERGEANT">สิบเอก (ส.อ.)</option>
+                    <option value="GENERAL">พล.อ. (พล.อ.)</option>
                   </select>
                 </div>
                 <div className="space-y-1">
