@@ -208,7 +208,7 @@ describe("HeirValidation", () => {
                     isAlive: true,
                     bankName: "กรุงไทย",
                     bankAccountNumber: "1234567890",
-                    allocationPercentage: 60, // 60%
+                    allocationPercentage: 50, // 50% (total 50+40 = 90% != 100%)
                     isDesignatedSuccessor: false,
                     documentsVerified: true,
                 },
@@ -240,10 +240,10 @@ describe("HeirValidation", () => {
     describe("sanitizeHeir", () => {
         it("should strip malicious content from heir data", () => {
             const dirty: HeirFormState = {
-                nationalId: "<script>alert('xss')</script>1234567890123",
-                title: "นาย<script>alert('xss')</script>",
-                firstName: "สมชาย<script>alert('xss')</script>",
-                lastName: "ใจดี<script>alert('xss')</script>",
+                nationalId: "<script>alert('xss')1234567890123",
+                title: "นาย<script>alert('xss')",
+                firstName: "สมชาย<script>alert('xss')",
+                lastName: "ใจดี<script>alert('xss')",
                 dateOfBirth: "1990-01-01",
                 age: 35,
                 relationship: "SPOUSE_LEGAL<script>alert('xss')",

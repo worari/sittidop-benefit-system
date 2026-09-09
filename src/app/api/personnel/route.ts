@@ -26,6 +26,7 @@ function normalizePersonnelRecord(record: any) {
     educationLevel: record.educationLevel ?? "",
     phone: record.phone ?? "",
     profilePhotoUrl: record.profilePhotoUrl ?? "",
+    conscriptionBatch: record.conscriptionBatch !== undefined && record.conscriptionBatch !== null ? Number(record.conscriptionBatch) : null,
     militaryBranch: record.militaryBranch,
     abbreviatedPosition: record.abbreviatedPosition,
     normalUnit: record.normalUnit,
@@ -158,6 +159,61 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Missing required personnel fields" }, { status: 400 });
     }
 
+    const cleanMilitaryId = String(body.militaryId).trim();
+    const cleanFirstName = String(body.firstName).trim();
+    const cleanLastName = String(body.lastName).trim();
+    const cleanCitizenId = body.citizenId ? String(body.citizenId).trim() : null;
+
+    // 1. ตรวจสอบเลขประจำตัวทหารซ้ำ (ห้ามซ้ำ)
+    const existingMil = await prisma.militaryPersonnel.findUnique({
+      where: { militaryId: cleanMilitaryId },
+      select: { id: true, rankAbbr: true, firstName: true, lastName: true },
+    });
+    if (existingMil) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `เลขประจำตัวทหารนี้ถูกลงทะเบียนไว้ในระบบแล้ว กรุณาตรวจสอบอีกครั้ง (เลขทหาร: ${cleanMilitaryId} เป็นของ ${existingMil.rankAbbr} ${existingMil.firstName} ${existingMil.lastName})`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // 2. ตรวจสอบเลขบัตรประจำตัวประชาชนซ้ำ (ห้ามซ้ำ)
+    if (cleanCitizenId) {
+      const existingCit = await prisma.militaryPersonnel.findUnique({
+        where: { citizenId: cleanCitizenId },
+        select: { id: true, rankAbbr: true, firstName: true, lastName: true },
+      });
+      if (existingCit) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `เลขบัตรประจำตัวประชาชนนี้ถูกลงทะเบียนไว้ในระบบแล้ว กรุณาตรวจสอบอีกครั้ง (เลขบัตร: ${cleanCitizenId} เป็นของ ${existingCit.rankAbbr} ${existingCit.firstName} ${existingCit.lastName})`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 3. ป้องกันชื่อ-นามสกุลซ้ำซ้อน (ห้ามซ้ำ)
+    const existingName = await prisma.militaryPersonnel.findFirst({
+      where: {
+        firstName: { equals: cleanFirstName, mode: "insensitive" },
+        lastName: { equals: cleanLastName, mode: "insensitive" },
+      },
+      select: { id: true, militaryId: true, rankAbbr: true, firstName: true, lastName: true },
+    });
+    if (existingName) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `พบข้อมูลกำลังพลชื่อ-นามสกุล '${cleanFirstName} ${cleanLastName}' (เลขทหาร ${existingName.militaryId}) ในระบบแล้ว กรุณาตรวจสอบเพื่อป้องกันชื่อซ้ำซ้อน`,
+        },
+        { status: 400 }
+      );
+    }
+
     const created = await prisma.militaryPersonnel.create({
       data: {
         militaryId: body.militaryId,
@@ -173,6 +229,7 @@ export async function POST(req: NextRequest) {
         educationLevel: body.educationLevel || null,
         phone: body.phone || null,
         profilePhotoUrl: body.profilePhotoUrl || null,
+        conscriptionBatch: body.conscriptionBatch !== undefined && body.conscriptionBatch !== null ? Number(body.conscriptionBatch) : null,
         militaryBranch: body.militaryBranch || "ROYAL_THAI_ARMY",
         abbreviatedPosition: body.abbreviatedPosition || "นายทหารยุทธการ",
         fullPosition: body.fullPosition || body.fieldPosition || null,
@@ -193,8 +250,14 @@ export async function POST(req: NextRequest) {
         appointmentDate: body.appointmentDate ? new Date(body.appointmentDate) : new Date(),
         incidentDate: body.incidentDate ? new Date(body.incidentDate) : null,
         serviceYearsNormal: Number(body.serviceYearsNormal || 0),
+        serviceMonthsNormal: Number(body.serviceMonthsNormal || 0),
+        serviceDaysNormal: Number(body.serviceDaysNormal || 0),
         serviceYearsMultiplier: Number(body.serviceYearsMultiplier || 0),
+        serviceMonthsMultiplier: Number(body.serviceMonthsMultiplier || 0),
+        serviceDaysMultiplier: Number(body.serviceDaysMultiplier || 0),
         totalServiceYears: Number(body.totalServiceYears || 0),
+        totalServiceMonths: Number(body.totalServiceMonths || 0),
+        totalServiceDays: Number(body.totalServiceDays || 0),
         missionType: body.missionType || "COUNTER_INSURGENCY",
         actionType: body.actionType || "DIRECT_COMBAT",
         incidentType: body.incidentType || "COMBAT_ENGAGEMENT",
@@ -209,7 +272,7 @@ export async function POST(req: NextRequest) {
         promotedSalary: Number(body.promotedSalary ?? body.salary ?? 0),
         familyRecordsJson: body.familyRecords ? JSON.stringify(body.familyRecords) : null,
         documentAttachmentJson: body.documentAttachments ? JSON.stringify(body.documentAttachments) : null,
-      },
+      } as any,
       include: { spouse: true, children: true, heirs: true },
     });
 
@@ -290,6 +353,27 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ success: true, data: normalizePersonnelRecord(fresh) });
   } catch (error: any) {
+    if (error?.code === "P2002") {
+      const target = Array.isArray(error.meta?.target)
+        ? error.meta.target.join(", ")
+        : String(error.meta?.target || "");
+      if (target.includes("militaryId")) {
+        return NextResponse.json(
+          { success: false, error: "เลขประจำตัวทหารนี้ถูกลงทะเบียนไว้ในระบบแล้ว กรุณาตรวจสอบอีกครั้ง" },
+          { status: 400 }
+        );
+      }
+      if (target.includes("citizenId")) {
+        return NextResponse.json(
+          { success: false, error: "เลขบัตรประจำตัวประชาชนนี้ถูกลงทะเบียนไว้ในระบบแล้ว กรุณาตรวจสอบอีกครั้ง" },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json(
+        { success: false, error: "ข้อมูลนี้มีอยู่ในระบบแล้ว (ข้อมูลซ้ำซ้อน)" },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ success: false, error: error.message }, { status: 400 });
   }
 }

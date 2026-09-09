@@ -87,7 +87,7 @@ export function MilitaryBenefitCalculator() {
   const [selectedPersonnelId, setSelectedPersonnelId] = useState<string>("");
 
   // Form State
-  const [militaryId, setMilitaryId] = useState("MIL-49021884");
+  const [militaryId, setMilitaryId] = useState("4902188401");
   const [rank, setRank] = useState("LIEUTENANT_COLONEL");
   const [rankAbbr, setRankAbbr] = useState("พ.ท.");
   const [firstName, setFirstName] = useState("วีรชาติ");
@@ -833,10 +833,27 @@ export function MilitaryBenefitCalculator() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">เลขประจำตัวทหาร 10 หลัก</Label>
+              <Label className="text-xs">เลขประจำตัวทหาร 10 หลัก (เฉพาะตัวเลข)</Label>
               <Input
                 value={militaryId}
-                onChange={(e) => setMilitaryId(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, "").slice(0, 10);
+                  setMilitaryId(v);
+                }}
+                onKeyDown={(e) => {
+                  if (
+                    !/[0-9]/.test(e.key) &&
+                    !["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "Enter"].includes(e.key) &&
+                    !e.ctrlKey &&
+                    !e.metaKey
+                  ) {
+                    e.preventDefault();
+                  }
+                }}
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={10}
+                placeholder="0000000000"
                 className="text-xs font-mono"
               />
             </div>

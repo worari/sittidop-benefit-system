@@ -83,7 +83,17 @@ export async function PUT(
             lastName: heir.lastName || "",
             dateOfBirth: heir.dateOfBirth ? new Date(heir.dateOfBirth) : null,
             age: heir.age !== undefined ? Number(heir.age) : null,
-            relationship: heir.relationship || "OTHER_HEIR",
+            relationship: [
+              "SPOUSE_LEGAL",
+              "SPOUSE_DE_FACTO",
+              "CHILD_LEGITIMATE",
+              "CHILD_ADOPTED",
+              "FATHER",
+              "MOTHER",
+              "OTHER_HEIR",
+            ].includes(heir.relationship)
+              ? heir.relationship
+              : "OTHER_HEIR",
             phone: heir.phone || null,
             address: heir.address || null,
             educationLevel: heir.educationLevel || null,

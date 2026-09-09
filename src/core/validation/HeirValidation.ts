@@ -14,9 +14,9 @@ export interface HeirFormState {
     allocationPercentage: number;
     isDesignatedSuccessor: boolean;
     documentsVerified: boolean;
-    // Additional fields for blood relatives
-    isBloodRelative: boolean;
-    familyConnection: string; // e.g., "BROTHER", "SISTER", "UNCLE", "AUNT", "COUSIN"
+    // Additional optional fields for blood relatives (siblings, cousins, etc.)
+    isBloodRelative?: boolean;
+    familyConnection?: string; // e.g., "ELDER_BROTHER", "YOUNGER_SISTER"
 }
 
 export class HeirValidation {
@@ -134,8 +134,8 @@ export class HeirValidation {
             }
         });
 
-        // Validate total percentage
-        if (totalPercentage !== 100) {
+        // Validate total percentage only when heirs are present
+        if (heirs.length > 0 && Math.round(totalPercentage) !== 100) {
             errors.push(`ผลรวมสัดส่วนทั้งหมดต้องเป็น 100% (ปัจจุบัน: ${totalPercentage}%)`);
         }
 
@@ -155,10 +155,6 @@ export class HeirValidation {
             title: heir.title ? heir.title.replace(/[<>"'&;`$]/g, '') : '',
             firstName: heir.firstName ? heir.firstName.replace(/[<>"'&;`$]/g, '') : '',
             lastName: heir.lastName ? heir.lastName.replace(/[<>"'&;`$]/g, '') : '',
-            phone: heir.phone ? heir.phone.replace(/[<>"'&;`$]/g, '') : '',
-            address: heir.address ? heir.address.replace(/[<>"'&;`$]/g, '') : '',
-            bankName: heir.bankName ? heir.bankName.replace(/[<>"'&;`$]/g, '') : '',
-            bankAccountNumber: heir.bankAccountNumber ? heir.bankAccountNumber.replace(/[<>"'&;`$]/g, '') : '',
             relationship: heir.relationship ? heir.relationship.replace(/[<>"'&;`$]/g, '') : '',
             familyConnection: heir.familyConnection ? heir.familyConnection.replace(/[<>"'&;`$]/g, '') : '',
         };

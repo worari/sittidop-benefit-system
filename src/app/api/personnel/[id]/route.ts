@@ -26,6 +26,7 @@ function normalizePersonnelRecord(record: any) {
     educationLevel: record.educationLevel ?? "",
     phone: record.phone ?? "",
     profilePhotoUrl: record.profilePhotoUrl ?? "",
+    conscriptionBatch: record.conscriptionBatch !== undefined && record.conscriptionBatch !== null ? Number(record.conscriptionBatch) : null,
     militaryBranch: record.militaryBranch,
     abbreviatedPosition: record.abbreviatedPosition,
     normalUnit: record.normalUnit,
@@ -129,6 +130,66 @@ export async function PUT(
     const { id } = await params;
     const body = await req.json();
 
+    const cleanMilitaryId = body.militaryId ? String(body.militaryId).trim() : undefined;
+    const cleanCitizenId = body.citizenId ? String(body.citizenId).trim() : undefined;
+    const cleanFirstName = body.firstName ? String(body.firstName).trim() : undefined;
+    const cleanLastName = body.lastName ? String(body.lastName).trim() : undefined;
+
+    // 1. ตรวจสอบเลขประจำตัวทหารซ้ำ (ยกเว้นตนเอง)
+    if (cleanMilitaryId) {
+      const existingMil = await prisma.militaryPersonnel.findFirst({
+        where: { militaryId: cleanMilitaryId, NOT: { id } },
+        select: { id: true, rankAbbr: true, firstName: true, lastName: true },
+      });
+      if (existingMil) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `เลขประจำตัวทหารนี้ถูกลงทะเบียนไว้ในระบบแล้ว กรุณาตรวจสอบอีกครั้ง (เลขทหาร: ${cleanMilitaryId} เป็นของ ${existingMil.rankAbbr} ${existingMil.firstName} ${existingMil.lastName})`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 2. ตรวจสอบเลขบัตรประจำตัวประชาชนซ้ำ (ยกเว้นตนเอง)
+    if (cleanCitizenId) {
+      const existingCit = await prisma.militaryPersonnel.findFirst({
+        where: { citizenId: cleanCitizenId, NOT: { id } },
+        select: { id: true, rankAbbr: true, firstName: true, lastName: true },
+      });
+      if (existingCit) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `เลขบัตรประจำตัวประชาชนนี้ถูกลงทะเบียนไว้ในระบบแล้ว กรุณาตรวจสอบอีกครั้ง (เลขบัตร: ${cleanCitizenId} เป็นของ ${existingCit.rankAbbr} ${existingCit.firstName} ${existingCit.lastName})`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // 3. ป้องกันชื่อ-นามสกุลซ้ำซ้อน (ยกเว้นตนเอง)
+    if (cleanFirstName && cleanLastName) {
+      const existingName = await prisma.militaryPersonnel.findFirst({
+        where: {
+          firstName: { equals: cleanFirstName, mode: "insensitive" },
+          lastName: { equals: cleanLastName, mode: "insensitive" },
+          NOT: { id },
+        },
+        select: { id: true, militaryId: true, rankAbbr: true, firstName: true, lastName: true },
+      });
+      if (existingName) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `พบข้อมูลกำลังพลชื่อ-นามสกุล '${cleanFirstName} ${cleanLastName}' (เลขทหาร ${existingName.militaryId}) ในระบบแล้ว กรุณาตรวจสอบเพื่อป้องกันชื่อซ้ำซ้อน`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const updateData: any = {
       militaryId: body.militaryId,
       citizenId: body.citizenId,
@@ -143,6 +204,7 @@ export async function PUT(
       educationLevel: body.educationLevel,
       phone: body.phone,
       profilePhotoUrl: body.profilePhotoUrl,
+      conscriptionBatch: body.conscriptionBatch !== undefined ? (body.conscriptionBatch !== null ? Number(body.conscriptionBatch) : null) : undefined,
       militaryBranch: body.militaryBranch,
       abbreviatedPosition: body.abbreviatedPosition,
       fullPosition: body.fullPosition ?? body.fieldPosition ?? null,
@@ -163,8 +225,14 @@ export async function PUT(
       appointmentDate: body.appointmentDate ? new Date(body.appointmentDate) : undefined,
       incidentDate: body.incidentDate ? new Date(body.incidentDate) : undefined,
       serviceYearsNormal: body.serviceYearsNormal !== undefined ? Number(body.serviceYearsNormal) : undefined,
+      serviceMonthsNormal: body.serviceMonthsNormal !== undefined ? Number(body.serviceMonthsNormal) : undefined,
+      serviceDaysNormal: body.serviceDaysNormal !== undefined ? Number(body.serviceDaysNormal) : undefined,
       serviceYearsMultiplier: body.serviceYearsMultiplier !== undefined ? Number(body.serviceYearsMultiplier) : undefined,
+      serviceMonthsMultiplier: body.serviceMonthsMultiplier !== undefined ? Number(body.serviceMonthsMultiplier) : undefined,
+      serviceDaysMultiplier: body.serviceDaysMultiplier !== undefined ? Number(body.serviceDaysMultiplier) : undefined,
       totalServiceYears: body.totalServiceYears !== undefined ? Number(body.totalServiceYears) : undefined,
+      totalServiceMonths: body.totalServiceMonths !== undefined ? Number(body.totalServiceMonths) : undefined,
+      totalServiceDays: body.totalServiceDays !== undefined ? Number(body.totalServiceDays) : undefined,
       missionType: body.missionType,
       actionType: body.actionType,
       incidentType: body.incidentType,
@@ -309,6 +377,27 @@ export async function PUT(
 
     return NextResponse.json({ success: true, data: normalizePersonnelRecord(updated) });
   } catch (error: any) {
+    if (error?.code === "P2002") {
+      const target = Array.isArray(error.meta?.target)
+        ? error.meta.target.join(", ")
+        : String(error.meta?.target || "");
+      if (target.includes("militaryId")) {
+        return NextResponse.json(
+          { success: false, error: "เลขประจำตัวทหารนี้ถูกลงทะเบียนไว้ในระบบแล้ว กรุณาตรวจสอบอีกครั้ง" },
+          { status: 400 }
+        );
+      }
+      if (target.includes("citizenId")) {
+        return NextResponse.json(
+          { success: false, error: "เลขบัตรประจำตัวประชาชนนี้ถูกลงทะเบียนไว้ในระบบแล้ว กรุณาตรวจสอบอีกครั้ง" },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json(
+        { success: false, error: "ข้อมูลนี้มีอยู่ในระบบแล้ว (ข้อมูลซ้ำซ้อน)" },
+        { status: 400 }
+      );
+    }
     return NextResponse.json({ success: false, error: error.message }, { status: 400 });
   }
 }

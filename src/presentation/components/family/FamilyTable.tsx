@@ -636,7 +636,7 @@ export function FamilyTable() {
                 <div className="space-y-1">
                   <span className="text-[11px] text-muted-foreground">ค้นหากำลังพล (ชื่อ / เลขทหาร):</span>
                   <Input
-                    placeholder="พิมพ์ชื่อ หรือ เลข MIL-..."
+                    placeholder="พิมพ์ชื่อ หรือ เลขประจำตัวทหาร..."
                     value={personnelSearchTerm}
                     onChange={(e) => setPersonnelSearchTerm(e.target.value)}
                     className="h-8 text-xs"

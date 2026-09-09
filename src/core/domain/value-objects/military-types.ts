@@ -25,14 +25,28 @@ export interface MilitaryPersonnelInput {
 
   // 4. ประเภทกำลังพล (Personnel Category / Rank Group)
   personnelCategory?: string; // e.g. "COMMISSIONED_OFFICER", "NON_COMMISSIONED_OFFICER", "VOLUNTEER_RANGER", "CONSCRIPT_SOLDIER"
+  personnelType?: string;
+  conscriptionBatch?: number | null; // ผลัดที่ 1 หรือ 2 (สำหรับพลทหาร/ทหารกองประจำการ)
 
   // 5. ประเภทการสูญเสีย (Loss / Casualty Type)
   lossType: string; // e.g. "KIA_COMBAT_DEATH", "TOTAL_PERMANENT_DISABILITY", "SEVERE_WOUND_WIA", "DUTY_DEATH"
+
+  dateOfBirth?: string;
+  age?: number;
+  maritalStatus?: string;
+  religion?: string;
+  educationLevel?: string;
+  phone?: string;
+  profilePhotoUrl?: string;
 
   abbreviatedPosition: string; // e.g. "ผบ.พัน.ร.1911"
   normalUnit: string; // e.g. "ร.19 พัน.1"
   fieldPosition?: string; // e.g. "ผบ.ฉก.นราธิวาส 30"
   fieldUnit?: string; // e.g. "ฉก.นราธิวาส"
+  fieldDutyOrderNo?: string;
+  fieldDutyOrderDate?: string;
+  fieldDutyOrderIssuer?: string;
+  missionCategory?: string;
   salary: number; // เงินเดือนพื้นฐาน
   salaryLevel: string; // e.g. "น.3" (ระดับชั้นเงินเดือน)
   salaryStep: number; // e.g. 21.5

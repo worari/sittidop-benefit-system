@@ -246,6 +246,7 @@ export default function LandingPage() {
                 src="/images/logo.png"
                 alt="ตรากรมกำลังพลทหารบก"
                 fill
+                sizes="44px"
                 className="object-contain p-0.5"
                 priority
               />

@@ -195,33 +195,37 @@ export class FamilyValidation {
      * Validate all family data (spouse and children)
      */
     static validateAllFamily(
-        spouse: SpouseFormState,
-        children: ChildFormState[]
+        spouse: SpouseFormState | null | undefined,
+        children: ChildFormState[] = []
     ): { isValid: boolean; errors: string[] } {
         const errors: string[] = [];
         let totalPercentage = 0;
+        const hasSpouse = !!spouse && (spouse.hasSpouse ?? true);
+        const childrenList = Array.isArray(children) ? children : [];
 
         // Validate spouse
-        if (spouse.hasSpouse) {
+        if (hasSpouse && spouse) {
             const spouseResult = this.validateSpouse(spouse, 0);
             errors.push(...spouseResult.errors);
             if (spouse.allocationPercentage !== undefined) {
-                totalPercentage += spouse.allocationPercentage;
+                totalPercentage += Number(spouse.allocationPercentage || 0);
             }
         }
 
         // Validate children
-        children.forEach((child, index) => {
+        childrenList.forEach((child, index) => {
             const childResult = this.validateChild(child, index);
             errors.push(...childResult.errors);
             if (child.allocationPercentage !== undefined) {
-                totalPercentage += child.allocationPercentage;
+                totalPercentage += Number(child.allocationPercentage || 0);
             }
         });
 
-        // Validate total percentage
-        if (totalPercentage !== 100) {
-            errors.push(`ผลรวมสัดส่วนทั้งหมดต้องเป็น 100% (ปัจจุบัน: ${totalPercentage}%)`);
+        // Validate total percentage only if there are family members
+        if (hasSpouse || childrenList.length > 0) {
+            if (Math.round(totalPercentage) !== 100) {
+                errors.push(`ผลรวมสัดส่วนทั้งหมดต้องเป็น 100% (ปัจจุบัน: ${totalPercentage}%)`);
+            }
         }
 
         return {
@@ -233,36 +237,29 @@ export class FamilyValidation {
     /**
      * Sanitize family data to prevent injection attacks
      */
+    static sanitizeFamily(spouse: SpouseFormState, children?: ChildFormState[]): { spouse: SpouseFormState; children: ChildFormState[] };
+    static sanitizeFamily(spouse: null | undefined, children?: ChildFormState[]): { spouse: null; children: ChildFormState[] };
+    static sanitizeFamily(spouse: SpouseFormState | null | undefined, children?: ChildFormState[]): { spouse: SpouseFormState | null; children: ChildFormState[] };
     static sanitizeFamily(
-        spouse: SpouseFormState,
-        children: ChildFormState[]
-    ): { spouse: SpouseFormState; children: ChildFormState[] } {
+        spouse: SpouseFormState | null | undefined,
+        children: ChildFormState[] = []
+    ): { spouse: SpouseFormState | null; children: ChildFormState[] } {
+        const childrenList = Array.isArray(children) ? children : [];
+        if (!spouse) {
+            return { spouse: null, children: childrenList };
+        }
+
         const sanitizedSpouse: SpouseFormState = {
             ...spouse,
             nationalId: spouse.nationalId ? spouse.nationalId.replace(/[<>"'&;`$]/g, '') : '',
             title: spouse.title ? spouse.title.replace(/[<>"'&;`$]/g, '') : '',
             firstName: spouse.firstName ? spouse.firstName.replace(/[<>"'&;`$]/g, '') : '',
             lastName: spouse.lastName ? spouse.lastName.replace(/[<>"'&;`$]/g, '') : '',
-            phone: spouse.phone ? spouse.phone.replace(/[<>"'&;`$]/g, '') : '',
-            address: spouse.address ? spouse.address.replace(/[<>"'&;`$]/g, '') : '',
-            bankName: spouse.bankName ? spouse.bankName.replace(/[<>"'&;`$]/g, '') : '',
-            bankAccountNumber: spouse.bankAccountNumber ? spouse.bankAccountNumber.replace(/[<>"'&;`$]/g, '') : '',
-            marriageCertNumber: spouse.marriageCertNumber ? spouse.marriageCertNumber.replace(/[<>"'&;`$]/g, '') : '',
         };
-
-        const sanitizedChildren: ChildFormState[] = children.map((child) => ({
-            ...child,
-            nationalId: child.nationalId ? child.nationalId.replace(/[<>"'&;`$]/g, '') : '',
-            title: child.title ? child.title.replace(/[<>"'&;`$]/g, '') : '',
-            firstName: child.firstName ? child.firstName.replace(/[<>"'&;`$]/g, '') : '',
-            lastName: child.lastName ? child.lastName.replace(/[<>"'&;`$]/g, '') : '',
-            phone: child.phone ? child.phone.replace(/[<>"'&;`$]/g, '') : '',
-            educationLevel: child.educationLevel ? child.educationLevel.replace(/[<>"'&;`$]/g, '') : '',
-        }));
 
         return {
             spouse: sanitizedSpouse,
-            children: sanitizedChildren,
+            children: childrenList,
         };
     }
 }

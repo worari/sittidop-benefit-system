@@ -373,7 +373,7 @@ describe("FamilyValidation", () => {
                 bankName: "กรุงไทย",
                 bankAccountNumber: "1234567890",
                 hasPensionRights: true,
-                allocationPercentage: 60, // 60%
+                allocationPercentage: 50, // 50% (total will be 50+20+20 = 90% != 100%)
             };
 
             const invalidChildren: ChildFormState[] = [
@@ -421,7 +421,7 @@ describe("FamilyValidation", () => {
         it("should strip malicious content from family data", () => {
             const dirtySpouse: SpouseFormState = {
                 hasSpouse: true,
-                nationalId: "<script>alert('xss')</script>1234567890123",
+                nationalId: "<script>alert('xss')1234567890123",
                 title: "นาง<script>alert('xss')",
                 firstName: "สมหญิง<script>alert('xss')",
                 lastName: "ใจดี<script>alert('xss')",

@@ -13,15 +13,19 @@ export interface AuthenticatedUser {
 
 export async function getAuthenticatedUser(req?: NextRequest): Promise<AuthenticatedUser | null> {
   // Check header or getServerSession
-  const session = await getServerSession(authOptions);
-  if (session?.user) {
-    const u = session.user as any;
-    return {
-      id: u.id || "usr-001",
-      name: u.name || "Administrator",
-      email: u.email || "admin@dop.go.th",
-      role: (u.role as Role) || Role.SUPERADMIN,
-    };
+  try {
+    const session = await getServerSession(authOptions);
+    if (session?.user) {
+      const u = session.user as any;
+      return {
+        id: u.id || "usr-001",
+        name: u.name || "Administrator",
+        email: u.email || "admin@dop.go.th",
+        role: (u.role as Role) || Role.SUPERADMIN,
+      };
+    }
+  } catch {
+    // Ignore when called outside active request context (e.g. tests or build)
   }
 
   // Fallback check for simulated auth in dev/preview

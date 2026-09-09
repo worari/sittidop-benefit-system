@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -31,6 +32,28 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
   const pathname = usePathname();
   const { data: session } = useSession();
   const userRole = (session?.user as any)?.role as Role;
+  const [personnelCount, setPersonnelCount] = useState<number | null>(null);
+
+  const fetchPersonnelCount = async () => {
+    try {
+      const res = await fetch("/api/personnel");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setPersonnelCount(json.data.length);
+      }
+    } catch (err) {
+      console.error("Failed to fetch personnel count:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchPersonnelCount();
+
+    // Listen to custom update event dispatched when personnel data changes
+    const handleUpdate = () => fetchPersonnelCount();
+    window.addEventListener("personnel-updated", handleUpdate);
+    return () => window.removeEventListener("personnel-updated", handleUpdate);
+  }, [pathname]);
 
   const navigation = [
     {
@@ -44,7 +67,7 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
       title: "ทะเบียนกำลังพล (Personnel)",
       href: "/personnel",
       icon: Shield,
-      badge: "4 นาย",
+      badge: personnelCount !== null ? `${personnelCount} นาย` : null,
       roles: [Role.SUPERADMIN, Role.ADMIN, Role.STAFF, Role.COMMANDER, Role.AUDITOR, Role.READONLY],
     },
     {

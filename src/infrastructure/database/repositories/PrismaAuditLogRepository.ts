@@ -12,9 +12,10 @@ export class PrismaAuditLogRepository implements IAuditLogRepository {
     };
 
     try {
+      const validUserId = data.userId && !data.userId.startsWith("usr-") ? data.userId : null;
       await prisma.auditLog.create({
         data: {
-          userId: data.userId || null,
+          userId: validUserId,
           userName: data.userName || null,
           role: data.role || null,
           action: data.action,

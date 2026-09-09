@@ -42,6 +42,7 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
                 src="/images/logo.png"
                 alt="ตรากรมกำลังพลทหารบก"
                 fill
+                sizes="40px"
                 className="object-contain p-0.5"
                 priority
               />

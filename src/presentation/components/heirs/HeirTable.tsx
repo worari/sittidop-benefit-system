@@ -66,7 +66,11 @@ export interface HeirFormState {
   allocationPercentage: number;
   isDesignatedSuccessor: boolean;
   documentsVerified: boolean;
+  // Additional optional fields for blood relatives (siblings, cousins, etc.)
+  isBloodRelative?: boolean;
+  familyConnection?: string; // e.g., "ELDER_BROTHER", "YOUNGER_SISTER"
 }
+
 
 export function HeirTable() {
   const [personnelList, setPersonnelList] = useState<MilitaryPersonnelRecord[]>([]);
@@ -147,6 +151,8 @@ export function HeirTable() {
           allocationPercentage: Number(h.allocationPercentage || 0),
           isDesignatedSuccessor: false,
           documentsVerified: true,
+          isBloodRelative: ["FATHER","MOTHER","SIBLING_ELDER_BROTHER","SIBLING_YOUNGER_BROTHER","SIBLING_ELDER_SISTER","SIBLING_YOUNGER_SISTER"].includes(h.relationship || ""),
+          familyConnection: h.relationship || "",
         };
       });
       setHeirsList(mapped);
@@ -180,6 +186,8 @@ export function HeirTable() {
         allocationPercentage: p.spouse.allocationPercentage || 50,
         isDesignatedSuccessor: false,
         documentsVerified: true,
+        isBloodRelative: false,
+        familyConnection: "SPOUSE",
       });
     }
 
@@ -205,6 +213,8 @@ export function HeirTable() {
           allocationPercentage: childAllocation,
           isDesignatedSuccessor: age >= 18 && age <= 35,
           documentsVerified: true,
+          isBloodRelative: true,
+          familyConnection: "CHILD",
         });
       });
     }
@@ -227,6 +237,8 @@ export function HeirTable() {
         allocationPercentage: generated.some((h) => h.relationship === "SPOUSE_LEGAL") ? 12.5 : 50,
         isDesignatedSuccessor: false,
         documentsVerified: true,
+        isBloodRelative: true,
+        familyConnection: "FATHER",
       });
       generated.push({
         nationalId: "",
@@ -244,6 +256,8 @@ export function HeirTable() {
         allocationPercentage: generated.some((h) => h.relationship === "SPOUSE_LEGAL") ? 12.5 : 50,
         isDesignatedSuccessor: false,
         documentsVerified: true,
+        isBloodRelative: true,
+        familyConnection: "MOTHER",
       });
     }
 
@@ -269,6 +283,8 @@ export function HeirTable() {
         allocationPercentage: 0,
         isDesignatedSuccessor: false,
         documentsVerified: false,
+        isBloodRelative: false,
+        familyConnection: "",
       },
     ]);
   };
@@ -276,6 +292,13 @@ export function HeirTable() {
   const handleRemoveHeir = (index: number) => {
     setHeirsList((prev) => prev.filter((_, i) => i !== index));
   };
+
+  const BLOOD_RELATIVE_RELATIONSHIPS = [
+    "FATHER", "MOTHER",
+    "SIBLING_ELDER_BROTHER", "SIBLING_YOUNGER_BROTHER",
+    "SIBLING_ELDER_SISTER", "SIBLING_YOUNGER_SISTER",
+    "CHILD_LEGITIMATE", "CHILD_ADOPTED",
+  ];
 
   const handleHeirChange = (index: number, field: keyof HeirFormState, value: any) => {
     setHeirsList((prev) => {
@@ -286,6 +309,12 @@ export function HeirTable() {
         const birthYear = new Date(value).getFullYear();
         const curYear = new Date().getFullYear();
         updated[index].age = Math.max(0, curYear - birthYear);
+      }
+
+      // Auto-update isBloodRelative and familyConnection when relationship changes
+      if (field === "relationship") {
+        updated[index].isBloodRelative = BLOOD_RELATIVE_RELATIONSHIPS.includes(value);
+        updated[index].familyConnection = value;
       }
 
       return updated;
@@ -309,6 +338,7 @@ export function HeirTable() {
         if (h.relationship === "FATHER" || h.relationship === "MOTHER") {
           return { ...h, allocationPercentage: Math.round((25 / (parentsCount || 1)) * 10) / 10 };
         }
+        // Siblings and others get 0% in standard preset (need manual allocation)
         return { ...h, allocationPercentage: 0 };
       });
     });
@@ -407,6 +437,14 @@ export function HeirTable() {
         return <Badge className="bg-amber-600 text-white">บิดา</Badge>;
       case "MOTHER":
         return <Badge className="bg-pink-600 text-white">มารดา</Badge>;
+      case "SIBLING_ELDER_BROTHER":
+        return <Badge className="bg-teal-600 text-white">พี่ชายร่วมสายเลือด</Badge>;
+      case "SIBLING_YOUNGER_BROTHER":
+        return <Badge className="bg-teal-500 text-white">น้องชายร่วมสายเลือด</Badge>;
+      case "SIBLING_ELDER_SISTER":
+        return <Badge className="bg-rose-500 text-white">พี่สาวร่วมสายเลือด</Badge>;
+      case "SIBLING_YOUNGER_SISTER":
+        return <Badge className="bg-rose-400 text-white">น้องสาวร่วมสายเลือด</Badge>;
       default:
         return <Badge variant="secondary">ทายาทอื่น</Badge>;
     }
@@ -657,7 +695,7 @@ export function HeirTable() {
                 <div className="space-y-1">
                   <span className="text-[11px] text-muted-foreground">ค้นหากำลังพล (ชื่อ / เลขทหาร):</span>
                   <Input
-                    placeholder="พิมพ์ชื่อ หรือ เลข MIL-..."
+                    placeholder="พิมพ์ชื่อ หรือ เลขประจำตัวทหาร..."
                     value={personnelSearchTerm}
                     onChange={(e) => setPersonnelSearchTerm(e.target.value)}
                     className="h-8 text-xs"
@@ -821,13 +859,27 @@ export function HeirTable() {
                             onChange={(e) => handleHeirChange(index, "relationship", e.target.value)}
                             className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs font-semibold"
                           >
-                            <option value="FATHER">บิดา (FATHER)</option>
-                            <option value="MOTHER">มารดา (MOTHER)</option>
-                            <option value="SPOUSE_LEGAL">คู่สมรสตามกฎหมาย (SPOUSE_LEGAL)</option>
-                            <option value="SPOUSE_DE_FACTO">คู่สมรสพฤตินัย (SPOUSE_DE_FACTO)</option>
-                            <option value="CHILD_LEGITIMATE">บุตรชอบด้วยกฎหมาย (CHILD_LEGITIMATE)</option>
-                            <option value="CHILD_ADOPTED">บุตรบุญธรรม (CHILD_ADOPTED)</option>
-                            <option value="OTHER_HEIR">ทายาทอื่นตามพินัยกรรม (OTHER_HEIR)</option>
+                            <optgroup label="── คู่สมรส ──">
+                              <option value="SPOUSE_LEGAL">คู่สมรสตามกฎหมาย (SPOUSE_LEGAL)</option>
+                              <option value="SPOUSE_DE_FACTO">คู่สมรสพฤตินัย (SPOUSE_DE_FACTO)</option>
+                            </optgroup>
+                            <optgroup label="── บุตร ──">
+                              <option value="CHILD_LEGITIMATE">บุตรชอบด้วยกฎหมาย (CHILD_LEGITIMATE)</option>
+                              <option value="CHILD_ADOPTED">บุตรบุญธรรม (CHILD_ADOPTED)</option>
+                            </optgroup>
+                            <optgroup label="── บิดา – มารดา ──">
+                              <option value="FATHER">บิดา (FATHER)</option>
+                              <option value="MOTHER">มารดา (MOTHER)</option>
+                            </optgroup>
+                            <optgroup label="── พี่/น้องร่วมสายเลือด ──">
+                              <option value="SIBLING_ELDER_BROTHER">พี่ชายร่วมสายเลือด (SIBLING_ELDER_BROTHER)</option>
+                              <option value="SIBLING_YOUNGER_BROTHER">น้องชายร่วมสายเลือด (SIBLING_YOUNGER_BROTHER)</option>
+                              <option value="SIBLING_ELDER_SISTER">พี่สาวร่วมสายเลือด (SIBLING_ELDER_SISTER)</option>
+                              <option value="SIBLING_YOUNGER_SISTER">น้องสาวร่วมสายเลือด (SIBLING_YOUNGER_SISTER)</option>
+                            </optgroup>
+                            <optgroup label="── ทายาทอื่น ──">
+                              <option value="OTHER_HEIR">ทายาทอื่นตามพินัยกรรม (OTHER_HEIR)</option>
+                            </optgroup>
                           </select>
                         </div>
 
