@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
@@ -899,133 +899,22 @@ export function LossIncidentReportTable() {
                       {/* Loss Type Selector */}
                       <div className="md:col-span-3 space-y-1">
                         <label className="font-semibold text-foreground flex items-center gap-1">
-                          <span className="text-rose-500">*</span> ประเภ�                      {/* Citizen ID */}
-                      <div className="md:col-span-4 space-y-1">
-                        <label className="font-semibold text-foreground">เลขประจำตัวประชาชน ๑๓ หลัก:</label>
-                        <Input
-                          placeholder="เช่น 3100600492811"
-                          value={cas.citizenId || ""}
-                          onChange={(e) => handleUpdateCasualty(cas.id, { citizenId: e.target.value })}
-                          className="h-8 text-xs font-mono"
-                          maxLength={13}
-                        />
-                      </div>
-
-                      {/* Normal Position */}
-                      <div className="md:col-span-4 space-y-1">
-                        <label className="font-semibold text-foreground">ตำแหน่งปกติ:</label>
-                        <Input
-                          placeholder="เช่น ผบ.พัน.ร.1911"
-                          value={cas.normalPosition || ""}
-                          onChange={(e) => handleUpdateCasualty(cas.id, { normalPosition: e.target.value })}
-                          className="h-8 text-xs"
-                        />
-                      </div>
-
-                      {/* Normal Unit */}
-                      <div className="md:col-span-4 space-y-1">
-                        <label className="font-semibold text-foreground">สังกัดปกติ:</label>
-                        <Input
-                          placeholder="เช่น ร.19 พัน.1 (พล.ร.9)"
-                          value={cas.normalUnit || ""}
-                          onChange={(e) => handleUpdateCasualty(cas.id, { normalUnit: e.target.value })}
-                          className="h-8 text-xs"
-                        />
-                      </div>
-
-                      {/* Field Position */}
-                      <div className="md:col-span-4 space-y-1">
-                        <label className="font-semibold text-foreground">ตำแหน่งในสนาม:</label>
-                        <Input
-                          placeholder="เช่น ผบ.ฉก.นราธิวาส 30"
-                          value={cas.fieldPosition || ""}
-                          onChange={(e) => handleUpdateCasualty(cas.id, { fieldPosition: e.target.value })}
-                          className="h-8 text-xs"
-                        />
-                      </div>
-
-                      {/* Field Unit */}
-                      <div className="md:col-span-4 space-y-1">
-                        <label className="font-semibold text-foreground">หน่วยสนาม:</label>
-                        <Input
-                          placeholder="เช่น ฉก.นราธิวาส (กกล.ทบ.)"
-                          value={cas.fieldUnit || ""}
-                          onChange={(e) => handleUpdateCasualty(cas.id, { fieldUnit: e.target.value })}
-                          className="h-8 text-xs"
-                        />
-                      </div>
-
-                      {/* Salary Level */}
-                      <div className="md:col-span-4 space-y-1">
-                        <label className="font-semibold text-foreground">ระดับ/ชั้นเงินเดือน:</label>
-                        <Input
-                          placeholder="เช่น พ.1 ชั้น 16"
-                          value={cas.salaryLevel || ""}
-                          onChange={(e) => handleUpdateCasualty(cas.id, { salaryLevel: e.target.value })}
-                          className="h-8 text-xs"
-                        />
-                      </div>
-
-                      {/* Salary Amount */}
-                      <div className="md:col-span-3 space-y-1">
-                        <label className="font-semibold text-foreground">จำนวนเงินเดือน (บาท):</label>
-                        <Input
-                          type="number"
-                          placeholder="เช่น 43500"
-                          value={cas.salaryAmount ?? ""}
-                          onChange={(e) => handleUpdateCasualty(cas.id, { salaryAmount: e.target.value ? Number(e.target.value) : null })}
-                          className="h-8 text-xs"
-                        />
-                      </div>
-
-                      {/* Injury / Loss Details */}
-                      <div className="md:col-span-5 space-y-1">
-                        <label className="font-semibold text-foreground">รายละเอียดบาดแผล / อาการ (สำหรับ กพ.4):</label>
-                        <Input
-                          placeholder="เช่น มีอาการแน่นหน้าอกจากแรงระเบิด, ถูกกระสุนเข้าที่ลำตัว..."
-                          value={cas.injuryDetails || ""}
-                          onChange={(e) => handleUpdateCasualty(cas.id, { injuryDetails: e.target.value })}
-                          className="h-8 text-xs"
-                        />
-                      </div>
-
-                      {/* Hospital / Facility */}
-                      <div className="md:col-span-4 space-y-1">
-                        <label className="font-semibold text-foreground">รพ.ที่ส่งรักษา:</label>
-                        <Input
-                          placeholder="เช่น รพ.ค่ายวชิราวุธ"
-                          value={cas.hospital || ""}
-                          onChange={(e) => handleUpdateCasualty(cas.id, { hospital: e.target.value })}
-                          className="h-8 text-xs"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>                  {/* Injury / Loss Details */}
-                      <div className="md:col-span-5 space-y-1">
-                        <label className="font-semibold text-foreground">รายละเอียดบาดแผล / อาการ (สำหรับ กพ.4):</label>
-                        <Input
-                          placeholder="เช่น มีอาการแน่นหน้าอกจากแรงระเบิด, ถูกกระสุนเข้าที่ลำตัว..."
-                          value={cas.injuryDetails || ""}
-                          onChange={(e) => handleUpdateCasualty(cas.id, { injuryDetails: e.target.value })}
-                          className="h-8 text-xs"
-                        />
-                      </div>
-
-                      {/* Hospital / Facility */}
-                      <div className="md:col-span-4 space-y-1">
-                        <label className="font-semibold text-foreground">รพ.ที่ส่งรักษา:</label>
-                        <Input
-                          placeholder="เช่น รพ.ค่ายวชิราวุธ"
-                          value={cas.hospital || ""}
-                          onChange={(e) => handleUpdateCasualty(cas.id, { hospital: e.target.value })}
-                          className="h-8 text-xs"
-                        />
-                      </div>
-                    </div>                   </SelectItem>
+                          <span className="text-rose-500">*</span> ประเภทการสูญเสีย:
+                        </label>
+                        <Select
+                          value={cas.lossType}
+                          onValueChange={(val: any) => handleUpdateCasualty(cas.id, { lossType: val })}
+                        >
+                          <SelectTrigger className="h-8 text-xs font-bold">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="DECEASED" className="text-rose-600 font-bold">
+                              🔴 เสียชีวิต (KIA / Combat Death)
+                            </SelectItem>
+                            <SelectItem value="DISABLED" className="text-orange-600 font-bold">
+                              🟠 พิการทุพพลภาพ (Disabled)
+                            </SelectItem>
                             <SelectItem value="INJURED" className="text-amber-600 font-bold">
                               🟡 บาดเจ็บ (Injured)
                             </SelectItem>
@@ -1069,11 +958,90 @@ export function LossIncidentReportTable() {
                         </Select>
                       </div>
 
-                      {/* Injury / Loss Details */}
-                      <div className="md:col-span-4 space-y-1">
-                        <label className="font-semibold text-foreground">รายละเอียดบาดแผล / อาการ:</label>
+                      {/* Citizen ID */}
+                      <div className="md:col-span-3 space-y-1">
+                        <label className="font-semibold text-foreground">เลขประจำตัวประชาชน ๑๓ หลัก:</label>
                         <Input
-                          placeholder="เช่น ถูกสะเก็ดระเบิดที่ขาขวา, ถูกกระสุนปืนเข้าที่ลำตัว..."
+                          placeholder="เช่น 3100600492811"
+                          value={cas.citizenId || ""}
+                          onChange={(e) => handleUpdateCasualty(cas.id, { citizenId: e.target.value })}
+                          className="h-8 text-xs font-mono"
+                          maxLength={13}
+                        />
+                      </div>
+
+                      {/* Salary Level */}
+                      <div className="md:col-span-3 space-y-1">
+                        <label className="font-semibold text-foreground">ระดับ/ชั้นเงินเดือน:</label>
+                        <Input
+                          placeholder="เช่น พ.1 ชั้น 16"
+                          value={cas.salaryLevel || ""}
+                          onChange={(e) => handleUpdateCasualty(cas.id, { salaryLevel: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      {/* Normal Position */}
+                      <div className="md:col-span-3 space-y-1">
+                        <label className="font-semibold text-foreground">ตำแหน่งปกติ:</label>
+                        <Input
+                          placeholder="เช่น ผบ.พัน.ร.1911"
+                          value={cas.normalPosition || ""}
+                          onChange={(e) => handleUpdateCasualty(cas.id, { normalPosition: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      {/* Normal Unit */}
+                      <div className="md:col-span-3 space-y-1">
+                        <label className="font-semibold text-foreground">สังกัดปกติ:</label>
+                        <Input
+                          placeholder="เช่น ร.19 พัน.1 (พล.ร.9)"
+                          value={cas.normalUnit || ""}
+                          onChange={(e) => handleUpdateCasualty(cas.id, { normalUnit: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      {/* Field Position */}
+                      <div className="md:col-span-3 space-y-1">
+                        <label className="font-semibold text-foreground">ตำแหน่งในสนาม:</label>
+                        <Input
+                          placeholder="เช่น ผบ.ฉก.นราธิวาส 30"
+                          value={cas.fieldPosition || ""}
+                          onChange={(e) => handleUpdateCasualty(cas.id, { fieldPosition: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      {/* Field Unit */}
+                      <div className="md:col-span-3 space-y-1">
+                        <label className="font-semibold text-foreground">หน่วยสนาม:</label>
+                        <Input
+                          placeholder="เช่น ฉก.นราธิวาส (กกล.ทบ.)"
+                          value={cas.fieldUnit || ""}
+                          onChange={(e) => handleUpdateCasualty(cas.id, { fieldUnit: e.target.value })}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      {/* Salary Amount */}
+                      <div className="md:col-span-3 space-y-1">
+                        <label className="font-semibold text-foreground">จำนวนเงินเดือน (บาท):</label>
+                        <Input
+                          type="number"
+                          placeholder="เช่น 43500"
+                          value={cas.salaryAmount ?? ""}
+                          onChange={(e) => handleUpdateCasualty(cas.id, { salaryAmount: e.target.value ? Number(e.target.value) : null })}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      {/* Injury / Loss Details */}
+                      <div className="md:col-span-5 space-y-1">
+                        <label className="font-semibold text-foreground">รายละเอียดบาดแผล / อาการ (สำหรับ กพ.4):</label>
+                        <Input
+                          placeholder="เช่น มีอาการแน่นหน้าอกจากแรงระเบิด, ถูกกระสุนเข้าที่ลำตัว..."
                           value={cas.injuryDetails || ""}
                           onChange={(e) => handleUpdateCasualty(cas.id, { injuryDetails: e.target.value })}
                           className="h-8 text-xs"
@@ -1081,10 +1049,10 @@ export function LossIncidentReportTable() {
                       </div>
 
                       {/* Hospital / Facility */}
-                      <div className="md:col-span-2 space-y-1">
+                      <div className="md:col-span-4 space-y-1">
                         <label className="font-semibold text-foreground">รพ.ที่ส่งรักษา:</label>
                         <Input
-                          placeholder="เช่น รพ.ค่ายวชิราวุธ..."
+                          placeholder="เช่น รพ.ค่ายวชิราวุธ"
                           value={cas.hospital || ""}
                           onChange={(e) => handleUpdateCasualty(cas.id, { hospital: e.target.value })}
                           className="h-8 text-xs"

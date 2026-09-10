@@ -317,7 +317,7 @@ export class LossIncidentReportDocumentService {
                 children: [para([th("หัวข้อ / หมู่คำ", true, 22)])],
               }),
               new TableCell({
-                colSpan: 2,
+                columnSpan: 2,
                 width: { size: 80, type: WidthType.PERCENTAGE },
                 children: [para([th("ประเภทเอกสาร  ลับมาก", false, 22)])],
               }),
@@ -330,7 +330,7 @@ export class LossIncidentReportDocumentService {
                 children: [para([th("ที่ของผู้ให้ข่าว", true, 22)])],
               }),
               new TableCell({
-                colSpan: 2,
+                columnSpan: 2,
                 width: { size: 80, type: WidthType.PERCENTAGE },
                 children: [para([th(refNo, false, 22)])],
               }),
@@ -485,13 +485,13 @@ export class LossIncidentReportDocumentService {
                 children: [para([th("สถานภาพ", true, 18)], { alignment: AlignmentType.CENTER })],
               }),
               new TableCell({
-                colSpan: 4,
+                columnSpan: 4,
                 width: { size: 42, type: WidthType.PERCENTAGE },
                 shading: { type: ShadingType.SOLID, color: "EEEEEE" },
                 children: [para([th("อ้างถึงข่าว", true, 18)], { alignment: AlignmentType.CENTER })],
               }),
               new TableCell({
-                colSpan: 4,
+                columnSpan: 4,
                 width: { size: 43, type: WidthType.PERCENTAGE },
                 shading: { type: ShadingType.SOLID, color: "EEEEEE" },
                 children: [para([th("ชื่อผู้เขียนข่าว", true, 18)], { alignment: AlignmentType.CENTER })],

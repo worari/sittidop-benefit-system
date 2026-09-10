@@ -5,6 +5,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "./ThemeToggle";
 import { UserNav } from "./UserNav";
+import { NotificationBell } from "./NotificationBell";
 import {
   Calculator,
   LayoutDashboard,
@@ -75,6 +76,9 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
               <span className="sm:hidden">คำนวณสิทธิ</span>
             </Button>
           </Link>
+
+          {/* Notification Bell */}
+          <NotificationBell />
 
           <ThemeToggle />
           <UserNav />

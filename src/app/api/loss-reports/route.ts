@@ -3,9 +3,12 @@ import { Role } from "@/core/domain/value-objects/enums";
 import { authorizeRoles } from "@/infrastructure/auth/rbac-guard";
 import { AuditLogger } from "@/infrastructure/logging/audit-logger";
 import { LossIncidentReportRepository } from "@/infrastructure/database/repositories/LossIncidentReportRepository";
+import { NotificationRepository } from "@/infrastructure/database/repositories/NotificationRepository";
+import { TelegramNotificationService } from "@/infrastructure/services/TelegramNotificationService";
 import * as mgrs from "mgrs";
 
 const lossReportRepo = new LossIncidentReportRepository();
+const notificationRepo = new NotificationRepository();
 
 function normalizeDate(value: Date | string | null | undefined) {
   if (!value) return null;
@@ -120,6 +123,55 @@ export async function POST(req: NextRequest) {
       },
       req,
     });
+
+    // 1. Create In-System Notification
+    try {
+      const casualtiesCount = created.casualties?.length || 1;
+      const deceasedCount = created.casualties?.filter((c) => c.lossType === "DECEASED").length || 0;
+      const injuredCount = created.casualties?.filter((c) => c.lossType === "INJURED").length || 0;
+      const disabledCount = created.casualties?.filter((c) => c.lossType === "DISABLED").length || 0;
+
+      const stats = [
+        deceasedCount > 0 ? `เสียชีวิต ${deceasedCount} นาย` : null,
+        injuredCount > 0 ? `บาดเจ็บ ${injuredCount} นาย` : null,
+        disabledCount > 0 ? `ทุพพลภาพ ${disabledCount} นาย` : null,
+      ]
+        .filter(Boolean)
+        .join(", ");
+
+      const locationSummary = [created.subdistrict, created.district, created.province]
+        .filter(Boolean)
+        .join(" ");
+
+      const notifMessage = `เหตุการณ์เมื่อ ${normalizeDate(created.incidentDate)} ${created.incidentTime} น. พิกัด ${created.mgrsCoordinate}${locationSummary ? ` (${locationSummary})` : ""} - กำลังพลประสบเหตุ ${casualtiesCount} นาย${stats ? ` (${stats})` : ""}: ${created.eventSummary}`;
+
+      await notificationRepo.create({
+        title: `🚨 รายงานสูญเสียกำลังพลใหม่ (${casualtiesCount} นาย)`,
+        message: notifMessage,
+        type: "LOSS_INCIDENT",
+        link: `/loss-reports?id=${created.id}`,
+        metadata: {
+          reportId: created.id,
+          incidentDate: created.incidentDate,
+          incidentTime: created.incidentTime,
+          mgrsCoordinate: created.mgrsCoordinate,
+          casualtiesCount,
+          deceasedCount,
+          injuredCount,
+        },
+      });
+    } catch (notifErr) {
+      console.error("Failed to create in-system notification:", notifErr);
+    }
+
+    // 2. Dispatch Telegram Alert Asynchronously
+    try {
+      TelegramNotificationService.sendLossIncidentAlert(created).catch((telegramErr) => {
+        console.error("Failed to send Telegram alert:", telegramErr);
+      });
+    } catch (telegramErr) {
+      console.error("Telegram alert dispatch error:", telegramErr);
+    }
 
     return NextResponse.json({ success: true, data: toResponseModel(created) }, { status: 201 });
   } catch (error: any) {
