@@ -10,6 +10,7 @@ import {
   Shield,
   Users2,
   HeartHandshake,
+  MapPinned,
   Calculator,
   Sliders,
   FileBarChart,
@@ -85,10 +86,17 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
       roles: [Role.SUPERADMIN, Role.ADMIN, Role.STAFF, Role.COMMANDER, Role.AUDITOR, Role.READONLY],
     },
     {
-      title: "คำนวณประมาณการสิทธิ",
+      title: "รายงานการสูญเสีย (กพ.3 / กพ.4)",
+      href: "/loss-reports",
+      icon: MapPinned,
+      badge: "Tab 5",
+      roles: [Role.SUPERADMIN, Role.ADMIN, Role.STAFF, Role.COMMANDER, Role.AUDITOR, Role.READONLY],
+    },
+    {
+      title: "คำนวณประมาณการสิทธิ 4 หมวด",
       href: "/calculator",
       icon: Calculator,
-      badge: "4 หมวด",
+      badge: "Tab 6",
       roles: [Role.SUPERADMIN, Role.ADMIN, Role.STAFF, Role.COMMANDER, Role.AUDITOR, Role.READONLY],
     },
     {

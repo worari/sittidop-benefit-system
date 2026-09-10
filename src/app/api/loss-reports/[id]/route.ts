@@ -35,6 +35,7 @@ function toResponseModel(row: any) {
     behaviorSummary: row.behaviorSummary,
     engagementBehavior: row.engagementBehavior,
     enemyAction: row.enemyAction,
+    casualties: row.casualties || [],
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -105,6 +106,7 @@ export async function PUT(
       behaviorSummary: body.behaviorSummary || null,
       engagementBehavior: body.engagementBehavior || "ปะทะ+ยิงต่อสู้",
       enemyAction: body.enemyAction || "ENEMY",
+      casualties: Array.isArray(body.casualties) ? body.casualties : undefined,
       updatedByUserId: auth.user?.id || null,
       updatedByUserName: auth.user?.name || null,
     });

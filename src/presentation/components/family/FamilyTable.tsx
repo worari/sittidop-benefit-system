@@ -416,34 +416,54 @@ export function FamilyTable() {
       </div>
 
       {/* Workflow Navigation Banner */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-xs">
-        <Link href="/personnel" className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-colors">
-          <div className="h-7 w-7 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center font-bold text-xs">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-xs">
+        <Link href="/personnel" className="flex items-center gap-2 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-colors">
+          <div className="h-6 w-6 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0">
             2
           </div>
-          <div>
-            <p className="font-semibold text-slate-800 dark:text-slate-200">Tab 2: ทะเบียนกำลังพล</p>
-            <p className="text-[10px] text-muted-foreground">บันทึกประวัติการรับราชการและสังกัด</p>
+          <div className="truncate">
+            <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">Tab 2: ทะเบียนกำลังพล</p>
+            <p className="text-[10px] text-muted-foreground truncate">ประวัติรับราชการ</p>
           </div>
         </Link>
 
-        <div className="flex items-center gap-2.5 p-2 rounded-xl bg-purple-100/70 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-900 text-purple-900 dark:text-purple-200">
-          <div className="h-7 w-7 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold text-xs">
+        <div className="flex items-center gap-2 p-2 rounded-xl bg-purple-100/70 dark:bg-purple-950/50 border border-purple-200 dark:border-purple-900 text-purple-900 dark:text-purple-200">
+          <div className="h-6 w-6 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
             3
           </div>
-          <div>
-            <p className="font-bold">Tab 3: ข้อมูลครอบครัว (กำลังใช้งาน)</p>
-            <p className="text-[10px] text-purple-700 dark:text-purple-300">คู่สมรส, บุตร, ทุนการศึกษา</p>
+          <div className="truncate">
+            <p className="font-bold truncate">Tab 3: ครอบครัว (ใช้งาน)</p>
+            <p className="text-[10px] text-purple-700 dark:text-purple-300 truncate">คู่สมรส, บุตร</p>
           </div>
         </div>
 
-        <Link href="/heirs" className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-colors">
-          <div className="h-7 w-7 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400 flex items-center justify-center font-bold text-xs">
+        <Link href="/heirs" className="flex items-center gap-2 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-colors">
+          <div className="h-6 w-6 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400 flex items-center justify-center font-bold text-xs shrink-0">
             4
           </div>
-          <div>
-            <p className="font-semibold text-slate-800 dark:text-slate-200">Tab 4: ข้อมูลทายาท</p>
-            <p className="text-[10px] text-muted-foreground">จัดสรรสัดส่วนร้อยละ (%) บิดามารดาคู่สมรสบุตร</p>
+          <div className="truncate">
+            <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">Tab 4: ข้อมูลทายาท</p>
+            <p className="text-[10px] text-muted-foreground truncate">สัดส่วน % ทายาท</p>
+          </div>
+        </Link>
+
+        <Link href="/loss-reports" className="flex items-center gap-2 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-colors col-span-2 sm:col-span-1">
+          <div className="h-6 w-6 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 flex items-center justify-center font-bold text-xs shrink-0">
+            5
+          </div>
+          <div className="truncate">
+            <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">Tab 5: รายงานสูญเสีย</p>
+            <p className="text-[10px] text-muted-foreground truncate">กพ.3 / กพ.4</p>
+          </div>
+        </Link>
+
+        <Link href="/calculator" className="flex items-center gap-2 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-colors col-span-2 sm:col-span-1">
+          <div className="h-6 w-6 rounded-lg bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-400 flex items-center justify-center font-bold text-xs shrink-0">
+            6
+          </div>
+          <div className="truncate">
+            <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">Tab 6: คำนวณสิทธิ 4 หมวด</p>
+            <p className="text-[10px] text-muted-foreground truncate">ประมาณการสิทธิ</p>
           </div>
         </Link>
       </div>

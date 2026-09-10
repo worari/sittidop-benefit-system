@@ -2500,10 +2500,10 @@ export function PersonnelTable() {
               </div>
               <div className="space-y-1">
                 <p className="font-semibold text-emerald-900 dark:text-emerald-200 text-xs">
-                  ระบบการบันทึกข้อมูลแยกตาม Workflow (Tab 2, 3, 4)
+                  ระบบการบันทึกข้อมูลตามขั้นตอน Workflow (Tab 2, 3, 4, 5, 6)
                 </p>
                 <p className="text-[11px] text-emerald-800 dark:text-emerald-300 leading-relaxed">
-                  เมื่อบันทึกข้อมูลทะเบียนกำลังพลหน้านี้แล้ว ท่านสามารถไปที่ <strong>แท็บ 3 (ข้อมูลครอบครัว)</strong> เพื่อบันทึกคู่สมรสและบุตร และ <strong>แท็บ 4 (ข้อมูลทายาท)</strong> เพื่อบันทึกทายาทและจัดสรรสัดส่วนร้อยละ (%) ได้อย่างเป็นอิสระและครบถ้วน
+                  เมื่อบันทึกทะเบียนกำลังพลแล้ว ท่านสามารถไปยัง <strong>แท็บ 3 (ข้อมูลครอบครัว)</strong>, <strong>แท็บ 4 (ข้อมูลทายาท)</strong>, <strong>แท็บ 5 (รายงานการสูญเสีย กพ.3/กพ.4)</strong> และ <strong>แท็บ 6 (คำนวณสิทธิ 4 หมวด)</strong> ได้อย่างเป็นอิสระและครบถ้วนตามลำดับ
                 </p>
               </div>
             </div>

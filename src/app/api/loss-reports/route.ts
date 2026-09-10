@@ -35,6 +35,7 @@ function toResponseModel(row: any) {
     behaviorSummary: row.behaviorSummary,
     engagementBehavior: row.engagementBehavior,
     enemyAction: row.enemyAction,
+    casualties: row.casualties || [],
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -100,6 +101,7 @@ export async function POST(req: NextRequest) {
       behaviorSummary: body.behaviorSummary || null,
       engagementBehavior: body.engagementBehavior || "ปะทะ+ยิงต่อสู้",
       enemyAction: body.enemyAction || "ENEMY",
+      casualties: Array.isArray(body.casualties) ? body.casualties : undefined,
       createdByUserId: auth.user?.id || null,
       createdByUserName: auth.user?.name || null,
       updatedByUserId: null,

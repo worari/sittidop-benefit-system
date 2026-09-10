@@ -23,10 +23,10 @@ import {
 } from "@/presentation/lib/military-date-utils";
 import { formatSalaryStep, getSalaryAmount, normalizeSalaryLevel, SALARY_LEVEL_OPTIONS, SALARY_STEP_OPTIONS } from "@/presentation/lib/salary-scale";
 import { ThaiBuddhistDatePicker } from "./ThaiBuddhistDatePicker";
-import { LossIncidentReportManager } from "./LossIncidentReportManager";
 import {
   Calculator,
   Shield,
+  MapPinned,
   Award,
   Users,
   GraduationCap,
@@ -650,21 +650,85 @@ export function MilitaryBenefitCalculator() {
         <div>
           <div className="flex items-center gap-2.5">
             <Calculator className="h-6 w-6 text-emerald-600" />
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
-              ระบบคำนวณประมาณการสิทธิกำลังพล 4 หมวด
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
+                ระบบคำนวณประมาณการสิทธิกำลังพล 4 หมวด
+              </h1>
+              <Badge className="bg-teal-600 text-white font-bold text-xs">Tab 6</Badge>
+            </div>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             แยก 4 หมวดหมู่: 1.รับเงินครั้งเดียว 2.รับเงินรายเดือน 3.รับเงินรายปี 4.สิทธิมิใช่ตัวเงิน
           </p>
         </div>
 
-        <Link href="/rules">
-          <Button variant="outline" size="sm" className="text-xs gap-1.5">
-            <Sliders className="h-3.5 w-3.5 text-emerald-600" />
-            ปรับแต่งสูตรคำนวณ (Rule Config)
-          </Button>
+        <div className="flex items-center gap-2">
+          <Link href="/loss-reports">
+            <Button variant="outline" size="sm" className="text-xs gap-1.5 border-amber-300 text-amber-800 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/40">
+              <MapPinned className="h-3.5 w-3.5 text-amber-600" />
+              รายงานการสูญเสีย (Tab 5)
+            </Button>
+          </Link>
+          <Link href="/rules">
+            <Button variant="outline" size="sm" className="text-xs gap-1.5">
+              <Sliders className="h-3.5 w-3.5 text-emerald-600" />
+              ปรับแต่งสูตรคำนวณ (Rule Config)
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* Workflow Navigation Banner */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-xs">
+        <Link href="/personnel" className="flex items-center gap-2 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-colors">
+          <div className="h-6 w-6 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0">
+            2
+          </div>
+          <div className="truncate">
+            <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">Tab 2: ทะเบียนกำลังพล</p>
+            <p className="text-[10px] text-muted-foreground truncate">ประวัติรับราชการ</p>
+          </div>
         </Link>
+
+        <Link href="/family" className="flex items-center gap-2 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-colors">
+          <div className="h-6 w-6 rounded-lg bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-400 flex items-center justify-center font-bold text-xs shrink-0">
+            3
+          </div>
+          <div className="truncate">
+            <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">Tab 3: ข้อมูลครอบครัว</p>
+            <p className="text-[10px] text-muted-foreground truncate">คู่สมรส, บุตร</p>
+          </div>
+        </Link>
+
+        <Link href="/heirs" className="flex items-center gap-2 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-colors">
+          <div className="h-6 w-6 rounded-lg bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-400 flex items-center justify-center font-bold text-xs shrink-0">
+            4
+          </div>
+          <div className="truncate">
+            <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">Tab 4: ข้อมูลทายาท</p>
+            <p className="text-[10px] text-muted-foreground truncate">สัดส่วน % ทายาท</p>
+          </div>
+        </Link>
+
+        <Link href="/loss-reports" className="flex items-center gap-2 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-colors col-span-2 sm:col-span-1">
+          <div className="h-6 w-6 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 flex items-center justify-center font-bold text-xs shrink-0">
+            5
+          </div>
+          <div className="truncate">
+            <p className="font-semibold text-slate-800 dark:text-slate-200 truncate">Tab 5: รายงานสูญเสีย</p>
+            <p className="text-[10px] text-muted-foreground truncate">กพ.3 / กพ.4</p>
+          </div>
+        </Link>
+
+        <div className="flex items-center gap-2 p-2 rounded-xl bg-teal-100/70 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-900 text-teal-900 dark:text-teal-200 col-span-2 sm:col-span-1">
+          <div className="h-6 w-6 rounded-lg bg-teal-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+            6
+          </div>
+          <div className="truncate">
+            <p className="font-bold truncate">Tab 6: คำนวณสิทธิ 4 หมวด (กำลังใช้งาน)</p>
+            <p className="text-[10px] text-teal-700 dark:text-teal-300 truncate">ประมาณการสิทธิ</p>
+          </div>
+        </div>
       </div>
 
       {/* Step Indicator */}
@@ -695,14 +759,6 @@ export function MilitaryBenefitCalculator() {
           ))}
         </div>
       </div>
-
-      <LossIncidentReportManager
-        personnelId={selectedPersonnelId}
-        militaryId={militaryId}
-        rankAbbr={rankAbbr}
-        firstName={firstName}
-        lastName={lastName}
-      />
 
       {/* Step 1: Select or Input Personnel */}
       {step === 1 && (
