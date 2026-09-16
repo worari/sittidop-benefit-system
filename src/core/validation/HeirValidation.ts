@@ -39,27 +39,30 @@ export class HeirValidation {
             errors.push(`ทายาทลำดับที่ ${index + 1}: ต้องระบุนามสกุล`);
         }
 
-        // Validate national ID (13 digits)
+        // Validate national ID (13 digits, supports formatted X-XXXX-XXXXX-XX-X)
         if (heir.nationalId) {
+            const cleanId = heir.nationalId.replace(/\D/g, "");
             const nationalIdRegex = /^\d{13}$/;
-            if (!nationalIdRegex.test(heir.nationalId)) {
+            if (!nationalIdRegex.test(cleanId)) {
                 errors.push(`ทายาทลำดับที่ ${index + 1}: เลขบัตรประชาชน 13 หลักไม่ถูกต้อง`);
             }
         }
 
-        // Validate phone number (Thai format)
+        // Validate phone number (Thai format 10 digits)
         if (heir.phone) {
+            const cleanPhone = heir.phone.replace(/\D/g, "");
             const phoneRegex = /^\d{10}$/;
-            if (!phoneRegex.test(heir.phone)) {
+            if (!phoneRegex.test(cleanPhone)) {
                 errors.push(`ทายาทลำดับที่ ${index + 1}: หมายเลขโทรศัพท์ไม่ถูกต้อง (ต้องเป็น 10 หลัก)`);
             }
         }
 
-        // Validate bank account number (10-13 digits)
+        // Validate bank account number (10-15 digits)
         if (heir.bankAccountNumber) {
-            const bankAccountRegex = /^\d{10,13}$/;
-            if (!bankAccountRegex.test(heir.bankAccountNumber)) {
-                errors.push(`ทายาทลำดับที่ ${index + 1}: หมายเลขบัญชีธนาคารต้องเป็นตัวเลข 10-13 หลัก`);
+            const cleanBank = heir.bankAccountNumber.replace(/\D/g, "");
+            const bankAccountRegex = /^\d{10,15}$/;
+            if (!bankAccountRegex.test(cleanBank)) {
+                errors.push(`ทายาทลำดับที่ ${index + 1}: หมายเลขบัญชีธนาคารต้องเป็นตัวเลข 10-15 หลัก`);
             }
         }
 
@@ -136,7 +139,7 @@ export class HeirValidation {
 
         // Validate total percentage only when heirs are present
         if (heirs.length > 0 && Math.round(totalPercentage) !== 100) {
-            errors.push(`ผลรวมสัดส่วนทั้งหมดต้องเป็น 100% (ปัจจุบัน: ${totalPercentage}%)`);
+            errors.push(`ผลรวมสัดส่วนทั้งหมดต้องเป็น 100% (ปัจจุบัน: ${Number(totalPercentage.toFixed(2))}%)`);
         }
 
         return {

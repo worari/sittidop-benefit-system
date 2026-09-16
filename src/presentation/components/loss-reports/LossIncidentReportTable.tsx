@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
@@ -45,7 +45,9 @@ import {
   FileText,
   ChevronDown,
   ChevronUp,
+  Calculator,
 } from "lucide-react";
+import Link from "next/link";
 
 interface LossIncidentReport {
   id: string;
@@ -958,82 +960,94 @@ export function LossIncidentReportTable() {
                         </Select>
                       </div>
 
-                      {/* Citizen ID */}
+                      {/* Citizen ID - from personnel registry, read-only */}
                       <div className="md:col-span-3 space-y-1">
-                        <label className="font-semibold text-foreground">เลขประจำตัวประชาชน ๑๓ หลัก:</label>
+                        <label className="font-semibold text-foreground">
+                          เลขประจำตัวประชาชน ๑๓ หลัก:
+                          <span className="text-[10px] text-muted-foreground font-normal ml-1.5">(จากทะเบียนกำลังพล)</span>
+                        </label>
                         <Input
-                          placeholder="เช่น 3100600492811"
                           value={cas.citizenId || ""}
-                          onChange={(e) => handleUpdateCasualty(cas.id, { citizenId: e.target.value })}
-                          className="h-8 text-xs font-mono"
-                          maxLength={13}
+                          readOnly
+                          className="h-8 text-xs font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-not-allowed border-slate-200 dark:border-slate-700 select-none"
                         />
                       </div>
 
-                      {/* Salary Level */}
+                      {/* Salary Level - from personnel registry, read-only */}
                       <div className="md:col-span-3 space-y-1">
-                        <label className="font-semibold text-foreground">ระดับ/ชั้นเงินเดือน:</label>
+                        <label className="font-semibold text-foreground">
+                          ระดับ/ชั้นเงินเดือน:
+                          <span className="text-[10px] text-muted-foreground font-normal ml-1.5">(จากทะเบียนกำลังพล)</span>
+                        </label>
                         <Input
-                          placeholder="เช่น พ.1 ชั้น 16"
                           value={cas.salaryLevel || ""}
-                          onChange={(e) => handleUpdateCasualty(cas.id, { salaryLevel: e.target.value })}
-                          className="h-8 text-xs"
+                          readOnly
+                          className="h-8 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-not-allowed border-slate-200 dark:border-slate-700 select-none"
                         />
                       </div>
 
-                      {/* Normal Position */}
+                      {/* Normal Position - from personnel registry, read-only */}
                       <div className="md:col-span-3 space-y-1">
-                        <label className="font-semibold text-foreground">ตำแหน่งปกติ:</label>
+                        <label className="font-semibold text-foreground">
+                          ตำแหน่งปกติ:
+                          <span className="text-[10px] text-muted-foreground font-normal ml-1.5">(จากทะเบียนกำลังพล)</span>
+                        </label>
                         <Input
-                          placeholder="เช่น ผบ.พัน.ร.1911"
                           value={cas.normalPosition || ""}
-                          onChange={(e) => handleUpdateCasualty(cas.id, { normalPosition: e.target.value })}
-                          className="h-8 text-xs"
+                          readOnly
+                          className="h-8 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-not-allowed border-slate-200 dark:border-slate-700 select-none"
                         />
                       </div>
 
-                      {/* Normal Unit */}
+                      {/* Normal Unit - from personnel registry, read-only */}
                       <div className="md:col-span-3 space-y-1">
-                        <label className="font-semibold text-foreground">สังกัดปกติ:</label>
+                        <label className="font-semibold text-foreground">
+                          สังกัดปกติ:
+                          <span className="text-[10px] text-muted-foreground font-normal ml-1.5">(จากทะเบียนกำลังพล)</span>
+                        </label>
                         <Input
-                          placeholder="เช่น ร.19 พัน.1 (พล.ร.9)"
                           value={cas.normalUnit || ""}
-                          onChange={(e) => handleUpdateCasualty(cas.id, { normalUnit: e.target.value })}
-                          className="h-8 text-xs"
+                          readOnly
+                          className="h-8 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-not-allowed border-slate-200 dark:border-slate-700 select-none"
                         />
                       </div>
 
-                      {/* Field Position */}
+                      {/* Field Position - from personnel registry, read-only */}
                       <div className="md:col-span-3 space-y-1">
-                        <label className="font-semibold text-foreground">ตำแหน่งในสนาม:</label>
+                        <label className="font-semibold text-foreground">
+                          ตำแหน่งในสนาม:
+                          <span className="text-[10px] text-muted-foreground font-normal ml-1.5">(จากทะเบียนกำลังพล)</span>
+                        </label>
                         <Input
-                          placeholder="เช่น ผบ.ฉก.นราธิวาส 30"
                           value={cas.fieldPosition || ""}
-                          onChange={(e) => handleUpdateCasualty(cas.id, { fieldPosition: e.target.value })}
-                          className="h-8 text-xs"
+                          readOnly
+                          className="h-8 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-not-allowed border-slate-200 dark:border-slate-700 select-none"
                         />
                       </div>
 
-                      {/* Field Unit */}
+                      {/* Field Unit - from personnel registry, read-only */}
                       <div className="md:col-span-3 space-y-1">
-                        <label className="font-semibold text-foreground">หน่วยสนาม:</label>
+                        <label className="font-semibold text-foreground">
+                          หน่วยสนาม:
+                          <span className="text-[10px] text-muted-foreground font-normal ml-1.5">(จากทะเบียนกำลังพล)</span>
+                        </label>
                         <Input
-                          placeholder="เช่น ฉก.นราธิวาส (กกล.ทบ.)"
                           value={cas.fieldUnit || ""}
-                          onChange={(e) => handleUpdateCasualty(cas.id, { fieldUnit: e.target.value })}
-                          className="h-8 text-xs"
+                          readOnly
+                          className="h-8 text-xs bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-not-allowed border-slate-200 dark:border-slate-700 select-none"
                         />
                       </div>
 
-                      {/* Salary Amount */}
+                      {/* Salary Amount - from personnel registry, read-only */}
                       <div className="md:col-span-3 space-y-1">
-                        <label className="font-semibold text-foreground">จำนวนเงินเดือน (บาท):</label>
+                        <label className="font-semibold text-foreground">
+                          จำนวนเงินเดือน (บาท):
+                          <span className="text-[10px] text-muted-foreground font-normal ml-1.5">(จากทะเบียนกำลังพล)</span>
+                        </label>
                         <Input
-                          type="number"
-                          placeholder="เช่น 43500"
-                          value={cas.salaryAmount ?? ""}
-                          onChange={(e) => handleUpdateCasualty(cas.id, { salaryAmount: e.target.value ? Number(e.target.value) : null })}
-                          className="h-8 text-xs"
+                          value={cas.salaryAmount != null ? cas.salaryAmount.toLocaleString('th-TH') : ""}
+                          readOnly
+                          className="h-8 text-xs font-mono bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 cursor-not-allowed border-slate-200 dark:border-slate-700 select-none"
                         />
                       </div>
 
@@ -1614,6 +1628,20 @@ export function LossIncidentReportTable() {
                                         - {c.injuryDetails}
                                       </span>
                                     )}
+                                    <Link
+                                      href={`/calculator?lossReportId=${row.id}&militaryId=${c.militaryId}`}
+                                      className="ml-auto shrink-0"
+                                    >
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-5 text-[9px] px-1.5 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-0.5"
+                                        title="นำนายนี้ไปทำการประมาณการสิทธิ 4 หมวด (Tab 6)"
+                                      >
+                                        <Calculator className="h-2.5 w-2.5" />
+                                        คำนวณสิทธิ
+                                      </Button>
+                                    </Link>
                                   </div>
                                 ))}
                               </div>
@@ -1701,8 +1729,18 @@ export function LossIncidentReportTable() {
                               </Button>
                             </div>
 
-                            {/* Edit / Delete Buttons */}
-                            <div className="flex items-center gap-1 mt-0.5">
+                            {/* Calculator Integration + Edit / Delete Buttons */}
+                            <div className="flex items-center gap-1 mt-1">
+                              <Link href={`/calculator?lossReportId=${row.id}`}>
+                                <Button
+                                  size="sm"
+                                  className="h-6 text-[10px] px-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 shadow-xs"
+                                  title="นำข้อมูลรายงานการสูญเสียนี้ไปทำการประมาณการสิทธิ 4 หมวด (Tab 6)"
+                                >
+                                  <Calculator className="h-3 w-3" />
+                                  ประมาณการสิทธิ
+                                </Button>
+                              </Link>
                               <Button
                                 size="sm"
                                 variant="ghost"

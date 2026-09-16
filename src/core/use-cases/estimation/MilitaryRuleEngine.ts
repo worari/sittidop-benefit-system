@@ -69,10 +69,43 @@ export class MilitaryRuleEngine {
     rule?: BenefitRuleDefinition
   ): number {
     // Configurable Benefit Tiers (สูตร & กฎเกณฑ์ระดับเงินตอบแทนที่กำหนดผ่านหน้าจัดการกฎเกณฑ์)
-    // เช่น เงินบำรุงขวัญ: เสียชีวิต/ทุพพลภาพ 40,000 | บาดเจ็บพักรักษา <=20 วัน 10,000 | >20 วัน +10,000
+    // เช่น เงินบำรุงขวัญ: เสียชีวิต/ทุพพลภาพ 40,000 | บาดเจ็บพักรักษา <=10 วัน 10,000 | 11-20 วันขึ้นไป +10,000
     // Takes precedence over hardcoded logic and the expression whenever tiers are defined on the rule.
     if (rule?.formulaTiers && rule.formulaTiers.length > 0) {
       return this.evaluateFormulaTiers(rule.formulaTiers, context.lossType || "", context.hospitalStayDays || 0);
+    }
+
+    // Special logic for Hospital Stay / Morale Grant rule (RULE-LUMP-HOSPITAL-STAY)
+    // Note: This logic serves as a fallback when formulaTiers are not defined on the rule.
+    // The primary logic is in the formulaTiers evaluation at the beginning of this function.
+    if (rule?.ruleCode === "RULE-LUMP-HOSPITAL-STAY") {
+      const isDeath =
+        context.lossType === "KIA_COMBAT_DEATH" ||
+        context.lossType === "DUTY_DEATH" ||
+        (context.lossType || "").includes("DEATH");
+
+      // Death case: เงินบำรุงขวัญกรณีเสียชีวิต 40,000 บาท (fallback when formulaTiers not defined)
+      if (isDeath) return 40000;
+
+      const isInjury =
+        context.lossType === "SEVERE_WOUND_WIA" ||
+        context.lossType === "MODERATE_INJURY" ||
+        context.lossType === "MINOR_INJURY" ||
+        context.lossType === "TOTAL_PERMANENT_DISABILITY" ||
+        context.lossType === "PARTIAL_DISABILITY" ||
+        (context.lossType || "").includes("INJURY") ||
+        (context.lossType || "").includes("DISABILITY") ||
+        (context.lossType || "").includes("WOUND");
+
+      const days = context.hospitalStayDays || 0;
+
+      // Injury + hospitalized case (fallback when formulaTiers not defined)
+      if (isInjury && days > 0) {
+        if (days <= 10) return 10000; // บาดเจ็บพักรักษาไม่เกิน 10 วัน รับ 10,000 บาท
+        return 20000; // บาดเจ็บพักรักษา 11-20 วันขึ้นไป (>= 20 วัน) รับเพิ่ม 10,000 บาท รวม 20,000 บาท
+      }
+
+      return 0;
     }
 
     if (!expression || expression.trim() === "" || expression.includes("สิทธิ") || expression.includes("อัตรา")) {
@@ -126,39 +159,6 @@ export class MilitaryRuleEngine {
       }
 
       return insuranceBase;
-    }
-
-    // Special logic for Hospital Stay / Morale Grant rule (RULE-LUMP-HOSPITAL-STAY)
-    // Note: This logic serves as a fallback when formulaTiers are not defined on the rule.
-    // The primary logic is in the formulaTiers evaluation at the beginning of this function.
-    if (rule?.ruleCode === "RULE-LUMP-HOSPITAL-STAY") {
-      const isDeath =
-        context.lossType === "KIA_COMBAT_DEATH" ||
-        context.lossType === "DUTY_DEATH" ||
-        (context.lossType || "").includes("DEATH");
-
-      // Death case: เงินบำรุงขวัญกรณีเสียชีวิต 40,000 บาท (fallback when formulaTiers not defined)
-      if (isDeath) return 40000;
-
-      const isInjury =
-        context.lossType === "SEVERE_WOUND_WIA" ||
-        context.lossType === "MODERATE_INJURY" ||
-        context.lossType === "MINOR_INJURY" ||
-        context.lossType === "TOTAL_PERMANENT_DISABILITY" ||
-        context.lossType === "PARTIAL_DISABILITY" ||
-        (context.lossType || "").includes("INJURY") ||
-        (context.lossType || "").includes("DISABILITY") ||
-        (context.lossType || "").includes("WOUND");
-
-      const days = context.hospitalStayDays || 0;
-
-      // Injury + hospitalized case (fallback when formulaTiers not defined)
-      if (isInjury && days > 0) {
-        if (days <= 20) return 10000; // บาดเจ็บพักรักษาไม่เกิน 20 วัน รับ 10,000 บาท
-        return 20000; // บาดเจ็บพักรักษาเกิน 20 วัน รับเพิ่ม 10,000 บาท รวม 20,000 บาท
-      }
-
-      return 0;
     }
 
     let parsed = expression
@@ -417,7 +417,7 @@ export class MilitaryRuleEngine {
       const tierAmount = (stayDays: number): number =>
         rule.formulaTiers && rule.formulaTiers.length > 0
           ? this.evaluateFormulaTiers(rule.formulaTiers, personnel.lossType, stayDays)
-          : stayDays <= 20
+          : stayDays <= 10
             ? 10000
             : 20000;
       const fmtThb = (n: number) => n.toLocaleString("en-US");
@@ -457,10 +457,10 @@ export class MilitaryRuleEngine {
         return { isEligible: false, notes: ["กรณีบาดเจ็บต้องมีประวัติหรือระยะเวลาพักรักษาตัวในโรงพยาบาล"] };
       }
 
-      if (days <= 20) {
-        return { isEligible: true, notes: [`บาดเจ็บพักรักษาพยาบาล ${days} วัน (ไม่เกิน 20 วัน ได้รับ ${fmtThb(tierAmount(days))} บาท)`] };
+      if (days <= 10) {
+        return { isEligible: true, notes: [`บาดเจ็บพักรักษาพยาบาล ${days} วัน (ไม่เกิน 10 วัน ได้รับ ${fmtThb(tierAmount(days))} บาท)`] };
       } else {
-        return { isEligible: true, notes: [`บาดเจ็บพักรักษาพยาบาล ${days} วัน (เกิน 20 วัน รับเงินเพิ่มเติม รวม ${fmtThb(tierAmount(days))} บาท)`] };
+        return { isEligible: true, notes: [`บาดเจ็บพักรักษาพยาบาล ${days} วัน (พักรักษาตัว 11-20 วันขึ้นไป รับเงินเพิ่มเติม รวม ${fmtThb(tierAmount(days))} บาท)`] };
       }
     }
 
@@ -1052,11 +1052,11 @@ export class MilitaryRuleEngine {
     const grandTotalAnnualScholarship = categories[BenefitCategoryCode.ANNUAL_PAYMENT].totalAmount;
     const nonMonetaryRightsCount = categories[BenefitCategoryCode.NON_MONETARY_BENEFIT].itemCount;
 
-    // Heir Distribution calculation
     const heirDistribution = (personnel.heirs || []).map((heir) => {
       const pct = (heir.allocationPercentage || 0) / 100;
+      const name = heir.fullName || `${heir.title || ""} ${heir.firstName || ""} ${heir.lastName || ""}`.trim() || "ทายาท";
       return {
-        heirName: heir.fullName,
+        heirName: name,
         relationship: heir.relationship,
         sharePercentage: heir.allocationPercentage || 0,
         allocatedLumpSum: Math.round(grandTotalLumpSum * pct),

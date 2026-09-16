@@ -55,8 +55,13 @@ import {
   Database,
   FileDown,
   FileCheck,
+  AlertCircle,
+  Link2,
+  ExternalLink,
+  Eye,
 } from "lucide-react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 const RANK_OPTIONS = [
   { value: "GENERAL", label: "พลเอก (พล.อ.)" },
@@ -82,9 +87,21 @@ const RANK_OPTIONS = [
 const SPECIAL_PENSION_TIERS = [9, 8, 7, 5];
 
 export function MilitaryBenefitCalculator() {
+  const searchParams = useSearchParams();
+  const urlLossReportId = searchParams.get("lossReportId");
+  const urlMilitaryId = searchParams.get("militaryId");
+
   const [step, setStep] = useState(1);
   const [personnelList, setPersonnelList] = useState<MilitaryPersonnelRecord[]>([]);
   const [selectedPersonnelId, setSelectedPersonnelId] = useState<string>("");
+
+  // Integrated Loss Reports state (Tab 5)
+  const [lossReportsList, setLossReportsList] = useState<any[]>([]);
+  const [lossReportSearchTerm, setLossReportSearchTerm] = useState("");
+  const [linkedLossReport, setLinkedLossReport] = useState<{
+    report: any;
+    casualty?: any;
+  } | null>(null);
 
   // Form State
   const [militaryId, setMilitaryId] = useState("4902188401");
@@ -139,10 +156,14 @@ export function MilitaryBenefitCalculator() {
   const [hospitalAdmissionDate, setHospitalAdmissionDate] = useState("2026-03-12");
   const [hospitalDischargeDate, setHospitalDischargeDate] = useState("2026-03-27");
 
+  // Integrated Family (Tab 3) & Heirs (Tab 4) State
   const [hasSpouse, setHasSpouse] = useState(true);
   const [spouseName, setSpouseName] = useState("นางพิมพา ภักดีสยาม");
+  const [spouseData, setSpouseData] = useState<any | null>(null);
+  const [childrenList, setChildrenList] = useState<any[]>([]);
   const [childrenCount, setChildrenCount] = useState(2);
   const [studyingChildrenCount, setStudyingChildrenCount] = useState(2);
+  const [heirsList, setHeirsList] = useState<any[]>([]);
 
   const [calculationResult, setCalculationResult] = useState<MilitaryBenefitCalculationResult | null>(null);
   const [calculating, setCalculating] = useState(false);
@@ -159,16 +180,53 @@ export function MilitaryBenefitCalculator() {
   const [searchQuery, setSearchQuery] = useState("");
   const [actionMsg, setActionMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Load personnel and loss reports simultaneously
   useEffect(() => {
-    fetch("/api/personnel")
+    let pList: MilitaryPersonnelRecord[] = [];
+    let lrList: any[] = [];
+
+    const fetchP = fetch("/api/personnel")
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data.length > 0) {
-          setPersonnelList(json.data);
-          loadPersonnelData(json.data[0]);
+          pList = json.data;
+          setPersonnelList(pList);
         }
-      });
-  }, []);
+      })
+      .catch((e) => console.error("Failed to load personnel:", e));
+
+    const fetchLR = fetch("/api/loss-reports")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json.success && json.data.length > 0) {
+          lrList = json.data;
+          setLossReportsList(lrList);
+        }
+      })
+      .catch((e) => console.error("Failed to load loss reports:", e));
+
+    Promise.all([fetchP, fetchLR]).then(() => {
+      // If URL has lossReportId, auto-select and link
+      if (urlLossReportId && lrList.length > 0) {
+        const foundReport = lrList.find((r) => r.id === urlLossReportId);
+        if (foundReport) {
+          let foundCas = undefined;
+          if (urlMilitaryId && foundReport.casualties?.length > 0) {
+            foundCas = foundReport.casualties.find((c: any) => c.militaryId === urlMilitaryId);
+          } else if (foundReport.casualties?.length > 0) {
+            foundCas = foundReport.casualties[0];
+          }
+          handleSelectCasualtyFromLossReport(foundReport, foundCas, pList);
+          return;
+        }
+      }
+
+      // Default load first personnel if no deep-link
+      if (pList.length > 0) {
+        loadPersonnelData(pList[0]);
+      }
+    });
+  }, [urlLossReportId, urlMilitaryId]);
 
   // Auto-calculate service time when dates change
   useEffect(() => {
@@ -240,19 +298,126 @@ export function MilitaryBenefitCalculator() {
     setLossType(p.lossType);
     setBenefitScope(p.benefitScope || "BOTH");
     setActionCause(p.actionCause || "ENEMY_ACTION");
-    setSpecialPensionTier(p.specialPensionTier || p.promotionSteps || 7);
     setPromotedRank(p.promotedRank || "GENERAL");
     setPromotedRankAbbr(p.promotedRankAbbr || "พล.อ.");
     setPromotedSalary(p.promotedSalary || Math.round(p.salary * 1.55));
-    setHasSpouse(!!p.spouse);
+    
+    // Tab 3: ข้อมูลครอบครัว (Spouse & Children)
+    setSpouseData(p.spouse || null);
+    setHasSpouse(Boolean(p.spouse));
     setSpouseName(p.spouse?.fullName || "");
-    setChildrenCount(p.children?.length || 0);
-    setStudyingChildrenCount(p.children?.filter((c) => c.isStudying)?.length || 0);
+    const children = (p.children || []) as any[];
+    setChildrenList(children);
+    setChildrenCount(children.length);
+    setStudyingChildrenCount(children.filter((c) => c.isStudying).length);
+
+    // Tab 4: ข้อมูลทายาท (Heirs)
+    setHeirsList((p.heirs || []) as any[]);
+
     setHospitalAdmissionDate(p.hospitalAdmissionDate || "");
     setHospitalDischargeDate(p.hospitalDischargeDate || "");
     setMultiplierYears(p.serviceYearsMultiplier || 0);
     setMultiplierMonths(p.serviceMonthsMultiplier || 0);
     setMultiplierDays(p.serviceDaysMultiplier || 0);
+  };
+
+  // Select casualty from Tab 5 (กพ.3 / กพ.4) and auto-integrate with Tab 2, 3, 4
+  const handleSelectCasualtyFromLossReport = (
+    report: any,
+    casualty?: any,
+    currentPersonnelList?: MilitaryPersonnelRecord[]
+  ) => {
+    const pList = currentPersonnelList || personnelList;
+    const targetMilId = casualty?.militaryId || report.militaryId;
+    const targetName = casualty?.fullName || report.fullName;
+
+    // 1. Cross-reference with Personnel database (Tab 2)
+    const foundPersonnel = pList.find(
+      (p) =>
+        (targetMilId && p.militaryId === targetMilId) ||
+        (p.citizenId && casualty?.citizenId && p.citizenId === casualty.citizenId) ||
+        (targetName && `${p.firstName} ${p.lastName}`.trim().toLowerCase() === targetName.trim().toLowerCase()) ||
+        (targetName && p.firstName && targetName.includes(p.firstName)) ||
+        (report.personnelId && p.id === report.personnelId)
+    );
+
+    if (foundPersonnel) {
+      loadPersonnelData(foundPersonnel);
+    } else {
+      // Fallback: fill basic casualty info
+      if (casualty) {
+        if (casualty.militaryId) setMilitaryId(casualty.militaryId);
+        if (casualty.fullName) {
+          const parts = casualty.fullName.trim().split(" ");
+          setFirstName(parts[0] || "");
+          setLastName(parts.slice(1).join(" ") || "");
+        }
+        if (casualty.rankAbbr) {
+          setRankAbbr(casualty.rankAbbr);
+          const r = RANK_OPTIONS.find((ro) => ro.label.includes(casualty.rankAbbr));
+          if (r) setRank(r.value);
+        }
+      } else if (report.fullName) {
+        const parts = report.fullName.trim().split(" ");
+        setFirstName(parts[0] || "");
+        setLastName(parts.slice(1).join(" ") || "");
+        if (report.militaryId) setMilitaryId(report.militaryId);
+        if (report.rankAbbr) setRankAbbr(report.rankAbbr);
+      }
+    }
+
+    // 2. Overlay incident details from Tab 5 (กพ.3 / กพ.4)
+    if (report.incidentDate) {
+      setIncidentDate(report.incidentDate);
+    }
+
+    const enemyCause = report.enemyAction === "ENEMY" ? "ENEMY_ACTION" : "NON_ENEMY_ACTION";
+    setActionCause(enemyCause);
+
+    // Rule-based lossType and special pension mapping
+    const rawLossType = casualty?.lossType || "DECEASED";
+    if (rawLossType === "DECEASED") {
+      if (enemyCause === "ENEMY_ACTION") {
+        setLossType("KIA_COMBAT_DEATH");
+        setSpecialPensionType("EMERGENCY_TIME");
+        setSpecialPensionTier(8); // 7-9 ชั้นยศ
+        setPromotedRank("GENERAL");
+        setPromotedRankAbbr("พล.อ.");
+        setRankAppointmentTo("พลเอก");
+      } else {
+        setLossType("DUTY_DEATH");
+        setSpecialPensionType("NORMAL_TIME");
+        setSpecialPensionTier(7); // 5-7 ชั้นยศ
+        setPromotedRank("COLONEL_SPECIAL");
+        setPromotedRankAbbr("พ.อ.พิเศษ");
+        setRankAppointmentTo("พันเอกพิเศษ");
+      }
+    } else if (rawLossType === "DISABLED") {
+      setLossType("TOTAL_PERMANENT_DISABILITY");
+      setSpecialPensionType("EMERGENCY_TIME");
+      setSpecialPensionTier(7); // 5-7 ชั้นยศ
+      setPromotedRank("MAJOR_GENERAL");
+      setPromotedRankAbbr("พล.ต.");
+      setRankAppointmentTo("พลตรี");
+    } else if (rawLossType === "INJURED") {
+      setLossType("SEVERE_WOUND_WIA");
+      setSpecialPensionType("NORMAL_TIME");
+      setSpecialPensionTier(3);
+      if (report.incidentDate) {
+        setHospitalAdmissionDate(report.incidentDate);
+        // Default 15 days stay for demonstration
+        const d = new Date(report.incidentDate);
+        d.setDate(d.getDate() + 15);
+        setHospitalDischargeDate(d.toISOString().slice(0, 10));
+      }
+    }
+
+    // 3. Mark integrated state
+    setLinkedLossReport({ report, casualty });
+    setActionMsg({
+      type: "success",
+      text: `เชื่อมโยงข้อมูล 4 แหล่งเรียบร้อย: ${casualty ? `${casualty.rankAbbr} ${casualty.fullName} (${casualty.militaryId})` : report.eventSummary} จากรายงาน กพ.3/กพ.4`,
+    });
   };
 
   const buildPersonnelPayload = () => {
@@ -303,15 +468,15 @@ export function MilitaryBenefitCalculator() {
       hospitalAdmissionDate,
       hospitalDischargeDate,
       hospitalStayDays: calculateStayDays(hospitalAdmissionDate, hospitalDischargeDate),
-      spouse: hasSpouse ? {
+      spouse: hasSpouse ? (spouseData || {
         nationalId: `SP-${militaryId}`,
         fullName: spouseName,
         isLegallyMarried: true,
         hasPensionRights: true,
         allocationPercentage: 50,
-      } : null,
-      children: [],
-      heirs: [],
+      }) : null,
+      children: childrenList,
+      heirs: heirsList,
     };
   };
 
@@ -415,6 +580,58 @@ export function MilitaryBenefitCalculator() {
     try {
       const stayDays = calculateStayDays(hospitalAdmissionDate, hospitalDischargeDate);
 
+      // Build dynamic children array from loaded Tab 3 data or fallback
+      let dynamicChildren = childrenList.length > 0
+        ? childrenList.map((c, idx) => ({
+            nationalId: c.nationalId || `CH-${militaryId}-${idx + 1}`,
+            fullName: c.fullName || `บุตรคนที่ ${idx + 1}`,
+            age: Number(c.age) || 10,
+            isStudying: Boolean(c.isStudying),
+            educationLevel: (c.educationLevel || "PRIMARY") as any,
+            allocationPercentage: Number(c.allocationPercentage) || 25,
+          }))
+        : [];
+
+      if (dynamicChildren.length === 0 && childrenCount > 0) {
+        dynamicChildren = Array.from({ length: childrenCount }, (_, i) => ({
+          nationalId: `CH-${militaryId}-${i + 1}`,
+          fullName: `บุตรคนที่ ${i + 1}`,
+          age: 10 + i * 4,
+          isStudying: i < studyingChildrenCount,
+          educationLevel: (i === 0 ? "PRIMARY" : "SECONDARY") as any,
+          allocationPercentage: Math.round(50 / Math.max(1, childrenCount)),
+        }));
+      }
+
+      // Build dynamic heirs array from loaded Tab 4 data or fallback
+      let dynamicHeirs = heirsList.length > 0
+        ? heirsList.map((h) => ({
+            nationalId: h.nationalId || `HR-${Math.random()}`,
+            fullName: h.fullName,
+            relationship: (h.relationship || "OTHER_HEIR") as any,
+            allocationPercentage: Number(h.allocationPercentage) || 0,
+          }))
+        : [];
+
+      if (dynamicHeirs.length === 0 && (hasSpouse || dynamicChildren.length > 0)) {
+        if (hasSpouse) {
+          dynamicHeirs.push({
+            nationalId: `SP-${militaryId}`,
+            fullName: spouseName,
+            relationship: "SPOUSE_LEGAL" as const,
+            allocationPercentage: 50,
+          });
+        }
+        dynamicChildren.forEach((ch) => {
+          dynamicHeirs.push({
+            nationalId: ch.nationalId,
+            fullName: ch.fullName,
+            relationship: "CHILD_LEGITIMATE" as const,
+            allocationPercentage: Math.round(50 / Math.max(1, dynamicChildren.length)),
+          });
+        });
+      }
+
       const payload = {
         militaryId,
         citizenId: "3100600492811",
@@ -462,31 +679,15 @@ export function MilitaryBenefitCalculator() {
         promotedSalary: Number(promotedSalary),
         spouse: hasSpouse
           ? {
-            nationalId: "1100400289112",
+            nationalId: spouseData?.nationalId || `SP-${militaryId}`,
             fullName: spouseName,
             isLegallyMarried: true,
             hasPensionRights: true,
             allocationPercentage: 50,
           }
           : null,
-        children: [
-          {
-            nationalId: "1100400289113",
-            fullName: "ด.ช.นราธิป ภักดีสยาม",
-            age: 11,
-            isStudying: true,
-            educationLevel: "PRIMARY" as const,
-            allocationPercentage: 25,
-          },
-          {
-            nationalId: "1100400289114",
-            fullName: "น.ส.กานดา ภักดีสยาม",
-            age: 19,
-            isStudying: true,
-            educationLevel: "BACHELOR" as const,
-            allocationPercentage: 25,
-          },
-        ],
+        children: dynamicChildren,
+        heirs: dynamicHeirs,
       };
 
       const res = await fetch("/api/rules/calculate", {
@@ -643,6 +844,42 @@ export function MilitaryBenefitCalculator() {
     );
   };
 
+  // Flatten casualties from lossReportsList with parent report context for easy search & selection
+  const flattenedCasualties = useMemo(() => {
+    const list: {
+      report: any;
+      casualty: any;
+      searchStr: string;
+    }[] = [];
+
+    lossReportsList.forEach((r) => {
+      if (r.casualties && r.casualties.length > 0) {
+        r.casualties.forEach((c: any) => {
+          list.push({
+            report: r,
+            casualty: c,
+            searchStr: `${c.fullName || ""} ${c.militaryId || ""} ${c.rankAbbr || ""} ${r.mgrsCoordinate || ""} ${r.province || ""} ${r.eventSummary || ""}`.toLowerCase(),
+          });
+        });
+      } else if (r.militaryId || r.fullName) {
+        list.push({
+          report: r,
+          casualty: {
+            militaryId: r.militaryId || "-",
+            fullName: r.fullName || "-",
+            rankAbbr: r.rankAbbr || "",
+            lossType: "DECEASED",
+          },
+          searchStr: `${r.fullName || ""} ${r.militaryId || ""} ${r.rankAbbr || ""} ${r.mgrsCoordinate || ""} ${r.province || ""}`.toLowerCase(),
+        });
+      }
+    });
+
+    if (!lossReportSearchTerm.trim()) return list;
+    const term = lossReportSearchTerm.toLowerCase();
+    return list.filter((item) => item.searchStr.includes(term));
+  }, [lossReportsList, lossReportSearchTerm]);
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
@@ -768,8 +1005,197 @@ export function MilitaryBenefitCalculator() {
               ขั้นตอนที่ 1: เลือกกำลังพลหรือระบุฐานเงินเดือน
             </h2>
             <p className="text-xs text-muted-foreground">
-              สามารถเลือกจากทะเบียนกำลังพลที่มีอยู่แล้ว หรือกรอกข้อมูลเพื่อจำลองการประมาณการ
+              สามารถค้นหาจากรายงานการสูญเสีย (กพ.3/กพ.4) หรือเลือกจากทะเบียนกำลังพลที่มีอยู่แล้ว เพื่อบูรณาการข้อมูล 4 แหล่ง
             </p>
+          </div>
+
+          {/* Active Integration Banner */}
+          {linkedLossReport && (
+            <div className="rounded-2xl border-2 border-emerald-500/70 bg-gradient-to-r from-emerald-50/90 via-teal-50/60 to-white dark:from-emerald-950/40 dark:via-teal-950/20 dark:to-slate-900 p-4 space-y-3 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-8 w-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-extrabold text-xs text-emerald-900 dark:text-emerald-200">
+                        บูรณาการเชื่อมโยงข้อมูล 4 แหล่งกำลังทำงาน (Integrated 4 Sources Active)
+                      </span>
+                      <Badge className="bg-emerald-600 text-white text-[10px]">
+                        ซิงก์สำเร็จ
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80 mt-0.5">
+                      รายงาน กพ.3/กพ.4 เหตุการณ์ {formatThaiBE(linkedLossReport.report.incidentDate)} | พิกัด MGRS: {linkedLossReport.report.mgrsCoordinate}
+                      {linkedLossReport.casualty && ` | ${linkedLossReport.casualty.rankAbbr} ${linkedLossReport.casualty.fullName} (${linkedLossReport.casualty.militaryId})`}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs h-7 text-rose-600 border-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30 shrink-0 self-start sm:self-center"
+                  onClick={() => {
+                    setLinkedLossReport(null);
+                    setActionMsg({ type: "success", text: "ยกเลิกการเชื่อมโยงรายงานสูญเสียแล้ว กำลังพลยังคงอยู่ในฟอร์ม" });
+                  }}
+                >
+                  ยกเลิกการเชื่อมโยง
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-emerald-200 dark:border-emerald-800/60 text-[11px]">
+                <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                  <span>1. ทะเบียนกำลังพล (Tab 2) ✓</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                  <span>2. ข้อมูลครอบครัว (Tab 3) ✓</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                  <span>3. ข้อมูลทายาท (Tab 4) ✓</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-300">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                  <span>4. รายงานสูญเสีย กพ.3/กพ.4 (Tab 5) ✓</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tab 5 Loss Reports Casualty Selector Card */}
+          <div className="rounded-2xl border-2 border-amber-300 dark:border-amber-800/60 bg-gradient-to-br from-amber-50/70 via-orange-50/30 to-slate-50 dark:from-amber-950/20 dark:via-orange-950/10 dark:to-slate-900/40 p-4 sm:p-5 space-y-3.5 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className="h-7 w-7 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0">
+                  <MapPinned className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs sm:text-sm font-bold text-amber-900 dark:text-amber-200">
+                      ค้นหากำลังพลจากรายงานการสูญเสียจากการปฏิบัติหน้าที่ราชการ (กพ.3 / กพ.4)
+                    </h3>
+                    <Badge className="bg-amber-600 text-white text-[10px]">
+                      บูรณาการ Tab 5 ➔ Tab 6
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5">
+                    เลือกกำลังพลที่ถูกรายงานการสูญเสีย เพื่อดึงข้อมูลประวัติ ครอบครัว ทายาท และประเภทการสูญเสียมาประมาณการสิทธิทันที
+                  </p>
+                </div>
+              </div>
+              <Link href="/loss-reports" target="_blank">
+                <Button variant="outline" size="sm" className="text-xs h-7 gap-1 border-amber-300 text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 self-start sm:self-center">
+                  <ExternalLink className="h-3 w-3" />
+                  เปิดดู Tab 5 (กพ.3/กพ.4)
+                </Button>
+              </Link>
+            </div>
+
+            {/* Filter Search Input */}
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={lossReportSearchTerm}
+                  onChange={(e) => setLossReportSearchTerm(e.target.value)}
+                  placeholder="ค้นหาตามชื่อ-สกุล, เลขประจำตัว, พิกัด MGRS, จังหวัด หรือพฤติกรรมเหตุการณ์..."
+                  className="pl-8 text-xs h-8 bg-white dark:bg-slate-900 border-amber-200 dark:border-amber-800"
+                />
+              </div>
+              {lossReportSearchTerm && (
+                <Button variant="ghost" size="sm" onClick={() => setLossReportSearchTerm("")} className="text-xs h-8">
+                  ล้างค้นหา
+                </Button>
+              )}
+            </div>
+
+            {/* Casualties Card List */}
+            {flattenedCasualties.length === 0 ? (
+              <div className="p-4 text-center rounded-xl bg-white/60 dark:bg-slate-900/50 border border-amber-200 dark:border-amber-800/50 text-xs text-muted-foreground">
+                ไม่พบข้อมูลกำลังพลในรายงานการสูญเสีย หรือยังไม่มีการบันทึกรายงาน กพ.3/กพ.4
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 max-h-64 overflow-y-auto pr-1">
+                {flattenedCasualties.slice(0, 10).map((item, idx) => {
+                  const c = item.casualty;
+                  const r = item.report;
+                  const isSelected = linkedLossReport?.report.id === r.id && (linkedLossReport?.casualty?.militaryId === c.militaryId || !linkedLossReport?.casualty);
+
+                  return (
+                    <div
+                      key={`${r.id}-${c.militaryId || idx}`}
+                      className={`p-3 rounded-xl border transition-all space-y-2 text-xs ${
+                        isSelected
+                          ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-500 shadow-sm ring-2 ring-emerald-500/20"
+                          : "bg-white dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 hover:border-amber-400"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-slate-900 dark:text-slate-100">
+                              {c.rankAbbr || ""} {c.fullName}
+                            </span>
+                            <span className="font-mono text-[10px] text-muted-foreground">
+                              ({c.militaryId || "-"})
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground line-clamp-1">
+                            {r.eventSummary}
+                          </p>
+                        </div>
+
+                        {/* Loss Type Badge */}
+                        <div className="shrink-0">
+                          {c.lossType === "DECEASED" && (
+                            <Badge className="bg-red-600 text-white text-[10px]">
+                              เสียชีวิต (KIA)
+                            </Badge>
+                          )}
+                          {c.lossType === "DISABLED" && (
+                            <Badge className="bg-purple-600 text-white text-[10px]">
+                              พิการ/ทุพพลภาพ
+                            </Badge>
+                          )}
+                          {c.lossType === "INJURED" && (
+                            <Badge className="bg-amber-600 text-white text-[10px]">
+                              บาดเจ็บ (WIA)
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800 text-[10px] text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                          <span>📅 {formatThaiBE(r.incidentDate)}</span>
+                          <span>📍 MGRS {r.mgrsCoordinate}</span>
+                          <span className="font-medium text-slate-700 dark:text-slate-300">
+                            {r.enemyAction === "ENEMY" ? "⚡ ข้าศึก" : "🛡️ มิใช่ข้าศึก"}
+                          </span>
+                        </div>
+
+                        <Button
+                          size="sm"
+                          className={`h-6 text-[10px] px-2.5 font-bold gap-1 shadow-xs ${
+                            isSelected
+                              ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                              : "bg-amber-600 hover:bg-amber-700 text-white"
+                          }`}
+                          onClick={() => handleSelectCasualtyFromLossReport(r, c)}
+                        >
+                          <Calculator className="h-3 w-3" />
+                          {isSelected ? "เลือกอยู่ (ใช้งาน)" : "เลือกคำนวณสิทธิ"}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Personnel CRUD Panel */}
@@ -1275,51 +1701,89 @@ export function MilitaryBenefitCalculator() {
             </div>
 
             {/* Hospitalization Stay Section */}
-            <div className="sm:col-span-2 p-4 rounded-xl border border-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-950/20 space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
-                  <Activity className="h-4 w-4 text-emerald-600" />
-                  การพักรักษาพยาบาลในโรงพยาบาล (Hospital Stay)
-                </Label>
-                <Badge className="bg-emerald-700 text-white font-mono text-xs px-2 py-0.5">
-                  คำนวณอัตโนมัติ: {calculateStayDays(hospitalAdmissionDate, hospitalDischargeDate)} วัน
-                </Badge>
-              </div>
+            {(() => {
+              const stayDays = calculateStayDays(hospitalAdmissionDate, hospitalDischargeDate);
+              const isTier1 = stayDays > 0 && stayDays <= 10;
+              const isTier2 = stayDays > 10;
+              const benefitAmount = stayDays <= 0 ? 0 : stayDays <= 10 ? 10000 : 20000;
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">วันที่เข้ารับการรักษาพยาบาล (Admission Date)</Label>
-                  <Input
-                    type="date"
-                    value={hospitalAdmissionDate}
-                    onChange={(e) => setHospitalAdmissionDate(e.target.value)}
-                    className="text-xs h-9 bg-background"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">วันที่จำหน่าย/ออกจากโรงพยาบาล (Discharge Date)</Label>
-                  <Input
-                    type="date"
-                    value={hospitalDischargeDate}
-                    onChange={(e) => setHospitalDischargeDate(e.target.value)}
-                    className="text-xs h-9 bg-background"
-                  />
-                </div>
-              </div>
+              return (
+                <div className="sm:col-span-2 p-4 rounded-xl border border-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-950/20 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+                      <Activity className="h-4 w-4 text-emerald-600" />
+                      การพักรักษาพยาบาลในโรงพยาบาล (Hospital Stay)
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Badge className="bg-emerald-700 text-white font-mono text-xs px-2 py-0.5">
+                        คำนวณอัตโนมัติ: {stayDays} วัน
+                      </Badge>
+                      {stayDays > 0 && (
+                        <Badge className="bg-amber-600 text-white font-semibold text-xs px-2.5 py-0.5">
+                          เงินช่วยเหลือ: {formatCurrency(benefitAmount)}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
 
-              <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-slate-600 dark:text-slate-400">
-                <span className="font-semibold">เกณฑ์เงินช่วยเหลือ:</span>
-                <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                  1-10 วัน: <strong>10,000 บ.</strong>
-                </span>
-                <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                  11-20 วัน: <strong>20,000 บ.</strong> (รับเพิ่ม 10,000 บ.)
-                </span>
-                <span className="px-2 py-0.5 rounded bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
-                  เกิน 20 วัน: <strong>30,000 บ.</strong>
-                </span>
-              </div>
-            </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">วันที่เข้ารับการรักษาพยาบาล (Admission Date)</Label>
+                      <Input
+                        type="date"
+                        value={hospitalAdmissionDate}
+                        onChange={(e) => setHospitalAdmissionDate(e.target.value)}
+                        className="text-xs h-9 bg-background"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">วันที่จำหน่าย/ออกจากโรงพยาบาล (Discharge Date)</Label>
+                      <Input
+                        type="date"
+                        value={hospitalDischargeDate}
+                        onChange={(e) => setHospitalDischargeDate(e.target.value)}
+                        className="text-xs h-9 bg-background"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-slate-600 dark:text-slate-400">
+                    <span className="font-semibold">เกณฑ์เงินช่วยเหลือ:</span>
+                    <span
+                      className={`px-2.5 py-1 rounded-md border transition-all ${
+                        isTier1
+                          ? "bg-emerald-100 text-emerald-900 border-emerald-500 font-bold dark:bg-emerald-900/60 dark:text-emerald-200 ring-2 ring-emerald-500/20"
+                          : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                      }`}
+                    >
+                      พักรักษาตัวไม่เกิน &le; 10 วัน: <strong>10,000 บ.</strong>
+                    </span>
+                    <span
+                      className={`px-2.5 py-1 rounded-md border transition-all ${
+                        isTier2
+                          ? "bg-emerald-100 text-emerald-900 border-emerald-500 font-bold dark:bg-emerald-900/60 dark:text-emerald-200 ring-2 ring-emerald-500/20"
+                          : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                      }`}
+                    >
+                      พักรักษาตัวตั้งแต่ 11 - 20 วันขึ้นไป (&ge; 20 วัน): รับเงินเพิ่มอีก <strong>10,000 บ.</strong> (รวมเป็นเงิน <strong>20,000 บ.</strong>)
+                    </span>
+                  </div>
+
+                  {stayDays > 0 && (
+                    <div className="flex items-center gap-2 p-2 rounded-lg bg-white/80 dark:bg-slate-900/80 border border-emerald-200 dark:border-emerald-800/60 text-xs">
+                      <span className="text-emerald-700 dark:text-emerald-400 font-bold">✓ สิทธิประมาณการ:</span>
+                      <span className="text-slate-700 dark:text-slate-300">
+                        {stayDays <= 10 ? (
+                          <>พักรักษาตัว <strong>{stayDays} วัน</strong> (&le; 10 วัน) ได้รับเงินช่วยเหลือ <strong>10,000 บาท</strong></>
+                        ) : (
+                          <>พักรักษาตัว <strong>{stayDays} วัน</strong> (เกิน 10 วัน ถึง 20 วันขึ้นไป) ได้รับเงินเพิ่มอีก 10,000 บาท รวมเป็นเงิน <strong>20,000 บาท</strong></>
+                        )}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
 
           <div className="flex justify-between pt-4">
@@ -1341,57 +1805,212 @@ export function MilitaryBenefitCalculator() {
       {/* Step 4: Family & Heirs */}
       {step === 4 && (
         <Card className="border border-slate-200 dark:border-slate-800 p-6 space-y-5">
-          <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-              ขั้นตอนที่ 4: ข้อมูลครอบครัวและทายาทผู้มีสิทธิ
-            </h2>
-            <p className="text-xs text-muted-foreground">
-              ระบุสถานะคู่สมรสและบุตรที่กำลังศึกษา เพื่อคำนวณทุนการศึกษาและการแบ่งสัดส่วนเงินสงเคราะห์
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                <Users className="h-4 w-4 text-purple-600" />
+                ขั้นตอนที่ 4: ข้อมูลครอบครัวและทายาทผู้มีสิทธิ
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                เชื่อมโยงข้อมูลจาก Tab 3 (ข้อมูลครอบครัว) และ Tab 4 (ข้อมูลทายาท) เพื่อคำนวณทุนการศึกษาและการจัดสรรเงินสงเคราะห์
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Link href="/family" target="_blank">
+                <Button variant="outline" size="sm" className="text-xs h-7 gap-1 border-purple-300 text-purple-700 dark:border-purple-800">
+                  <ExternalLink className="h-3 w-3" />
+                  จัดการครอบครัว (Tab 3)
+                </Button>
+              </Link>
+              <Link href="/heirs" target="_blank">
+                <Button variant="outline" size="sm" className="text-xs h-7 gap-1 border-blue-300 text-blue-700 dark:border-blue-800">
+                  <ExternalLink className="h-3 w-3" />
+                  จัดการทายาท (Tab 4)
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          {/* Integrated Source Status */}
+          <div className="p-3 rounded-xl border border-purple-200 dark:border-purple-900/60 bg-purple-50/40 dark:bg-purple-950/20 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <Badge className="bg-purple-600 text-white text-[10px]">
+                ซิงก์ข้อมูลบูรณาการ
+              </Badge>
+              <span className="font-semibold text-purple-950 dark:text-purple-200">
+                {rankAbbr} {firstName} {lastName} ({militaryId})
+              </span>
+            </div>
+            <div className="flex items-center gap-3 text-[11px] text-purple-900 dark:text-purple-300">
+              <span>คู่สมรส: {hasSpouse ? "มี (50%)" : "ไม่มี"}</span>
+              <span>บุตร: {childrenCount} คน (เรียน {studyingChildrenCount} คน)</span>
+              <span>ทายาทผู้รับสิทธิ: {heirsList.length > 0 ? `${heirsList.length} คน` : "จัดสรรอัตโนมัติ"}</span>
+            </div>
           </div>
 
           <div className="space-y-4">
-            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 space-y-3">
+            {/* 1. Legal Spouse */}
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 space-y-3">
               <div className="flex items-center justify-between">
-                <span className="font-bold text-xs">คู่สมรสจดทะเบียนตามกฎหมาย</span>
+                <div className="flex items-center gap-2">
+                  <HeartHandshake className="h-4 w-4 text-purple-600" />
+                  <span className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                    คู่สมรสจดทะเบียนตามกฎหมาย (Tab 3: ข้อมูลครอบครัว)
+                  </span>
+                </div>
                 <input
                   type="checkbox"
                   checked={hasSpouse}
                   onChange={(e) => setHasSpouse(e.target.checked)}
-                  className="h-4 w-4 rounded text-emerald-600"
+                  className="h-4 w-4 rounded text-emerald-600 focus:ring-emerald-500"
                 />
               </div>
+
               {hasSpouse && (
-                <div className="space-y-1">
-                  <Label className="text-xs">ชื่อ-สกุล คู่สมรส</Label>
-                  <Input
-                    value={spouseName}
-                    onChange={(e) => setSpouseName(e.target.value)}
-                    className="text-xs"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="space-y-1">
+                    <Label className="text-xs">ชื่อ-สกุล คู่สมรส</Label>
+                    <Input
+                      value={spouseName}
+                      onChange={(e) => setSpouseName(e.target.value)}
+                      className="text-xs"
+                      placeholder="นาง/นางสาว..."
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">สิทธิประโยชน์คู่สมรส</Label>
+                    <div className="p-2 rounded border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/20 text-[11px] text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 shrink-0" />
+                      <span>มีสิทธิรับบำนาญตกทอด และเงินสงเคราะห์สัดส่วน 50%</span>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold">จำนวนบุตรทั้งหมด (คน)</Label>
-                <Input
-                  type="number"
-                  value={childrenCount}
-                  onChange={(e) => setChildrenCount(Number(e.target.value))}
-                  className="text-xs"
-                />
+            {/* 2. Children List */}
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4 text-emerald-600" />
+                  <span className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                    ข้อมูลบุตร & สิทธิทุนการศึกษา (Tab 3: ข้อมูลครอบครัว)
+                  </span>
+                </div>
+                <Badge variant="outline" className="text-[10px]">
+                  กำลังศึกษา {studyingChildrenCount} / {childrenCount} คน
+                </Badge>
               </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold">จำนวนบุตรที่กำลังศึกษาอยู่ (คน)</Label>
-                <Input
-                  type="number"
-                  value={studyingChildrenCount}
-                  onChange={(e) => setStudyingChildrenCount(Number(e.target.value))}
-                  className="text-xs"
-                />
+
+              {childrenList.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+                    <table className="w-full text-xs">
+                      <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                        <tr>
+                          <th className="p-2 text-left">ชื่อ-สกุล บุตร</th>
+                          <th className="p-2 text-center">อายุ</th>
+                          <th className="p-2 text-center">สถานะการศึกษา</th>
+                          <th className="p-2 text-center">ระดับการศึกษา</th>
+                          <th className="p-2 text-right">สิทธิทุนการศึกษา (หมวด 3)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                        {childrenList.map((ch, idx) => (
+                          <tr key={ch.nationalId || idx} className="hover:bg-white dark:hover:bg-slate-900/40">
+                            <td className="p-2 font-medium">{ch.fullName}</td>
+                            <td className="p-2 text-center font-mono">{ch.age} ปี</td>
+                            <td className="p-2 text-center">
+                              {ch.isStudying ? (
+                                <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 text-[10px]">
+                                  กำลังศึกษา
+                                </Badge>
+                              ) : (
+                                <span className="text-muted-foreground text-[10px]">ไม่ศึกษา</span>
+                              )}
+                            </td>
+                            <td className="p-2 text-center font-mono text-[11px]">{ch.educationLevel || "ไม่ระบุ"}</td>
+                            <td className="p-2 text-right text-emerald-600 font-bold">
+                              {ch.isStudying ? "ได้รับสิทธิรายปี" : "-"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : null}
+
+              {/* Editable summary fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">จำนวนบุตรทั้งหมด (คน)</Label>
+                  <Input
+                    type="number"
+                    value={childrenCount}
+                    onChange={(e) => setChildrenCount(Number(e.target.value))}
+                    className="text-xs"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">จำนวนบุตรที่กำลังศึกษาอยู่ (คน)</Label>
+                  <Input
+                    type="number"
+                    value={studyingChildrenCount}
+                    onChange={(e) => setStudyingChildrenCount(Number(e.target.value))}
+                    className="text-xs"
+                  />
+                </div>
               </div>
+            </div>
+
+            {/* 3. Heirs Allocation */}
+            <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Scale className="h-4 w-4 text-blue-600" />
+                  <span className="font-bold text-xs text-slate-900 dark:text-slate-100">
+                    ข้อมูลทายาทผู้มีสิทธิรับเงินสงเคราะห์ (Tab 4: ข้อมูลทายาท)
+                  </span>
+                </div>
+                <Badge variant="outline" className="text-[10px]">
+                  {heirsList.length > 0 ? `${heirsList.length} ลำดับ` : "ตามเกณฑ์กฎหมาย"}
+                </Badge>
+              </div>
+
+              {heirsList.length > 0 ? (
+                <div className="border border-slate-200 dark:border-slate-800 rounded-lg overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                      <tr>
+                        <th className="p-2 text-left">ชื่อ-สกุล ทายาท</th>
+                        <th className="p-2 text-center">ความสัมพันธ์</th>
+                        <th className="p-2 text-right">สัดส่วนที่ระบุ (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                      {heirsList.map((hr, idx) => (
+                        <tr key={hr.nationalId || idx} className="hover:bg-white dark:hover:bg-slate-900/40">
+                          <td className="p-2 font-medium">{hr.fullName}</td>
+                          <td className="p-2 text-center">
+                            <Badge variant="outline" className="text-[10px]">
+                              {hr.relationship === "SPOUSE_LEGAL" ? "คู่สมรส" : hr.relationship === "CHILD_LEGITIMATE" ? "บุตร" : hr.relationship === "FATHER" ? "บิดา" : hr.relationship === "MOTHER" ? "มารดา" : "ทายาท"}
+                            </Badge>
+                          </td>
+                          <td className="p-2 text-right font-bold font-mono text-blue-600">
+                            {hr.allocationPercentage}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-2.5 rounded bg-blue-50/50 dark:bg-blue-950/20 text-[11px] text-blue-800 dark:text-blue-300 flex items-center gap-2">
+                  <Shield className="h-3.5 w-3.5 shrink-0" />
+                  <span>ระบบจะจัดสรรเงินสงเคราะห์อัตโนมัติ: คู่สมรส 50% และบุตรแบ่งเท่ากันในส่วนที่เหลือ 50% ตามระเบียบ กห.</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1462,6 +2081,100 @@ export function MilitaryBenefitCalculator() {
               <div>
                 <p className="text-muted-foreground">ระดับเงินเยียวยา</p>
                 <p className="font-semibold">{calculationResult.personnelSummary.compensationLevel || "-"}</p>
+              </div>
+            </div>
+          </Card>
+
+          {/* Integrated Data Sources Audit Card (4 แหล่งข้อมูลบูรณาการ) */}
+          <Card className="border-2 border-emerald-300 dark:border-emerald-800/70 bg-gradient-to-br from-emerald-50/60 via-teal-50/30 to-white dark:from-emerald-950/20 dark:via-teal-950/10 dark:to-slate-900 p-5 space-y-3.5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Database className="h-5 w-5 text-emerald-600" />
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    แหล่งข้อมูลบูรณาการ 4 มิติ (Integrated 4 Sources Audit)
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    ประมาณการสิทธิโดยประมวลผลข้อมูลเชื่อมโยงครบ 4 แหล่งตามระเบียบและ Rule Engine
+                  </p>
+                </div>
+              </div>
+              <Badge className="bg-emerald-600 text-white text-xs font-bold flex items-center gap-1">
+                <CheckCircle2 className="h-3 w-3" />
+                ซิงก์ครบ 4 แหล่ง
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+              {/* Source 1: Tab 2 ทะเบียนกำลังพล */}
+              <div className="p-3 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-white/80 dark:bg-slate-900/80 space-y-1.5 text-xs">
+                <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-bold text-[11px]">
+                  <Shield className="h-3.5 w-3.5" />
+                  <span>1. ทะเบียนกำลังพล (Tab 2)</span>
+                </div>
+                <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                  {rankAbbr} {firstName} {lastName}
+                </p>
+                <div className="text-[11px] text-muted-foreground space-y-0.5">
+                  <p>สังกัด: {normalUnit}</p>
+                  <p>ฐานเงินเดือน: {formatCurrency(salary)} ({salaryLevel} ขั้น {salaryStep})</p>
+                  <p>วันบรรจุ: {formatThaiBE(appointmentDate)}</p>
+                </div>
+              </div>
+
+              {/* Source 2: Tab 3 ข้อมูลครอบครัว */}
+              <div className="p-3 rounded-xl border border-purple-200 dark:border-purple-900/60 bg-white/80 dark:bg-slate-900/80 space-y-1.5 text-xs">
+                <div className="flex items-center gap-1.5 text-purple-700 dark:text-purple-400 font-bold text-[11px]">
+                  <HeartHandshake className="h-3.5 w-3.5" />
+                  <span>2. ข้อมูลครอบครัว (Tab 3)</span>
+                </div>
+                <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                  {hasSpouse ? spouseName : "ไม่มีคู่สมรส"}
+                </p>
+                <div className="text-[11px] text-muted-foreground space-y-0.5">
+                  <p>สถานะ: {hasSpouse ? "คู่สมรสจดทะเบียน ✓" : "โสด/ไม่มีคู่สมรส"}</p>
+                  <p>บุตรทั้งหมด: {childrenCount} คน</p>
+                  <p className="text-emerald-600 dark:text-emerald-400 font-medium">กำลังศึกษา (รับทุน): {studyingChildrenCount} คน</p>
+                </div>
+              </div>
+
+              {/* Source 3: Tab 4 ข้อมูลทายาท */}
+              <div className="p-3 rounded-xl border border-blue-200 dark:border-blue-900/60 bg-white/80 dark:bg-slate-900/80 space-y-1.5 text-xs">
+                <div className="flex items-center gap-1.5 text-blue-700 dark:text-blue-400 font-bold text-[11px]">
+                  <Scale className="h-3.5 w-3.5" />
+                  <span>3. ข้อมูลทายาท (Tab 4)</span>
+                </div>
+                <p className="font-semibold text-slate-900 dark:text-slate-100">
+                  {heirsList.length > 0 ? `${heirsList.length} ทายาทตามบันทึก` : "จัดสรรตามระเบียบ กห."}
+                </p>
+                <div className="text-[11px] text-muted-foreground space-y-0.5">
+                  {heirsList.length > 0 ? (
+                    heirsList.slice(0, 2).map((h, i) => (
+                      <p key={i} className="truncate">{h.fullName} ({h.allocationPercentage}%)</p>
+                    ))
+                  ) : (
+                    <>
+                      <p>คู่สมรส: 50%</p>
+                      <p>บุตร: 50% (แบ่งเท่ากัน)</p>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Source 4: Tab 5 รายงานสูญเสีย กพ.3/กพ.4 */}
+              <div className="p-3 rounded-xl border border-amber-200 dark:border-amber-900/60 bg-white/80 dark:bg-slate-900/80 space-y-1.5 text-xs">
+                <div className="flex items-center gap-1.5 text-amber-700 dark:text-amber-400 font-bold text-[11px]">
+                  <MapPinned className="h-3.5 w-3.5" />
+                  <span>4. รายงานสูญเสีย (Tab 5)</span>
+                </div>
+                <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                  {linkedLossReport ? `พิกัด MGRS ${linkedLossReport.report.mgrsCoordinate}` : `เหตุการณ์ ${formatThaiBE(incidentDate)}`}
+                </p>
+                <div className="text-[11px] text-muted-foreground space-y-0.5">
+                  <p>วันเกิดเหตุ: {formatThaiBE(incidentDate)}</p>
+                  <p>สาเหตุ: {actionCause === "ENEMY_ACTION" ? "การกระทำของข้าศึก (ปูนบำเหน็จฉุกเฉิน)" : "มิใช่การกระทำของข้าศึก"}</p>
+                  <p>ประเภท: {lossType === "KIA_COMBAT_DEATH" ? "เสียชีวิตในสมรภูมิ (KIA)" : lossType === "TOTAL_PERMANENT_DISABILITY" ? "ทุพพลภาพถาวร (WIA)" : lossType === "SEVERE_WOUND_WIA" ? "บาดเจ็บสาหัส (WIA)" : "เสียชีวิตขณะปฏิบัติหน้าที่"}</p>
+                </div>
               </div>
             </div>
           </Card>

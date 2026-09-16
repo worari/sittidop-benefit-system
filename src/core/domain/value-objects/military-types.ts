@@ -93,25 +93,47 @@ export interface MilitaryPersonnelInput {
   spouse?: {
     nationalId: string;
     fullName: string;
+    dateOfBirth?: string | null;
+    age?: number | null;
+    phone?: string | null;
+    bankName?: string | null;
+    bankAccountNumber?: string | null;
     isLegallyMarried: boolean;
     hasPensionRights: boolean;
     allocationPercentage: number;
+    isAlive?: boolean;
+    marriageCertNumber?: string | null;
   } | null;
 
   children?: {
     nationalId: string;
     fullName: string;
+    dateOfBirth?: string | null;
     age: number;
     isStudying: boolean;
-    educationLevel: "PRIMARY" | "SECONDARY" | "HIGH_SCHOOL" | "BACHELOR" | "OTHER";
+    educationLevel: "PRIMARY" | "SECONDARY" | "VOCATIONAL" | "HIGH_SCHOOL" | "BACHELOR" | "OTHER";
     allocationPercentage: number;
+    annualScholarship?: number | null;
+    hasSuccessorRight?: boolean;
   }[];
 
   heirs?: {
     nationalId: string;
-    fullName: string;
-    relationship: "SPOUSE_LEGAL" | "CHILD_LEGITIMATE" | "FATHER" | "MOTHER" | "OTHER_HEIR";
+    fullName?: string;
+    title?: string;
+    firstName?: string;
+    lastName?: string;
+    relationship: string;
     allocationPercentage: number;
+    dateOfBirth?: string | Date | null;
+    age?: number | null;
+    phone?: string | null;
+    address?: string | null;
+    bankName?: string | null;
+    bankAccountNumber?: string | null;
+    isDesignatedSuccessor?: boolean;
+    documentsVerified?: boolean;
+    isAlive?: boolean;
   }[];
 }
 

@@ -153,6 +153,35 @@ describe("FamilyValidation", () => {
             expect(result.isValid).toBe(false);
             expect(result.errors.some((e) => e.includes("เปอร์เซ็นต์การจัดสรรต้องอยู่ระหว่าง 0 - 100"))).toBe(true);
         });
+
+        it("should accept 15-digit bank account number and reject > 15 digits", () => {
+            const valid15: SpouseFormState = {
+                hasSpouse: true,
+                nationalId: "1234567890123",
+                title: "นาง",
+                firstName: "สมหญิง",
+                lastName: "ใจดี",
+                dateOfBirth: "1990-01-01",
+                age: 35,
+                isAlive: true,
+                isLegallyMarried: true,
+                marriageCertNumber: "1234567890",
+                phone: "0812345678",
+                address: "123/456 กรุงเทพมหานคร",
+                bankName: "กรุงไทย",
+                bankAccountNumber: "123456789012345", // Exactly 15 digits
+                hasPensionRights: true,
+                allocationPercentage: 50,
+            };
+
+            const resValid = FamilyValidation.validateSpouse(valid15, 0);
+            expect(resValid.isValid).toBe(true);
+
+            const invalid16 = { ...valid15, bankAccountNumber: "1234567890123456" }; // 16 digits
+            const resInvalid = FamilyValidation.validateSpouse(invalid16, 0);
+            expect(resInvalid.isValid).toBe(false);
+            expect(resInvalid.errors.some((e) => e.includes("หมายเลขบัญชีธนาคารต้องเป็นตัวเลข 10-15 หลัก"))).toBe(true);
+        });
     });
 
     describe("validateChild", () => {
@@ -223,6 +252,29 @@ describe("FamilyValidation", () => {
             const result = FamilyValidation.validateChild(invalid, 0);
             expect(result.isValid).toBe(false);
             expect(result.errors.some((e) => e.includes("เลขบัตรประชาชน 13 หลักไม่ถูกต้อง"))).toBe(true);
+        });
+
+        it("should accept formatted Thai national ID (with dashes) for child", () => {
+            const validWithDashes: ChildFormState = {
+                nationalId: "1-2345-67890-12-3",
+                title: "ด.ช.",
+                firstName: "สมชาย",
+                lastName: "ใจดี",
+                dateOfBirth: "2010-01-01",
+                age: 15,
+                isAlive: true,
+                isStudying: true,
+                educationLevel: "PRIMARY",
+                phone: "0812345678",
+                scholarshipEligible: true,
+                annualScholarship: 15000,
+                hasSuccessorRight: false,
+                allocationPercentage: 25,
+            };
+
+            const result = FamilyValidation.validateChild(validWithDashes, 0);
+            expect(result.isValid).toBe(true);
+            expect(result.errors).toHaveLength(0);
         });
 
         it("should reject invalid age", () => {
@@ -356,8 +408,8 @@ describe("FamilyValidation", () => {
             expect(result.errors).toHaveLength(0);
         });
 
-        it("should reject family data with total percentage not 100%", () => {
-            const invalidSpouse: SpouseFormState = {
+        it("should accept family data when total percentage is not 100% (not strictly enforced in Tab 3)", () => {
+            const familySpouse: SpouseFormState = {
                 hasSpouse: true,
                 nationalId: "1234567890123",
                 title: "นาง",
@@ -376,7 +428,7 @@ describe("FamilyValidation", () => {
                 allocationPercentage: 50, // 50% (total will be 50+20+20 = 90% != 100%)
             };
 
-            const invalidChildren: ChildFormState[] = [
+            const familyChildren: ChildFormState[] = [
                 {
                     nationalId: "1234567890124",
                     title: "ด.ช.",
@@ -411,9 +463,9 @@ describe("FamilyValidation", () => {
                 },
             ];
 
-            const result = FamilyValidation.validateAllFamily(invalidSpouse, invalidChildren);
-            expect(result.isValid).toBe(false);
-            expect(result.errors.some((e) => e.includes("ผลรวมสัดส่วนทั้งหมดต้องเป็น 100%"))).toBe(true);
+            const result = FamilyValidation.validateAllFamily(familySpouse, familyChildren);
+            expect(result.isValid).toBe(true);
+            expect(result.errors).toHaveLength(0);
         });
     });
 

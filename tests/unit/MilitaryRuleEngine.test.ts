@@ -112,6 +112,63 @@ describe("MilitaryRuleEngine", () => {
       );
       expect(shortStay).toBe(10000);
     });
+
+    it("should evaluate hospital stay criteria (<= 10 days: 10,000, 11-20+ days: 20,000) correctly", () => {
+      const hospitalRule: BenefitRuleDefinition = {
+        id: "r-hospital",
+        ruleCode: "RULE-LUMP-HOSPITAL-STAY",
+        ruleName: "เงินช่วยเหลือการพักรักษาพยาบาล (Hospital Stay Benefit)",
+        category: "LUMP_SUM_PAYMENT" as BenefitRuleDefinition["category"],
+        categoryName: "One-Time Lump Sum",
+        categoryThaiName: "หมวด 1: รับเงินครั้งเดียว",
+        description: "เงินบำรุงขวัญกำลังพล",
+        legalBasis: "ระเบียบกองทัพบก",
+        paymentType: "ONE_TIME_LUMP_SUM",
+        formulaType: "EXPRESSION",
+        formulaExpression: "{hospitalStayDays} <= 10 ? 10000 : 20000",
+        multiplierFactor: 1,
+        baseAmount: 10000,
+        conditions: {
+          allowedLossTypes: ["SEVERE_WOUND_WIA", "MODERATE_INJURY", "MINOR_INJURY"],
+        },
+        isActive: true,
+        priorityOrder: 4,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      // 5 days stay (<= 10 days) -> 10,000 THB
+      const stay5 = MilitaryRuleEngine.evaluateFormula(
+        "",
+        buildContext({ lossType: "SEVERE_WOUND_WIA", hospitalStayDays: 5 }),
+        hospitalRule
+      );
+      expect(stay5).toBe(10000);
+
+      // 10 days stay (<= 10 days) -> 10,000 THB
+      const stay10 = MilitaryRuleEngine.evaluateFormula(
+        "",
+        buildContext({ lossType: "SEVERE_WOUND_WIA", hospitalStayDays: 10 }),
+        hospitalRule
+      );
+      expect(stay10).toBe(10000);
+
+      // 15 days stay (11-20 days) -> 20,000 THB
+      const stay15 = MilitaryRuleEngine.evaluateFormula(
+        "",
+        buildContext({ lossType: "SEVERE_WOUND_WIA", hospitalStayDays: 15 }),
+        hospitalRule
+      );
+      expect(stay15).toBe(20000);
+
+      // 25 days stay (>= 20 days) -> 20,000 THB
+      const stay25 = MilitaryRuleEngine.evaluateFormula(
+        "",
+        buildContext({ lossType: "SEVERE_WOUND_WIA", hospitalStayDays: 25 }),
+        hospitalRule
+      );
+      expect(stay25).toBe(20000);
+    });
   });
 
   describe("Full Military Calculation (calculate)", () => {

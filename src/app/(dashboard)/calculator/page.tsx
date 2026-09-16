@@ -1,4 +1,5 @@
 import { Metadata } from "next";
+import { Suspense } from "react";
 import { MilitaryBenefitCalculator } from "@/presentation/components/calculator/MilitaryBenefitCalculator";
 
 export const metadata: Metadata = {
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 };
 
 export default function CalculatorPage() {
-  return <MilitaryBenefitCalculator />;
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-xs text-muted-foreground">กำลังโหลดระบบคำนวณประมาณการสิทธิ 4 หมวด...</div>}>
+      <MilitaryBenefitCalculator />
+    </Suspense>
+  );
 }

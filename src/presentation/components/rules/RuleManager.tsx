@@ -485,19 +485,19 @@ export function RuleManager() {
       setNewRuleName("เงินช่วยเหลือการพักรักษาพยาบาล (Hospital Stay Benefit)");
       setNewCategory(BenefitCategoryCode.LUMP_SUM_PAYMENT);
       setNewPaymentType("ONE_TIME_LUMP_SUM");
-      setNewDescription("เงินบำรุงขวัญกำลังพล: กรณีเสียชีวิตหรือพิการทุพพลภาพรับ 40,000 บาท; กรณีบาดเจ็บและพักรักษาตัวในโรงพยาบาลไม่เกิน 20 วันรับ 10,000 บาท; กรณีบาดเจ็บพักรักษาตัวเกิน 20 วันรับเพิ่มอีก 10,000 บาท รวม 20,000 บาท");
+      setNewDescription("เงินบำรุงขวัญกำลังพล: กรณีเสียชีวิตหรือพิการทุพพลภาพรับ 40,000 บาท; กรณีบาดเจ็บและพักรักษาตัวในโรงพยาบาลไม่เกิน 10 วันรับ 10,000 บาท; กรณีบาดเจ็บพักรักษาตัว 11-20 วันขึ้นไป (>= 20 วัน) รับเพิ่มอีก 10,000 บาท รวม 20,000 บาท");
       setNewLegalBasis("ระเบียบกองทัพบกว่าด้วยการสงเคราะห์กำลังพลที่ได้รับบาดเจ็บจากการปฏิบัติราชการสนาม พ.ศ. 2562");
       setNewBenefitScope("IN_ARMY");
       setNewCauseType("BOTH");
-      setNewFormula("{hospitalStayDays} <= 20 ? 10000 : 20000");
+      setNewFormula("{hospitalStayDays} <= 10 ? 10000 : 20000");
       setNewBaseAmount(10000);
       setNewMissions(["SOUTHERN_BORDER", "BORDER_DEFENSE", "INTERNAL_SECURITY", "ALL"]);
       setNewLossTypes(["KIA_COMBAT_DEATH", "DUTY_DEATH", "TOTAL_PERMANENT_DISABILITY", "PARTIAL_DISABILITY", "SEVERE_WOUND_WIA", "MODERATE_INJURY", "MINOR_INJURY", "ALL"]);
-      // เงินบำรุงขวัญ: เสียชีวิต/ทุพพลภาพ 40,000 | บาดเจ็บ ≤20 วัน 10,000 | >20 วัน +10,000
+      // เงินบำรุงขวัญ: เสียชีวิต/ทุพพลภาพ 40,000 | บาดเจ็บ ≤10 วัน 10,000 | 11-20 วันขึ้นไป +10,000
       setNewTiers([
         { id: "tier-morale-death-disability", label: "กรณีเสียชีวิตหรือพิการทุพพลภาพ", lossTypes: ["DEATH", "DISABILITY"], amount: 40000 },
-        { id: "tier-morale-injury-base", label: "กรณีบาดเจ็บและพักรักษาตัวในโรงพยาบาล (ฐาน)", lossTypes: ["INJURY"], amount: 10000 },
-        { id: "tier-morale-injury-over20", label: "กรณีบาดเจ็บพักรักษาตัวเกิน 20 วัน (รับเพิ่มเติม)", lossTypes: ["INJURY"], minDays: 21, amount: 10000, isAdditional: true },
+        { id: "tier-morale-injury-base", label: "กรณีบาดเจ็บและพักรักษาตัวในโรงพยาบาล (ฐาน ไม่เกิน 10 วัน)", lossTypes: ["INJURY"], amount: 10000 },
+        { id: "tier-morale-injury-over10", label: "กรณีบาดเจ็บพักรักษาตัว 11-20 วันขึ้นไป (รับเพิ่มเติม)", lossTypes: ["INJURY"], minDays: 11, amount: 10000, isAdditional: true },
       ]);
     } else if (type === "ARMY_SPECIAL_FUND") {
       setNewRuleCode("RULE-LUMP-ARMY-HERO-FUND");

@@ -70,11 +70,11 @@ export class FamilyValidation {
             }
         }
 
-        // Validate bank account number (10-13 digits)
+        // Validate bank account number (10-15 digits)
         if (spouse.bankAccountNumber) {
-            const bankAccountRegex = /^\d{10,13}$/;
+            const bankAccountRegex = /^\d{10,15}$/;
             if (!bankAccountRegex.test(spouse.bankAccountNumber)) {
-                errors.push(`คู่สมรสลำดับที่ ${index + 1}: หมายเลขบัญชีธนาคารต้องเป็นตัวเลข 10-13 หลัก`);
+                errors.push(`คู่สมรสลำดับที่ ${index + 1}: หมายเลขบัญชีธนาคารต้องเป็นตัวเลข 10-15 หลัก`);
             }
         }
 
@@ -135,10 +135,11 @@ export class FamilyValidation {
             errors.push(`บุตรลำดับที่ ${index + 1}: ต้องระบุนามสกุล`);
         }
 
-        // Validate national ID (13 digits)
+        // Validate national ID (13 digits, supports formatted X-XXXX-XXXXX-XX-X or raw 13 digits)
         if (child.nationalId) {
+            const cleanId = child.nationalId.replace(/\D/g, "");
             const nationalIdRegex = /^\d{13}$/;
-            if (!nationalIdRegex.test(child.nationalId)) {
+            if (!nationalIdRegex.test(cleanId)) {
                 errors.push(`บุตรลำดับที่ ${index + 1}: เลขบัตรประชาชน 13 หลักไม่ถูกต้อง`);
             }
         }
@@ -221,12 +222,8 @@ export class FamilyValidation {
             }
         });
 
-        // Validate total percentage only if there are family members
-        if (hasSpouse || childrenList.length > 0) {
-            if (Math.round(totalPercentage) !== 100) {
-                errors.push(`ผลรวมสัดส่วนทั้งหมดต้องเป็น 100% (ปัจจุบัน: ${totalPercentage}%)`);
-            }
-        }
+        // หมายเหตุ: ในหน้าบันทึกข้อมูลครอบครัว (Tab 3) ยังไม่ต้องบังคับให้ผลรวมสัดส่วนต้องเท่ากับ 100%
+        // เพื่อความยืดหยุ่นในการบันทึกประวัติครอบครัว โดยการตรวจสอบสัดส่วนครบ 100% จะบังคับในหน้าจัดสรรสิทธิทายาท (Tab 4)
 
         return {
             isValid: errors.length === 0,
@@ -245,6 +242,7 @@ export class FamilyValidation {
         children: ChildFormState[] = []
     ): { spouse: SpouseFormState | null; children: ChildFormState[] } {
         const childrenList = Array.isArray(children) ? children : [];
+
         if (!spouse) {
             return { spouse: null, children: childrenList };
         }

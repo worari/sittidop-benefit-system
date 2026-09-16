@@ -235,6 +235,100 @@ describe("HeirValidation", () => {
             expect(result.isValid).toBe(false);
             expect(result.errors.some((e) => e.includes("ผลรวมสัดส่วนทั้งหมดต้องเป็น 100%"))).toBe(true);
         });
+
+        it("should accept heirs with 2-decimal percentage splits (e.g. spouse 50%, 2 children 12.50% each, 2 parents 12.50% each)", () => {
+            const decimalHeirs: HeirFormState[] = [
+                {
+                    nationalId: "1234567890123",
+                    title: "นาง",
+                    firstName: "สมหญิง",
+                    lastName: "ใจดี",
+                    dateOfBirth: "1990-01-01",
+                    age: 35,
+                    relationship: "SPOUSE_LEGAL",
+                    phone: "1234567890",
+                    address: "123/456 กรุงเทพมหานคร",
+                    isAlive: true,
+                    bankName: "กรุงไทย",
+                    bankAccountNumber: "1234567890",
+                    allocationPercentage: 50.00,
+                    isDesignatedSuccessor: false,
+                    documentsVerified: true,
+                },
+                {
+                    nationalId: "1234567890124",
+                    title: "ด.ช.",
+                    firstName: "สมชาย",
+                    lastName: "ใจดี",
+                    dateOfBirth: "2010-01-01",
+                    age: 15,
+                    relationship: "CHILD_LEGITIMATE",
+                    phone: "1234567891",
+                    address: "123/456 กรุงเทพมหานคร",
+                    isAlive: true,
+                    bankName: "กรุงไทย",
+                    bankAccountNumber: "1234567891",
+                    allocationPercentage: 12.50, // บุตรคนที่ 1 (25% / 2 = 12.50%)
+                    isDesignatedSuccessor: false,
+                    documentsVerified: true,
+                },
+                {
+                    nationalId: "1234567890125",
+                    title: "ด.ญ.",
+                    firstName: "สมใจ",
+                    lastName: "ใจดี",
+                    dateOfBirth: "2012-02-02",
+                    age: 13,
+                    relationship: "CHILD_LEGITIMATE",
+                    phone: "1234567892",
+                    address: "123/456 กรุงเทพมหานคร",
+                    isAlive: true,
+                    bankName: "กรุงไทย",
+                    bankAccountNumber: "1234567892",
+                    allocationPercentage: 12.50, // บุตรคนที่ 2 (25% / 2 = 12.50%)
+                    isDesignatedSuccessor: false,
+                    documentsVerified: true,
+                },
+                {
+                    nationalId: "1234567890126",
+                    title: "นาย",
+                    firstName: "สมศักดิ์",
+                    lastName: "ใจดี",
+                    dateOfBirth: "1960-03-03",
+                    age: 65,
+                    relationship: "FATHER",
+                    phone: "1234567893",
+                    address: "123/456 กรุงเทพมหานคร",
+                    isAlive: true,
+                    bankName: "กรุงไทย",
+                    bankAccountNumber: "1234567893",
+                    allocationPercentage: 12.50, // บิดา
+                    isDesignatedSuccessor: false,
+                    documentsVerified: true,
+                },
+                {
+                    nationalId: "1234567890127",
+                    title: "นาง",
+                    firstName: "สมศรี",
+                    lastName: "ใจดี",
+                    dateOfBirth: "1962-04-04",
+                    age: 63,
+                    relationship: "MOTHER",
+                    phone: "1234567894",
+                    address: "123/456 กรุงเทพมหานคร",
+                    isAlive: true,
+                    bankName: "กรุงไทย",
+                    bankAccountNumber: "1234567894",
+                    allocationPercentage: 12.50, // มารดา
+                    isDesignatedSuccessor: false,
+                    documentsVerified: true,
+                },
+            ];
+
+            const result = HeirValidation.validateAllHeirs(decimalHeirs);
+            expect(result.isValid).toBe(true);
+            expect(result.errors).toHaveLength(0);
+        });
     });
 
     describe("sanitizeHeir", () => {
