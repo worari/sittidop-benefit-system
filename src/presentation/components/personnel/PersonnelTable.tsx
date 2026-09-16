@@ -325,6 +325,69 @@ export function PersonnelTable() {
   const [newProfilePhotoUrl, setNewProfilePhotoUrl] = useState<string>("");
   const [newDocumentAttachments, setNewDocumentAttachments] = useState<Array<{ name: string; type: string; size: number; dataUrl?: string }>>([]);
 
+  // ── PFM Search State (เชื่อมต่อระบบ PFM API: pfm.rta.mi.th) ──
+  const [pfmSearchMode,      setPfmSearchMode]      = useState<"unit" | "nationalId" | "name">("unit");
+  const [pfmSearchNationalId,setPfmSearchNationalId]= useState("");
+  const [pfmSearchFirstName, setPfmSearchFirstName] = useState("");
+  const [pfmSearchLastName,  setPfmSearchLastName]  = useState("");
+  const [pfmSelectedUnitId,  setPfmSelectedUnitId]  = useState("");
+  const [pfmUnitsList,       setPfmUnitsList]       = useState<Array<{ id: string; name: string; personnelCount: number; groupName?: string }>>([]);
+  const [pfmUnitsLoading,    setPfmUnitsLoading]    = useState(false);
+  const [pfmSearchLoading,   setPfmSearchLoading]   = useState(false);
+  const [pfmSearchResults,   setPfmSearchResults]   = useState<Array<{
+    militaryId?: string;
+    rank?:       string;
+    rankAbbr?:   string;
+    firstName:   string;
+    lastName:    string;
+    fullName?:   string;
+    normalUnit?: string;
+    fieldUnit?:  string;
+    fieldPosition?: string;
+    citizenId?:  string;
+    dateOfBirth?: string;
+    age?:        number;
+    orderNo?:    string;
+    orderName?:  string;
+    orderDate?:  string;
+    slotType?:   string;
+    source?:     string;
+  }>>([]);
+  const [pfmSearchError,    setPfmSearchError]    = useState<string | null>(null);
+  const [pfmSearchWarning,  setPfmSearchWarning]  = useState<string | null>(null);
+  const [pfmSearchDone,     setPfmSearchDone]     = useState(false);
+
+  // ── PFM Unit Search Autocomplete State ──
+  const [pfmUnitSearchText,   setPfmUnitSearchText]   = useState("");
+  const [pfmUnitDropdownOpen, setPfmUnitDropdownOpen] = useState(false);
+  const [pfmUnitActiveIndex,  setPfmUnitActiveIndex]  = useState(-1);
+  const pfmUnitComboboxRef = React.useRef<HTMLDivElement>(null);
+
+  // Close PFM Unit dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (pfmUnitComboboxRef.current && !pfmUnitComboboxRef.current.contains(event.target as Node)) {
+        setPfmUnitDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const filteredPfmUnits = useMemo(() => {
+    const q = pfmUnitSearchText.trim().toLowerCase();
+    if (!q) return pfmUnitsList;
+    return pfmUnitsList.filter((u) => {
+      const matchName = u.name.toLowerCase().includes(q);
+      const matchGroup = u.groupName ? u.groupName.toLowerCase().includes(q) : false;
+      return matchName || matchGroup;
+    });
+  }, [pfmUnitsList, pfmUnitSearchText]);
+
+  const selectedPfmUnitObj = useMemo(() => {
+    return pfmUnitsList.find((u) => u.id === pfmSelectedUnitId) || null;
+  }, [pfmUnitsList, pfmSelectedUnitId]);
+
   // Auto-calculate total service time (normal service from appointment date + multiplier service)
   useEffect(() => {
     const normalService = calculateServiceTime(newAppointmentDate, null);
@@ -733,6 +796,237 @@ export function PersonnelTable() {
     setCitizenIdError("");
     setPhoneError("");
     setNameError("");
+    // Reset PFM search state
+    setPfmSearchNationalId("");
+    setPfmSearchFirstName("");
+    setPfmSearchLastName("");
+    setPfmUnitSearchText("");
+    setPfmUnitDropdownOpen(false);
+    setPfmSearchResults([]);
+    setPfmSearchError(null);
+    setPfmSearchWarning(null);
+    setPfmSearchDone(false);
+  };
+
+  // Helper to parse Thai rank into enum code + abbreviation
+  const parseRankFromThai = (rankStr: string) => {
+    const clean = (rankStr || "").trim();
+    if (clean.includes("พล.อ.") || clean === "พลเอก") return { code: "GENERAL", abbr: "พล.อ." };
+    if (clean.includes("พล.ท.") || clean === "พลโท") return { code: "LIEUTENANT_GENERAL", abbr: "พล.ท." };
+    if (clean.includes("พล.ต.") || clean === "พลตรี") return { code: "MAJOR_GENERAL", abbr: "พล.ต." };
+    if (clean.includes("พ.อ.(พิเศษ)") || clean.includes("พ.อ.พิเศษ") || clean === "พันเอกพิเศษ") return { code: "COLONEL_SPECIAL", abbr: "พ.อ.(พิเศษ)" };
+    if (clean.includes("พ.อ.") || clean === "พันเอก") return { code: "COLONEL", abbr: "พ.อ." };
+    if (clean.includes("พ.ท.") || clean === "พันโท") return { code: "LIEUTENANT_COLONEL", abbr: "พ.ท." };
+    if (clean.includes("พ.ต.") || clean === "พันตรี") return { code: "MAJOR", abbr: "พ.ต." };
+    if (clean.includes("ร.อ.") || clean === "ร้อยเอก") return { code: "CAPTAIN", abbr: "ร.อ." };
+    if (clean.includes("ร.ท.") || clean === "ร้อยโท") return { code: "FIRST_LIEUTENANT", abbr: "ร.ท." };
+    if (clean.includes("ร.ต.") || clean === "ร้อยตรี") return { code: "SECOND_LIEUTENANT", abbr: "ร.ต." };
+    if (clean.includes("จ.ส.อ") || clean === "จ่าสิบเอก") return { code: "MASTER_SERGEANT_1ST", abbr: "จ.ส.อ." };
+    if (clean.includes("จ.ส.ท") || clean === "จ่าสิบโท") return { code: "MASTER_SERGEANT_2ND", abbr: "จ.ส.ท." };
+    if (clean.includes("จ.ส.ต") || clean === "จ่าสิบตรี") return { code: "MASTER_SERGEANT_3RD", abbr: "จ.ส.ต." };
+    if (clean.includes("ส.อ") || clean === "สิบเอก") return { code: "SERGEANT", abbr: "ส.อ." };
+    if (clean.includes("ส.ท") || clean === "สิบโท") return { code: "CORPORAL", abbr: "ส.ท." };
+    if (clean.includes("ส.ต") || clean === "สิบตรี") return { code: "LANCE_CORPORAL", abbr: "ส.ต." };
+    if (clean.includes("พลทหาร") || clean.includes("พลฯ") || clean === "พล") return { code: "PRIVATE", abbr: "พลทหาร" };
+    if (clean.includes("อส.ทพ") || clean.includes("ทหารพราน")) return { code: "VOLUNTEER_RANGER", abbr: "อส.ทพ." };
+    if (clean.includes("พล.อส")) return { code: "RANGER_ENLISTED", abbr: "พล.อส." };
+    return { code: "PRIVATE", abbr: clean || "พลทหาร" };
+  };
+
+  // Fetch PFM units list when needed
+  const fetchPfmUnits = async () => {
+    if (pfmUnitsList.length > 0) return;
+    try {
+      setPfmUnitsLoading(true);
+      const res = await fetch("/api/pfm-search?mode=units");
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        const sorted = [...json.data].sort((a: any, b: any) => (b.personnelCount || 0) - (a.personnelCount || 0));
+        setPfmUnitsList(sorted);
+        if (sorted.length > 0 && !pfmSelectedUnitId) {
+          setPfmSelectedUnitId(sorted[0].id);
+          setPfmUnitSearchText(sorted[0].name);
+        }
+      }
+    } catch (err) {
+      console.warn("Unable to fetch PFM units", err);
+    } finally {
+      setPfmUnitsLoading(false);
+    }
+  };
+
+  // Handle selecting a unit from autocomplete suggestions
+  const handleSelectPfmUnit = (unit: { id: string; name: string; personnelCount: number; groupName?: string }) => {
+    setPfmSelectedUnitId(unit.id);
+    setPfmUnitSearchText(unit.name);
+    setPfmUnitDropdownOpen(false);
+    setPfmUnitActiveIndex(-1);
+    setPfmSearchResults([]);
+    setPfmSearchDone(false);
+  };
+
+  // Auto-fetch units on modal open
+  useEffect(() => {
+    if (isAddModalOpen) {
+      fetchPfmUnits();
+    }
+  }, [isAddModalOpen]);
+
+  // ── PFM Search handler ──
+  const handlePfmSearch = async () => {
+    setPfmSearchError(null);
+    setPfmSearchWarning(null);
+    setPfmSearchDone(false);
+
+    if (pfmSearchMode === "nationalId") {
+      const cleanId = pfmSearchNationalId.trim().replace(/\D/g, "");
+      if (cleanId.length !== 13) {
+        setPfmSearchError("กรุณาระบุเลขประจำตัวประชาชน 13 หลักให้ครบถ้วน");
+        return;
+      }
+      setPfmSearchLoading(true);
+      try {
+        const res = await fetch(`/api/pfm-search?nationalId=${cleanId}`);
+        const json = await res.json();
+        if (json.success && json.data) {
+          const d = json.data;
+          const mappedItem = {
+            firstName: d.firstName || "",
+            lastName: d.lastName || "",
+            fullName: d.fullName || `${d.firstName || ""} ${d.lastName || ""}`.trim(),
+            rank: d.rank || "",
+            rankAbbr: d.rank || "",
+            citizenId: cleanId,
+            militaryId: d.militaryId || "",
+            normalUnit: d.unit || d.normalUnit || "",
+            fieldUnit: d.fieldUnit || "",
+            fieldPosition: d.position || d.fieldPosition || "",
+            dateOfBirth: d.dateOfBirth || d.birthDate || "",
+            source: "pfm_live",
+          };
+          setPfmSearchResults([mappedItem]);
+          setPfmSearchDone(true);
+        } else if (json.notFound) {
+          setPfmSearchError("ไม่พบข้อมูลกำลังพลที่มีเลขบัตรประชาชนนี้ในระบบ PFM");
+          setPfmSearchDone(true);
+        } else {
+          setPfmSearchError(json.error || "เกิดข้อผิดพลาดในการค้นหา");
+        }
+      } catch (err: any) {
+        setPfmSearchError(err.message || "ไม่สามารถเชื่อมต่อ PFM API ได้");
+      } finally {
+        setPfmSearchLoading(false);
+      }
+      return;
+    }
+
+    if (pfmSearchMode === "unit") {
+      if (!pfmSelectedUnitId) {
+        setPfmSearchError("กรุณาเลือกหน่วย PFM");
+        return;
+      }
+      setPfmSearchLoading(true);
+      try {
+        const qs = new URLSearchParams({ unitId: pfmSelectedUnitId });
+        if (pfmSearchFirstName.trim()) qs.set("firstName", pfmSearchFirstName.trim());
+        if (pfmSearchLastName.trim())  qs.set("lastName",  pfmSearchLastName.trim());
+        const res = await fetch(`/api/pfm-search?${qs.toString()}`);
+        const json = await res.json();
+        if (json.success && json.data?.items) {
+          setPfmSearchResults(json.data.items);
+          setPfmSearchDone(true);
+        } else {
+          setPfmSearchError(json.error || "ไม่สามารถดึงข้อมูลกำลังพลในหน่วยได้");
+        }
+      } catch (err: any) {
+        setPfmSearchError(err.message || "ไม่สามารถเชื่อมต่อ PFM API ได้");
+      } finally {
+        setPfmSearchLoading(false);
+      }
+      return;
+    }
+
+    // Name mode without unit
+    if (!pfmSearchFirstName.trim() && !pfmSearchLastName.trim()) {
+      setPfmSearchError("กรุณากรอกชื่อหรือนามสกุลอย่างน้อย 1 ช่อง");
+      return;
+    }
+    setPfmSearchLoading(true);
+    try {
+      const qs = new URLSearchParams();
+      if (pfmSearchFirstName.trim()) qs.set("firstName", pfmSearchFirstName.trim());
+      if (pfmSearchLastName.trim())  qs.set("lastName",  pfmSearchLastName.trim());
+      const res = await fetch(`/api/pfm-search?${qs.toString()}`);
+      const json = await res.json();
+      if (json.success) {
+        const items = json.data?.items ?? json.data ?? [];
+        setPfmSearchResults(Array.isArray(items) ? items : []);
+        if (json.warning) setPfmSearchWarning(json.warning);
+        setPfmSearchDone(true);
+      } else {
+        setPfmSearchError(json.error || "เกิดข้อผิดพลาดในการค้นหาข้อมูลกำลังพล");
+      }
+    } catch (err: any) {
+      setPfmSearchError(err.message || "ไม่สามารถเชื่อมต่อ PFM API ได้");
+    } finally {
+      setPfmSearchLoading(false);
+    }
+  };
+
+  // ── Apply PFM result to Add form fields ──
+  const applyPfmPersonnel = (p: (typeof pfmSearchResults)[0]) => {
+    if (p.firstName) setNewFirstName(p.firstName);
+    if (p.lastName) setNewLastName(p.lastName);
+
+    // Parse & assign rank
+    const r = parseRankFromThai(p.rankAbbr || p.rank || "");
+    setNewRank(r.code);
+    setNewRankAbbr(r.abbr);
+
+    // Auto-map personnel type (OFFICER, NCO, PRIVATE, VOLUNTEER)
+    if (p.slotType) {
+      if (p.slotType === "OFFICER") setNewPersonnelType("OFFICER");
+      else if (p.slotType === "NCO") setNewPersonnelType("NCO");
+      else if (p.slotType === "PRIVATE") setNewPersonnelType("ENLISTED");
+      else if (p.slotType === "VOLUNTEER") setNewPersonnelType("VOLUNTEER");
+    }
+
+    if (p.militaryId) setNewMilitaryId(p.militaryId);
+    if (p.citizenId)  setNewCitizenId(p.citizenId);
+    if (p.normalUnit) setNewNormalUnit(p.normalUnit);
+    if (p.fieldUnit)  setNewFieldUnit(p.fieldUnit);
+    if (p.fieldPosition) setNewFieldPosition(p.fieldPosition);
+
+    if (p.orderName || p.orderNo) {
+      const orderText = p.orderName ? `${p.orderName} ที่ ${p.orderNo || ""}`.trim() : (p.orderNo || "");
+      setNewFieldDutyOrderNo(orderText);
+    }
+
+    if (p.orderDate) {
+      let dateStr = p.orderDate;
+      const parts = dateStr.split("-");
+      if (parts.length === 3) {
+        let yr = parseInt(parts[0], 10);
+        if (yr > 2400) yr = yr - 543;
+        dateStr = `${yr}-${parts[1].padStart(2, "0")}-${parts[2].padStart(2, "0")}`;
+      }
+      setNewFieldDutyOrderDate(dateStr);
+    }
+
+    // Parse dateOfBirth and convert to Thai parts
+    if (p.dateOfBirth) {
+      const d = new Date(p.dateOfBirth);
+      if (!isNaN(d.getTime())) {
+        setNewBirthDay(d.getDate());
+        setNewBirthMonth(d.getMonth() + 1);
+        setNewBirthYear(d.getFullYear() + 543);
+      }
+    }
+    if (p.age) setNewAge(p.age);
+
+    // Clear search results
+    setPfmSearchResults([]);
+    setPfmSearchDone(false);
   };
 
   const fillSampleTestData = () => {
@@ -2632,6 +2926,362 @@ export function PersonnelTable() {
               </Button>
             </div>
           </DialogHeader>
+
+          {/* ── PFM Search Panel ── */}
+          <div className="rounded-xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50 via-teal-50/50 to-emerald-50 dark:border-emerald-800 dark:from-emerald-950/40 dark:via-teal-950/30 dark:to-emerald-950/40 p-3.5 shadow-sm">
+            <div className="flex items-center justify-between gap-2 mb-2.5">
+              <div className="flex items-center gap-2">
+                <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-emerald-600 text-white shadow-sm">
+                  <Search className="h-3.5 w-3.5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                      เชื่อมต่อระบบ PFM (pfm.rta.mi.th)
+                    </p>
+                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-emerald-400 bg-emerald-100/60 text-emerald-800 dark:text-emerald-300 font-semibold">
+                      Live API
+                    </Badge>
+                  </div>
+                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                    ดึงข้อมูลจริงจากระบบ PFM มากรอกในฟอร์มทะเบียนและสิทธิประโยชน์อัตโนมัติ
+                  </p>
+                </div>
+              </div>
+
+              {/* Mode switch tabs */}
+              <div className="flex items-center gap-1 bg-emerald-100/70 dark:bg-emerald-900/40 p-0.5 rounded-lg border border-emerald-200 dark:border-emerald-800 text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => { setPfmSearchMode("unit"); setPfmSearchResults([]); setPfmSearchDone(false); }}
+                  className={`px-2 py-1 rounded font-medium transition-all ${
+                    pfmSearchMode === "unit"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200/60"
+                  }`}
+                >
+                  เลือกตามหน่วย PFM
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setPfmSearchMode("nationalId"); setPfmSearchResults([]); setPfmSearchDone(false); }}
+                  className={`px-2 py-1 rounded font-medium transition-all ${
+                    pfmSearchMode === "nationalId"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200/60"
+                  }`}
+                >
+                  เลขบัตรประชาชน
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setPfmSearchMode("name"); setPfmSearchResults([]); setPfmSearchDone(false); }}
+                  className={`px-2 py-1 rounded font-medium transition-all ${
+                    pfmSearchMode === "name"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200/60"
+                  }`}
+                >
+                  ชื่อ-นามสกุล
+                </button>
+              </div>
+            </div>
+
+            {/* Mode 1: Search by Unit with Autocomplete */}
+            {pfmSearchMode === "unit" && (
+              <div className="space-y-2 mb-2">
+                <div className="space-y-1 relative" ref={pfmUnitComboboxRef}>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-1.5">
+                      <span>ค้นหาและเลือกหน่วยสนาม / หน่วยกำลังพล PFM:</span>
+                      {selectedPfmUnitObj && (
+                        <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-normal">
+                          (เลือกแล้ว: {selectedPfmUnitObj.personnelCount} นาย)
+                        </span>
+                      )}
+                    </Label>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400">
+                      {pfmUnitsLoading ? "กำลังโหลดรายชื่อหน่วย..." : `${filteredPfmUnits.length} / ${pfmUnitsList.length} หน่วย`}
+                    </span>
+                  </div>
+
+                  <div className="relative">
+                    <div className="relative flex items-center">
+                      <Building2 className="absolute left-2.5 h-3.5 w-3.5 text-emerald-600 pointer-events-none" />
+                      <Input
+                        id="pfm-unit-autocomplete-input"
+                        type="text"
+                        value={pfmUnitSearchText}
+                        onChange={(e) => {
+                          setPfmUnitSearchText(e.target.value);
+                          setPfmUnitDropdownOpen(true);
+                          setPfmUnitActiveIndex(-1);
+                        }}
+                        onFocus={() => setPfmUnitDropdownOpen(true)}
+                        onKeyDown={(e) => {
+                          if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            setPfmUnitDropdownOpen(true);
+                            setPfmUnitActiveIndex((prev) => Math.min(prev + 1, filteredPfmUnits.length - 1));
+                          } else if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            setPfmUnitActiveIndex((prev) => Math.max(prev - 1, 0));
+                          } else if (e.key === "Enter") {
+                            if (pfmUnitDropdownOpen && pfmUnitActiveIndex >= 0 && filteredPfmUnits[pfmUnitActiveIndex]) {
+                              e.preventDefault();
+                              handleSelectPfmUnit(filteredPfmUnits[pfmUnitActiveIndex]);
+                            } else if (!pfmUnitDropdownOpen) {
+                              handlePfmSearch();
+                            }
+                          } else if (e.key === "Escape") {
+                            setPfmUnitDropdownOpen(false);
+                          }
+                        }}
+                        placeholder="พิมพ์เพื่อค้นหาชื่อหน่วย (Autocomplete) เช่น ตาพระยา, ชค.ป., สุรนารี..."
+                        className="h-8 pl-8 pr-16 text-xs border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900 focus:ring-emerald-500 font-medium"
+                      />
+                      <div className="absolute right-1.5 flex items-center gap-1">
+                        {pfmUnitSearchText && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPfmUnitSearchText("");
+                              setPfmSelectedUnitId("");
+                              setPfmUnitDropdownOpen(true);
+                            }}
+                            className="h-5 w-5 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold"
+                            title="ล้างคำค้นหา"
+                          >
+                            ×
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setPfmUnitDropdownOpen((prev) => !prev)}
+                          className="h-6 px-1.5 rounded text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-[10px]"
+                          title="แสดงรายชื่อหน่วยทั้งหมด"
+                        >
+                          ▼
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Autocomplete Suggestions Dropdown */}
+                    {pfmUnitDropdownOpen && (
+                      <div className="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900 shadow-xl text-xs divide-y divide-slate-100 dark:divide-slate-800 animate-in fade-in-50 duration-100">
+                        {filteredPfmUnits.length === 0 ? (
+                          <div className="p-3 text-center text-muted-foreground text-[11px]">
+                            ไม่พบหน่วยที่ตรงกับ &quot;{pfmUnitSearchText}&quot;
+                          </div>
+                        ) : (
+                          filteredPfmUnits.map((u, idx) => {
+                            const isSelected = u.id === pfmSelectedUnitId;
+                            const isHighlighted = idx === pfmUnitActiveIndex;
+                            return (
+                              <div
+                                key={u.id}
+                                onClick={() => handleSelectPfmUnit(u)}
+                                onMouseEnter={() => setPfmUnitActiveIndex(idx)}
+                                className={`flex items-center justify-between gap-2 px-3 py-2 cursor-pointer transition-colors ${
+                                  isSelected
+                                    ? "bg-emerald-100/70 dark:bg-emerald-950/60 font-semibold text-emerald-900 dark:text-emerald-200"
+                                    : isHighlighted
+                                    ? "bg-emerald-50 dark:bg-emerald-900/30 text-slate-800 dark:text-slate-100"
+                                    : "hover:bg-slate-50 dark:hover:bg-slate-800/60 text-slate-700 dark:text-slate-200"
+                                }`}
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="truncate">{u.name}</span>
+                                    {isSelected && <CheckCircle2 className="h-3 w-3 text-emerald-600 shrink-0" />}
+                                  </div>
+                                  {u.groupName && (
+                                    <div className="text-[10px] text-muted-foreground truncate">
+                                      สังกัดกลุ่ม: {u.groupName}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="shrink-0 flex items-center gap-1">
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[9px] px-1.5 py-0 ${
+                                      u.personnelCount > 0
+                                        ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 font-semibold"
+                                        : "border-slate-200 text-slate-400"
+                                    }`}
+                                  >
+                                    {u.personnelCount > 0 ? `${u.personnelCount} นาย` : "0 นาย"}
+                                  </Badge>
+                                </div>
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] text-emerald-700 dark:text-emerald-300">กรองชื่อในหน่วย (ถ้ามี)</Label>
+                    <Input
+                      placeholder="เช่น อาทิตย์"
+                      value={pfmSearchFirstName}
+                      onChange={(e) => setPfmSearchFirstName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handlePfmSearch(); }}
+                      className="h-7 text-xs border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900"
+                    />
+                  </div>
+                  <div className="space-y-0.5">
+                    <Label className="text-[10px] text-emerald-700 dark:text-emerald-300">กรองนามสกุลในหน่วย (ถ้ามี)</Label>
+                    <Input
+                      placeholder="เช่น โคตรสมบัติ"
+                      value={pfmSearchLastName}
+                      onChange={(e) => setPfmSearchLastName(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") handlePfmSearch(); }}
+                      className="h-7 text-xs border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Mode 2: Search by National ID (13 digits) */}
+            {pfmSearchMode === "nationalId" && (
+              <div className="space-y-1 mb-2">
+                <Label className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300">
+                  ค้นหาบุคคลด้วยเลขประจำตัวประชาชน (13 หลัก):
+                </Label>
+                <Input
+                  id="pfm-search-nationalid"
+                  placeholder="กรอกเลขประจำตัวประชาชน 13 หลัก เช่น 1329900123450"
+                  maxLength={13}
+                  value={pfmSearchNationalId}
+                  onChange={(e) => setPfmSearchNationalId(e.target.value.replace(/\D/g, ""))}
+                  onKeyDown={(e) => { if (e.key === "Enter") handlePfmSearch(); }}
+                  className="h-8 text-xs border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900 font-mono tracking-wider focus:ring-emerald-500"
+                />
+              </div>
+            )}
+
+            {/* Mode 3: Search by First/Last Name */}
+            {pfmSearchMode === "name" && (
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300">
+                    ค้นหา: ชื่อ
+                  </Label>
+                  <Input
+                    id="pfm-search-firstname"
+                    placeholder="เช่น วีรชัย หรือ สมชาย"
+                    value={pfmSearchFirstName}
+                    onChange={(e) => setPfmSearchFirstName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handlePfmSearch(); }}
+                    className="h-8 text-xs border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900 focus:ring-emerald-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-[11px] font-semibold text-emerald-800 dark:text-emerald-300">
+                    ค้นหา: นามสกุล
+                  </Label>
+                  <Input
+                    id="pfm-search-lastname"
+                    placeholder="เช่น ภักดีสยาม หรือ กล้าหาญ"
+                    value={pfmSearchLastName}
+                    onChange={(e) => setPfmSearchLastName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") handlePfmSearch(); }}
+                    className="h-8 text-xs border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-900 focus:ring-emerald-500"
+                  />
+                </div>
+              </div>
+            )}
+
+            <Button
+              id="pfm-search-btn"
+              type="button"
+              onClick={handlePfmSearch}
+              disabled={pfmSearchLoading}
+              className="w-full h-8 text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 font-semibold shadow-sm"
+            >
+              <Search className="h-3.5 w-3.5" />
+              {pfmSearchLoading ? "กำลังดึงข้อมูลจาก PFM..." : pfmSearchMode === "unit" ? "ดึงข้อมูลกำลังพลในหน่วย (PFM API)" : pfmSearchMode === "nationalId" ? "ค้นหาบุคคลด้วยเลขบัตรประชาชน (PFM API)" : "ค้นหากำลังพล"}
+            </Button>
+
+            {/* Warning indicator */}
+            {pfmSearchWarning && (
+              <div className="mt-2 flex items-start gap-1.5 text-[10px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-700 rounded-lg p-2">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-500" />
+                <span>{pfmSearchWarning}</span>
+              </div>
+            )}
+
+            {/* Error */}
+            {pfmSearchError && (
+              <div className="mt-2 flex items-start gap-1.5 text-[10px] text-red-700 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-300 dark:border-red-700 rounded-lg p-2">
+                <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-red-500" />
+                <span>{pfmSearchError}</span>
+              </div>
+            )}
+
+            {/* Results empty state */}
+            {pfmSearchDone && pfmSearchResults.length === 0 && !pfmSearchError && (
+              <div className="mt-2 text-center text-[11px] text-muted-foreground py-3 bg-white/60 dark:bg-slate-900/40 rounded-lg border border-slate-200 dark:border-slate-700">
+                ไม่พบกำลังพลที่ตรงกับเงื่อนไขการค้นหาในระบบ PFM
+              </div>
+            )}
+
+            {/* Results table */}
+            {pfmSearchResults.length > 0 && (
+              <div className="mt-2 rounded-lg border border-emerald-200 dark:border-emerald-800 overflow-hidden bg-white dark:bg-slate-900">
+                <div className="flex items-center justify-between text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-900/50 px-3 py-1.5 border-b border-emerald-200 dark:border-emerald-800">
+                  <span>พบข้อมูลกำลังพล {pfmSearchResults.length} นาย — คลิก &quot;เลือก&quot; เพื่อนำข้อมูลลงฟอร์ม</span>
+                  <Badge variant="outline" className="text-[9px] px-1 py-0 border-emerald-400 text-emerald-700 dark:text-emerald-300">
+                    PFM Live
+                  </Badge>
+                </div>
+                <div className="max-h-52 overflow-y-auto divide-y divide-emerald-100 dark:divide-emerald-900/50">
+                  {pfmSearchResults.map((p, idx) => (
+                    <div
+                      key={`pfm-${p.personnelId || p.militaryId || idx}`}
+                      className="flex items-center justify-between gap-2 px-3 py-2 bg-white dark:bg-slate-900 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/40 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-emerald-300 text-emerald-800 dark:text-emerald-400 font-semibold shrink-0">
+                            {p.rankAbbr || p.rank || "กำลังพล"}
+                          </Badge>
+                          <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                            {p.fullName || `${p.firstName} ${p.lastName}`}
+                          </span>
+                          {p.slotTypeLabel && (
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                              ({p.slotTypeLabel})
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2">
+                          {p.fieldPosition && <span className="text-slate-600 dark:text-slate-400 font-medium">ตำแหน่ง: {p.fieldPosition}</span>}
+                          {p.fieldUnit && <span className="truncate">หน่วย: {p.fieldUnit}</span>}
+                          {p.citizenId && <span className="font-mono">บัตร ปชช: {p.citizenId}</span>}
+                          {p.orderName && <span className="text-emerald-700 dark:text-emerald-400">คำสั่ง: {p.orderName} {p.orderNo ? `ที่ ${p.orderNo}` : ""}</span>}
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => applyPfmPersonnel(p)}
+                        className="h-6 text-[10px] px-2.5 shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm"
+                      >
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        เลือก
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="space-y-4 py-2 text-xs">
             <div className="rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/30 p-3">
