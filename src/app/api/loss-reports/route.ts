@@ -7,6 +7,8 @@ import { NotificationRepository } from "@/infrastructure/database/repositories/N
 import { TelegramNotificationService } from "@/infrastructure/services/TelegramNotificationService";
 import * as mgrs from "mgrs";
 
+export const dynamic = 'force-dynamic';
+
 const lossReportRepo = new LossIncidentReportRepository();
 const notificationRepo = new NotificationRepository();
 

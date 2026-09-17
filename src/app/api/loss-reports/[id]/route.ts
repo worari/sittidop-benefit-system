@@ -5,6 +5,8 @@ import { AuditLogger } from "@/infrastructure/logging/audit-logger";
 import { LossIncidentReportRepository } from "@/infrastructure/database/repositories/LossIncidentReportRepository";
 import * as mgrs from "mgrs";
 
+export const dynamic = 'force-dynamic';
+
 const lossReportRepo = new LossIncidentReportRepository();
 
 function normalizeDate(value: Date | string | null | undefined) {

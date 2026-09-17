@@ -9,8 +9,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/presentation/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/presentation/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/presentation/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/presentation/components/ui/dialog";
 import { ThaiBuddhistDatePicker } from "@/presentation/components/calculator/ThaiBuddhistDatePicker";
 import { searchAddressByProvince, type ThaiAddressEntry } from "thai-address-database";
+import { cn } from "@/presentation/lib/utils";
 import type { MilitaryPersonnelRecord } from "@/infrastructure/database/repositories/MilitaryStoreManager";
 import type { IncidentCasualty, LossType, LossReportDispatchMeta } from "@/infrastructure/database/repositories/LossIncidentReportRepository";
 import {
@@ -22,6 +31,7 @@ import {
   Calendar,
   AlertCircle,
   CheckCircle2,
+  Check,
   Layers,
   MapPinned,
   Shield,
@@ -48,6 +58,7 @@ import {
   Calculator,
 } from "lucide-react";
 import Link from "next/link";
+import { AddressCombobox } from "@/presentation/components/ui/address-combobox";
 
 interface LossIncidentReport {
   id: string;
@@ -85,9 +96,70 @@ const DEFAULT_FORM = {
   province: "",
   eventSummary: "",
   behaviorSummary: "",
-  engagementBehavior: "ปะทะ+ยิงต่อสู้",
+  engagementBehavior: "ปะทะและยิงต่อสู้กับกลุ่มผู้ก่อความไม่สงบ / ข้าศึก",
   enemyAction: "ENEMY" as "ENEMY" | "NO_ENEMY",
 };
+
+const COMMON_PROVINCES = [
+  "นราธิวาส",
+  "ยะลา",
+  "ปัตตานี",
+  "สงขลา",
+  "เชียงใหม่",
+  "เชียงราย",
+  "ตาก",
+  "สุรินทร์",
+  "ศรีสะเกษ",
+  "สระแก้ว",
+  "กาญจนบุรี",
+];
+
+const MILITARY_RANKS = [
+  "พลเอก",
+  "พลโท",
+  "พลตรี",
+  "พันเอก (พิเศษ)",
+  "พันเอก",
+  "พันโท",
+  "พันตรี",
+  "ร้อยเอก",
+  "ร้อยโท",
+  "ร้อยตรี",
+  "จ่าสิบเอก",
+  "จ่าสิบโท",
+  "จ่าสิบตรี",
+  "สิบเอก",
+  "สิบโท",
+  "สิบตรี",
+  "พลทหาร",
+  "อส.ทพ.",
+  "พล.อส.",
+  "พล.อ.",
+  "พล.ท.",
+  "พล.ต.",
+  "พ.อ.(พิเศษ)",
+  "พ.อ.",
+  "พ.ท.",
+  "พ.ต.",
+  "ร.อ.",
+  "ร.ท.",
+  "ร.ต.",
+  "จ.ส.อ.",
+  "จ.ส.ท.",
+  "จ.ส.ต.",
+  "ส.อ.",
+  "ส.ท.",
+  "ส.ต.",
+];
+
+const RANK_OPTIONS = [
+  "พล.อ.", "พล.ท.", "พล.ต.",
+  "พ.อ.(พิเศษ)", "พ.อ.", "พ.ท.", "พ.ต.",
+  "ร.อ.", "ร.ท.", "ร.ต.",
+  "จ.ส.อ.(พิเศษ)", "จ.ส.อ.", "จ.ส.ท.", "จ.ส.ต.",
+  "ส.อ.", "ส.ท.", "ส.ต.",
+  "พลฯ"
+];
 
 const HOUR_OPTIONS = Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, "0"));
 const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, "0"));
@@ -128,6 +200,7 @@ const DEFAULT_DISPATCH_META: LossReportDispatchMeta = {
   writerName: "",
   writerUnit: "",
   writerPhone: "",
+  approverRank: "",
   approverName: "",
   equipmentDamage: "",
   commanderKP3Name: "",
@@ -157,6 +230,12 @@ export function LossIncidentReportTable() {
   // Document preview modal
   const [previewModal, setPreviewModal] = useState<{ open: boolean; template: "KP3" | "KP4"; reportId: string } | null>(null);
 
+  // Map modal and inline toggle state
+  const [showMapModal, setShowMapModal] = useState(false);
+  const [showInlineMap, setShowInlineMap] = useState(false);
+  const [tempModalPoint, setTempModalPoint] = useState<{ lat: number; lon: number } | null>(null);
+  const [tempModalMgrs, setTempModalMgrs] = useState<string>("");
+
   // Reports state
   const [reports, setReports] = useState<LossIncidentReport[]>([]);
   const [loading, setLoading] = useState(false);
@@ -182,7 +261,7 @@ export function LossIncidentReportTable() {
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/loss-reports`);
+      const res = await fetch(`/api/loss-reports?t=${Date.now()}`);
       const json = await res.json();
       if (json.success) {
         setReports(json.data || []);
@@ -271,6 +350,33 @@ export function LossIncidentReportTable() {
     } catch {
       setMessage({ type: "error", text: "ไม่สามารถแปลงพิกัดจากแผนที่เป็น MGRS ได้" });
     }
+  };
+
+  const openMapModal = () => {
+    setTempModalPoint(mapPoint);
+    setTempModalMgrs(form.mgrsCoordinate);
+    setShowMapModal(true);
+  };
+
+  const handleModalMapPick = (lat: number, lon: number) => {
+    try {
+      const nextMgrs = mgrs.forward([lon, lat], 5).toUpperCase();
+      setTempModalPoint({ lat, lon });
+      setTempModalMgrs(nextMgrs);
+    } catch {
+      setMessage({ type: "error", text: "ไม่สามารถแปลงพิกัดจากแผนที่เป็น MGRS ได้" });
+    }
+  };
+
+  const confirmModalMapPick = () => {
+    if (tempModalMgrs) {
+      setForm((prev) => ({ ...prev, mgrsCoordinate: tempModalMgrs }));
+      setMessage({
+        type: "success",
+        text: `บันทึกพิกัด MGRS สำเร็จ: ${tempModalMgrs}`,
+      });
+    }
+    setShowMapModal(false);
   };
 
   // Search filtered personnel for selection
@@ -678,33 +784,33 @@ export function LossIncidentReportTable() {
           </CardContent>
         </Card>
 
+        <Card className="border-slate-300 bg-slate-100/70 dark:bg-slate-900/60 dark:border-slate-700 shadow-sm">
+          <CardContent className="p-3.5 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-slate-800 dark:text-slate-200 font-medium">เสียชีวิต</p>
+              <h3 className="text-xl font-bold text-slate-950 dark:text-white">{deceasedCount} นาย</h3>
+            </div>
+            <HeartCrack className="h-8 w-8 text-slate-700 dark:text-slate-300" />
+          </CardContent>
+        </Card>
+
         <Card className="border-red-200 bg-red-50/40 dark:bg-red-950/20 shadow-sm">
           <CardContent className="p-3.5 flex items-center justify-between">
             <div>
-              <p className="text-xs text-red-700 dark:text-red-400 font-medium">เสียชีวิต</p>
-              <h3 className="text-xl font-bold text-red-700 dark:text-red-300">{deceasedCount} นาย</h3>
+              <p className="text-xs text-red-700 dark:text-red-400 font-medium">พิการทุพพลภาพ</p>
+              <h3 className="text-xl font-bold text-red-700 dark:text-red-300">{disabledCount} นาย</h3>
             </div>
-            <HeartCrack className="h-8 w-8 text-red-500/50" />
+            <Activity className="h-8 w-8 text-red-500/50" />
           </CardContent>
         </Card>
 
-        <Card className="border-purple-200 bg-purple-50/40 dark:bg-purple-950/20 shadow-sm">
+        <Card className="border-emerald-200 bg-emerald-50/40 dark:bg-emerald-950/20 shadow-sm">
           <CardContent className="p-3.5 flex items-center justify-between">
             <div>
-              <p className="text-xs text-purple-700 dark:text-purple-400 font-medium">พิการทุพพลภาพ</p>
-              <h3 className="text-xl font-bold text-purple-700 dark:text-purple-300">{disabledCount} นาย</h3>
+              <p className="text-xs text-emerald-700 dark:text-emerald-400 font-medium">บาดเจ็บ</p>
+              <h3 className="text-xl font-bold text-emerald-700 dark:text-emerald-300">{injuredCount} นาย</h3>
             </div>
-            <Activity className="h-8 w-8 text-purple-500/50" />
-          </CardContent>
-        </Card>
-
-        <Card className="border-amber-200 bg-amber-50/40 dark:bg-amber-950/20 shadow-sm">
-          <CardContent className="p-3.5 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-amber-700 dark:text-amber-400 font-medium">บาดเจ็บ</p>
-              <h3 className="text-xl font-bold text-amber-700 dark:text-amber-300">{injuredCount} นาย</h3>
-            </div>
-            <AlertTriangle className="h-8 w-8 text-amber-500/50" />
+            <AlertTriangle className="h-8 w-8 text-emerald-500/50" />
           </CardContent>
         </Card>
       </div>
@@ -767,11 +873,11 @@ export function LossIncidentReportTable() {
                 </Badge>
               </div>
               <div className="flex items-center gap-2 text-xs font-medium">
-                <span className="text-red-700 dark:text-red-400">เสียชีวิต {formDeceasedCount}</span>
+                <span className="text-slate-900 dark:text-slate-100 font-bold">เสียชีวิต {formDeceasedCount}</span>
                 <span>•</span>
-                <span className="text-purple-700 dark:text-purple-400">พิการ {formDisabledCount}</span>
+                <span className="text-red-700 dark:text-red-400 font-bold">พิการ {formDisabledCount}</span>
                 <span>•</span>
-                <span className="text-amber-700 dark:text-amber-400">บาดเจ็บ {formInjuredCount}</span>
+                <span className="text-emerald-700 dark:text-emerald-400 font-bold">บาดเจ็บ {formInjuredCount}</span>
               </div>
             </div>
 
@@ -834,19 +940,19 @@ export function LossIncidentReportTable() {
                 <p className="text-sm font-semibold text-rose-800 dark:text-rose-300">
                   ยังไม่ได้เพิ่มกำลังพลที่สูญเสียในเหตุการณ์นี้
                 </p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  กรุณาค้นหาและเลือกกำลังพลจากทะเบียนด้านบน แล้วกดปุ่ม &quot;เพิ่มในเหตุการณ์&quot; (เพิ่มได้มากกว่า 1 นาย)
+                <p className="text-xs text-muted-foreground mt-1">
+                  กรุณาค้นหาและเลือกกำลังพลจากทะเบียนด้านบน แล้วกด "เพิ่มในเหตุการณ์"
                 </p>
               </div>
             ) : (
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 {formCasualties.map((cas, index) => (
                   <div
                     key={cas.id}
-                    className="p-3.5 rounded-lg border bg-white dark:bg-slate-900 shadow-sm space-y-3 transition-all hover:border-rose-300 dark:hover:border-rose-800"
+                    className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm space-y-3"
                   >
                     {/* Casualty Card Header */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
                       <div className="flex items-center gap-2">
                         <span className="h-6 w-6 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-700 dark:text-slate-300">
                           {index + 1}
@@ -868,17 +974,17 @@ export function LossIncidentReportTable() {
 
                       <div className="flex items-center gap-2">
                         {cas.lossType === "DECEASED" && (
-                          <Badge className="bg-red-600 hover:bg-red-700 text-white text-xs flex items-center gap-1">
+                          <Badge className="bg-slate-900 hover:bg-slate-800 text-white text-xs flex items-center gap-1">
                             <HeartCrack className="h-3 w-3" /> เสียชีวิต
                           </Badge>
                         )}
                         {cas.lossType === "DISABLED" && (
-                          <Badge className="bg-purple-600 hover:bg-purple-700 text-white text-xs flex items-center gap-1">
+                          <Badge className="bg-red-600 hover:bg-red-700 text-white text-xs flex items-center gap-1">
                             <Activity className="h-3 w-3" /> พิการทุพพลภาพ
                           </Badge>
                         )}
                         {cas.lossType === "INJURED" && (
-                          <Badge className="bg-amber-600 hover:bg-amber-700 text-white text-xs flex items-center gap-1">
+                          <Badge className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs flex items-center gap-1">
                             <AlertTriangle className="h-3 w-3" /> บาดเจ็บ
                           </Badge>
                         )}
@@ -911,14 +1017,14 @@ export function LossIncidentReportTable() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="DECEASED" className="text-rose-600 font-bold">
-                              🔴 เสียชีวิต (KIA / Combat Death)
+                            <SelectItem value="DECEASED" className="text-slate-900 dark:text-slate-100 font-bold">
+                              ⚫ เสียชีวิต (KIA / Combat Death)
                             </SelectItem>
-                            <SelectItem value="DISABLED" className="text-orange-600 font-bold">
-                              🟠 พิการทุพพลภาพ (Disabled)
+                            <SelectItem value="DISABLED" className="text-red-600 font-bold">
+                              🔴 พิการทุพพลภาพ (Disabled)
                             </SelectItem>
-                            <SelectItem value="INJURED" className="text-amber-600 font-bold">
-                              🟡 บาดเจ็บ (Injured)
+                            <SelectItem value="INJURED" className="text-emerald-600 font-bold">
+                              🟢 บาดเจ็บ (Injured)
                             </SelectItem>
                           </SelectContent>
                         </Select>
@@ -1081,32 +1187,103 @@ export function LossIncidentReportTable() {
 
           {/* SECTION 2: INCIDENT DATE, TIME & LOCATION */}
           <div className="space-y-3 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30">
-            <h3 className="font-bold text-sm text-foreground flex items-center gap-2 border-b pb-2">
-              <MapPin className="h-4 w-4 text-rose-600" />
-              ส่วนที่ 2: วันเวลาและพิกัดสถานที่เกิดเหตุ
-            </h3>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-2">
+              <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-rose-600" />
+                ส่วนที่ 2: วันเวลาและพิกัดสถานที่เกิดเหตุ
+              </h3>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={openMapModal}
+                  className="h-8 text-xs font-semibold flex items-center gap-1.5 border-rose-200 bg-rose-50/80 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300 transition-colors shadow-xs"
+                >
+                  <MapPinned className="h-3.5 w-3.5 text-rose-600" />
+                  <span>เปิดแผนที่ปักหมุด MGRS</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowInlineMap(!showInlineMap)}
+                  className="h-8 text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                >
+                  {showInlineMap ? (
+                    <>
+                      <ChevronUp className="h-3.5 w-3.5" />
+                      <span>ซ่อนแผนที่ในหน้า</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-3.5 w-3.5" />
+                      <span>แสดงแผนที่ในหน้า</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 text-xs">
               {/* Date */}
               <div className="md:col-span-4 space-y-1">
-                <label className="font-semibold text-foreground flex items-center gap-1">
-                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-rose-500">*</span> วันเกิดเหตุ (พ.ศ.):
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-foreground flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-rose-500">*</span> วันเกิดเหตุ (พ.ศ.):
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, incidentDate: new Date().toISOString().slice(0, 10) }))}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/70 hover:bg-slate-300 dark:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors font-medium"
+                    >
+                      วันนี้
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const yest = new Date();
+                        yest.setDate(yest.getDate() - 1);
+                        setForm((prev) => ({ ...prev, incidentDate: yest.toISOString().slice(0, 10) }));
+                      }}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/70 hover:bg-slate-300 dark:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors font-medium"
+                    >
+                      เมื่อวาน
+                    </button>
+                  </div>
+                </div>
                 <ThaiBuddhistDatePicker
                   value={form.incidentDate}
                   onChange={(nextDate) => setForm((prev) => ({ ...prev, incidentDate: nextDate || "" }))}
                   placeholder="เลือกวันเกิดเหตุ..."
-                  className="h-9 text-xs"
+                  inputClassName="h-9 text-xs"
                 />
               </div>
 
               {/* Time */}
               <div className="md:col-span-4 space-y-1">
-                <label className="font-semibold text-foreground flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-rose-500">*</span> เวลาที่เกิดเหตุ (24 ชม.):
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-foreground flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-rose-500">*</span> เวลาที่เกิดเหตุ (24 ชม.):
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        const h = now.getHours().toString().padStart(2, "0");
+                        const m = now.getMinutes().toString().padStart(2, "0");
+                        setForm((prev) => ({ ...prev, incidentTime: `${h}:${m}` }));
+                      }}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-slate-200/70 hover:bg-slate-300 dark:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors font-medium"
+                    >
+                      ตอนนี้
+                    </button>
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-1.5">
                   <Select value={incidentHour} onValueChange={(val) => updateIncidentTime("hour", val)}>
                     <SelectTrigger className="h-9 text-xs">
@@ -1138,126 +1315,179 @@ export function LossIncidentReportTable() {
 
               {/* MGRS Coordinates */}
               <div className="md:col-span-4 space-y-1">
-                <label className="font-semibold text-foreground flex items-center gap-1">
-                  <MapPinned className="h-3.5 w-3.5 text-rose-600" />
-                  <span className="text-rose-500">*</span> พิกัดทางทหาร (MGRS):
-                </label>
-                <Input
-                  value={form.mgrsCoordinate}
-                  onChange={(e) => setForm((prev) => ({ ...prev, mgrsCoordinate: e.target.value.toUpperCase() }))}
-                  placeholder="เช่น 47PNT12345678"
-                  className="h-9 text-xs font-mono uppercase font-bold"
-                />
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-foreground flex items-center gap-1">
+                    <MapPinned className="h-3.5 w-3.5 text-rose-600" />
+                    <span className="text-rose-500">*</span> พิกัดทางทหาร (MGRS):
+                  </label>
+                  {mapPoint && (
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-medium">
+                      ✓ มีพิกัดแผนที่
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-1.5">
+                  <Input
+                    value={form.mgrsCoordinate}
+                    onChange={(e) => setForm((prev) => ({ ...prev, mgrsCoordinate: e.target.value.toUpperCase() }))}
+                    placeholder="เช่น 47PNT12345678"
+                    className="h-9 text-xs font-mono uppercase font-bold tracking-wider"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={openMapModal}
+                    title="เปิดแผนที่เพื่อปักหมุด MGRS"
+                    className="h-9 px-2.5 shrink-0 text-xs border-rose-200 bg-rose-50/60 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:border-rose-800 dark:text-rose-300 font-semibold"
+                  >
+                    <MapPinned className="h-3.5 w-3.5 mr-1 text-rose-600" />
+                    แผนที่
+                  </Button>
+                </div>
               </div>
 
-              {/* Address Cascade */}
-              <div className="md:col-span-4 space-y-1">
-                <label className="font-semibold text-foreground">จังหวัด:</label>
-                <Select
-                  value={form.province}
-                  onValueChange={(val) => setForm((prev) => ({ ...prev, province: val, district: "", subdistrict: "" }))}
-                >
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="-- เลือกจังหวัด --" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {provinceOptions.map((p) => (
-                      <SelectItem key={p} value={p}>
-                        {p}
-                      </SelectItem>
+              {/* Address Section */}
+              <div className="md:col-span-12 space-y-1.5 pt-1">
+                <div className="flex flex-wrap items-center justify-between gap-1">
+                  <span className="font-semibold text-foreground text-xs flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5 text-slate-500" />
+                    พื้นที่รับผิดชอบ / สถานที่เกิดเหตุ (จังหวัด, อำเภอ, ตำบล):
+                  </span>
+                  {/* Quick province chips */}
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span className="text-[10px] text-muted-foreground mr-0.5">ลัด:</span>
+                    {COMMON_PROVINCES.map((prov) => (
+                      <button
+                        key={prov}
+                        type="button"
+                        onClick={() => {
+                          setForm((prev) => ({ ...prev, province: prov, district: "", subdistrict: "" }));
+                        }}
+                        className={cn(
+                          "text-[10px] px-1.5 py-0.5 rounded transition-colors font-medium",
+                          form.province === prov
+                            ? "bg-rose-600 text-white shadow-xs"
+                            : "bg-slate-200/70 hover:bg-slate-300 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                        )}
+                      >
+                        {prov}
+                      </button>
                     ))}
-                  </SelectContent>
-                </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                  {/* Province with Auto-Search Combobox */}
+                  <div className="space-y-1">
+                    <label className="font-medium text-[11px] text-foreground">จังหวัด:</label>
+                    <AddressCombobox
+                      value={form.province}
+                      onValueChange={(val) => setForm((prev) => ({ ...prev, province: val, district: "", subdistrict: "" }))}
+                      options={provinceOptions}
+                      placeholder="ค้นหาจังหวัด..."
+                      searchPlaceholder="พิมพ์ชื่อจังหวัด..."
+                      emptyText="ไม่พบจังหวัดที่ค้นหา"
+                      onClear={() => setForm((prev) => ({ ...prev, province: "", district: "", subdistrict: "" }))}
+                    />
+                  </div>
+
+                  {/* District with Auto-Search Combobox */}
+                  <div className="space-y-1">
+                    <label className="font-medium text-[11px] text-foreground">อำเภอ / เขต:</label>
+                    <AddressCombobox
+                      value={form.district}
+                      onValueChange={(val) => setForm((prev) => ({ ...prev, district: val, subdistrict: "" }))}
+                      options={districtOptions}
+                      placeholder={form.province ? "ค้นหาอำเภอ..." : "เลือกจังหวัดก่อน..."}
+                      searchPlaceholder="พิมพ์ชื่ออำเภอ..."
+                      emptyText="ไม่พบอำเภอที่ค้นหา"
+                      disabled={!form.province}
+                      onClear={() => setForm((prev) => ({ ...prev, district: "", subdistrict: "" }))}
+                    />
+                  </div>
+
+                  {/* Subdistrict with Auto-Search Combobox */}
+                  <div className="space-y-1">
+                    <label className="font-medium text-[11px] text-foreground">ตำบล / แขวง:</label>
+                    <AddressCombobox
+                      value={form.subdistrict}
+                      onValueChange={(val) => setForm((prev) => ({ ...prev, subdistrict: val }))}
+                      options={subdistrictOptions}
+                      placeholder={form.district ? "ค้นหาตำบล..." : "เลือกอำเภอก่อน..."}
+                      searchPlaceholder="พิมพ์ชื่อตำบล..."
+                      emptyText="ไม่พบตำบลที่ค้นหา"
+                      disabled={!form.district}
+                      onClear={() => setForm((prev) => ({ ...prev, subdistrict: "" }))}
+                    />
+                  </div>
+                </div>
               </div>
 
+              {/* Additional Address Details */}
               <div className="md:col-span-4 space-y-1">
-                <label className="font-semibold text-foreground">อำเภอ/เขต:</label>
-                <Select
-                  value={form.district}
-                  onValueChange={(val) => setForm((prev) => ({ ...prev, district: val, subdistrict: "" }))}
-                  disabled={!form.province}
-                >
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="-- เลือกอำเภอ --" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {districtOptions.map((d) => (
-                      <SelectItem key={d} value={d}>
-                        {d}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="md:col-span-4 space-y-1">
-                <label className="font-semibold text-foreground">ตำบล/แขวง:</label>
-                <Select
-                  value={form.subdistrict}
-                  onValueChange={(val) => setForm((prev) => ({ ...prev, subdistrict: val }))}
-                  disabled={!form.district}
-                >
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue placeholder="-- เลือกตำบล --" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-60">
-                    {subdistrictOptions.map((sd) => (
-                      <SelectItem key={sd} value={sd}>
-                        {sd}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="md:col-span-4 space-y-1">
-                <label className="font-semibold text-foreground">หมู่บ้าน / ชุมชน:</label>
+                <label className="font-medium text-foreground text-[11px]">หมู่บ้าน / ชุมชน / ฐานปฏิบัติการ:</label>
                 <Input
                   value={form.village}
                   onChange={(e) => setForm((prev) => ({ ...prev, village: e.target.value }))}
                   placeholder="เช่น บ้านโคกสูง หมู่ที่ 4"
-                  className="h-8 text-xs"
+                  className="h-9 text-xs"
                 />
               </div>
 
               <div className="md:col-span-4 space-y-1">
-                <label className="font-semibold text-foreground">ถนน / ซอย:</label>
+                <label className="font-medium text-foreground text-[11px]">ถนน / ซอย / เส้นทางยุทธการ:</label>
                 <Input
                   value={form.road}
                   onChange={(e) => setForm((prev) => ({ ...prev, road: e.target.value }))}
-                  placeholder="เช่น ถนนทางหลวงชนบท..."
-                  className="h-8 text-xs"
+                  placeholder="เช่น ทางหลวงสาย 410..."
+                  className="h-9 text-xs"
                 />
               </div>
 
               <div className="md:col-span-4 space-y-1">
-                <label className="font-semibold text-foreground">เลขที่บ้าน / อาคาร:</label>
+                <label className="font-medium text-foreground text-[11px]">เลขที่บ้าน / อาคาร / จุดสังเกต:</label>
                 <Input
                   value={form.houseNo}
                   onChange={(e) => setForm((prev) => ({ ...prev, houseNo: e.target.value }))}
-                  placeholder="เช่น 123/4"
-                  className="h-8 text-xs"
+                  placeholder="เช่น บริเวณหัวสะพาน หรือ 123/4"
+                  className="h-9 text-xs"
                 />
               </div>
 
-              {/* Digital Map Picker */}
-              <div className="md:col-span-12 space-y-1 pt-1">
-                <div className="flex items-center justify-between">
-                  <label className="font-semibold text-foreground flex items-center gap-1.5">
-                    <MapPinned className="h-3.5 w-3.5 text-rose-600" />
-                    ปักหมุดบนแผนที่ดิจิตอลเพื่อหาพิกัด MGRS อัตโนมัติ:
-                  </label>
-                  {mapPoint && (
-                    <span className="text-xs text-muted-foreground font-mono">
-                      พิกัดภูมิศาสตร์: {mapPoint.lat.toFixed(6)}, {mapPoint.lon.toFixed(6)}
-                    </span>
-                  )}
+              {/* Inline Map Accordion (Collapsible, isolated, does NOT block form) */}
+              {showInlineMap && (
+                <div className="md:col-span-12 space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <label className="font-semibold text-foreground flex items-center gap-1.5 text-xs">
+                      <MapPinned className="h-3.5 w-3.5 text-rose-600" />
+                      แผนที่ดิจิตอลสำหรับปักหมุดพิกัดทางทหาร MGRS (คลิกบนแผนที่เพื่อปักหมุด):
+                    </label>
+                    <div className="flex items-center gap-3">
+                      {mapPoint && (
+                        <span className="text-xs text-muted-foreground font-mono">
+                          พิกัด: {mapPoint.lat.toFixed(6)}, {mapPoint.lon.toFixed(6)}
+                        </span>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowInlineMap(false)}
+                        className="h-7 px-2 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                      >
+                        <X className="h-3.5 w-3.5 mr-1" />
+                        ปิดแผนที่
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="relative isolate z-0 rounded-lg overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
+                    <MgrsPickerMap
+                      point={mapPoint}
+                      onPick={handleMapPick}
+                    />
+                  </div>
                 </div>
-                <MgrsPickerMap
-                  point={mapPoint}
-                  onPick={handleMapPick}
-                />
-              </div>
+              )}
             </div>
           </div>
 
@@ -1269,28 +1499,79 @@ export function LossIncidentReportTable() {
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-12 gap-3 text-xs">
-              <div className="md:col-span-6 space-y-1">
-                <label className="font-semibold text-foreground">พฤติกรรม / ลักษณะการปะทะ:</label>
-                <Select
-                  value={form.engagementBehavior}
-                  onValueChange={(val) => setForm((prev) => ({ ...prev, engagementBehavior: val }))}
-                >
-                  <SelectTrigger className="h-9 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ปะทะ+ยิงต่อสู้">ปะทะและยิงต่อสู้กับข้าศึก</SelectItem>
-                    <SelectItem value="ถูกลอบยิง/ลอบวางระเบิด">ถูกลอบยิง / ถูกลอบวางระเบิด</SelectItem>
-                    <SelectItem value="เหยียบกับระเบิด">เหยียบกับระเบิดขณะลาดตระเวน</SelectItem>
-                    <SelectItem value="การรบประชิด/ซุ่มโจมตี">การรบประชิด / ถูกซุ่มโจมตี</SelectItem>
-                    <SelectItem value="อุบัติเหตุจากการปฏิบัติหน้าที่ราชการ">อุบัติเหตุจากการปฏิบัติหน้าที่ราชการสนาม</SelectItem>
-                    <SelectItem value="ช่วยเหลือประชาชนในภาวะสงคราม">ช่วยเหลือประชาชนในภาวะสงคราม/การรบ</SelectItem>
-                  </SelectContent>
-                </Select>
+              {/* Engagement Behavior */}
+              <div className="md:col-span-7 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-foreground flex items-center gap-1">
+                    <Shield className="h-3.5 w-3.5 text-rose-600" />
+                    <span className="text-rose-500">*</span> พฤติกรรม / ลักษณะการปะทะ:
+                  </label>
+                  <span className="text-[10px] text-muted-foreground">พิมพ์เองได้ หรือคลิกเลือกจากรายการ</span>
+                </div>
+
+                <div className="relative">
+                  <Input
+                    list="loss-engagement-behavior-list"
+                    value={form.engagementBehavior}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setForm((prev) => ({
+                        ...prev,
+                        engagementBehavior: val,
+                        enemyAction: val.includes("อุบัติเหตุ") || val.includes("ภัยธรรมชาติ") ? "NO_ENEMY" : prev.enemyAction,
+                      }));
+                    }}
+                    placeholder="พิมพ์หรือเลือกลักษณะการปะทะ เช่น ปะทะและยิงต่อสู้, ถูกลอบวางระเบิด..."
+                    className="h-9 text-xs"
+                  />
+                  <datalist id="loss-engagement-behavior-list">
+                    <option value="ปะทะและยิงต่อสู้กับกลุ่มผู้ก่อความไม่สงบ / ข้าศึก" />
+                    <option value="ถูกลอบวางระเบิดแสวงเครื่อง (IED) ขบวนลาดตระเวน" />
+                    <option value="ถูกลอบยิง / ซุ่มยิง (Sniper/Ambush) ขณะปฏิบัติหน้าที่" />
+                    <option value="เหยียบกับระเบิดขณะลาดตระเวนรักษาความปลอดภัย" />
+                    <option value="การรบประชิด / ถูกซุ่มโจมตีฐานปฏิบัติการ" />
+                    <option value="ลาดตระเวนเส้นทาง / ลาดตระเวนพิสูจน์ทราบพื้นที่เป้าหมาย" />
+                    <option value="ปฏิบัติหน้าที่ รปภ.คณะครู บุคลากรทางการศึกษา และเส้นทาง" />
+                    <option value="ตั้งจุดตรวจ / จุดสกัด (Pop-up Checkpoint) และตรวจค้นยานพาหนะ" />
+                    <option value="เข้าปิดล้อมตรวจค้นเป้าหมาย / ปฏิบัติการร่วมบังคับใช้กฎหมาย" />
+                    <option value="อุบัติเหตุจากการปฏิบัติหน้าที่ราชการสนาม" />
+                    <option value="ช่วยเหลือประชาชนในภาวะสงคราม / ภัยพิบัติจากการสู้รบ" />
+                  </datalist>
+                </div>
+
+                {/* Quick Presets */}
+                <div className="flex flex-wrap gap-1 pt-0.5">
+                  {[
+                    { label: "💥 ปะทะยิงต่อสู้", val: "ปะทะและยิงต่อสู้กับกลุ่มผู้ก่อความไม่สงบ / ข้าศึก", enemy: "ENEMY" },
+                    { label: "💣 ลอบวางระเบิด (IED)", val: "ถูกลอบวางระเบิดแสวงเครื่อง (IED) ขบวนลาดตระเวน", enemy: "ENEMY" },
+                    { label: "🎯 ถูกลอบยิง/ซุ่มยิง", val: "ถูกลอบยิง / ซุ่มยิง (Sniper/Ambush) ขณะปฏิบัติหน้าที่", enemy: "ENEMY" },
+                    { label: "⚠️ เหยียบกับระเบิด", val: "เหยียบกับระเบิดขณะลาดตระเวนรักษาความปลอดภัย", enemy: "ENEMY" },
+                    { label: "🛡️ รปภ.ครูและเส้นทาง", val: "ปฏิบัติหน้าที่ รปภ.คณะครู บุคลากรทางการศึกษา และเส้นทาง", enemy: "ENEMY" },
+                    { label: "🛑 จุดตรวจ/จุดสกัด", val: "ตั้งจุดตรวจ / จุดสกัด (Pop-up Checkpoint) และตรวจค้นยานพาหนะ", enemy: "ENEMY" },
+                    { label: "🚑 อุบัติเหตุสนาม", val: "อุบัติเหตุจากการปฏิบัติหน้าที่ราชการสนาม", enemy: "NO_ENEMY" },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setForm((prev) => ({ ...prev, engagementBehavior: preset.val, enemyAction: preset.enemy as any }))}
+                      className={cn(
+                        "text-[10px] px-2 py-0.5 rounded-md border transition-colors font-medium",
+                        form.engagementBehavior === preset.val
+                          ? "bg-rose-100 border-rose-300 text-rose-800 dark:bg-rose-950/40 dark:border-rose-700 dark:text-rose-300 font-bold"
+                          : "bg-background border-slate-200 dark:border-slate-800 text-muted-foreground hover:bg-slate-100 dark:hover:bg-slate-800"
+                      )}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              <div className="md:col-span-6 space-y-1">
-                <label className="font-semibold text-foreground">การกระทำของฝ่ายตรงข้าม:</label>
+              {/* Enemy Action */}
+              <div className="md:col-span-5 space-y-1.5">
+                <label className="font-semibold text-foreground flex items-center gap-1">
+                  <span>การกระทำของฝ่ายตรงข้าม:</span>
+                </label>
                 <Select
                   value={form.enemyAction}
                   onValueChange={(val: "ENEMY" | "NO_ENEMY") => setForm((prev) => ({ ...prev, enemyAction: val }))}
@@ -1303,8 +1584,14 @@ export function LossIncidentReportTable() {
                     <SelectItem value="NO_ENEMY">อุบัติเหตุ / ภัยธรรมชาติ / ไม่มีข้าศึก</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-[10px] text-muted-foreground">
+                  {form.enemyAction === "ENEMY"
+                    ? "✓ ได้รับสิทธิประโยชน์กรณีการสู้รบ/การปะทะกับฝ่ายตรงข้าม"
+                    : "✓ ได้รับสิทธิประโยชน์กรณีปฏิบัติหน้าที่ราชการสนาม (ไม่ปรากฏฝ่ายตรงข้าม)"}
+                </p>
               </div>
 
+              {/* Event Summary */}
               <div className="md:col-span-12 space-y-1">
                 <label className="font-semibold text-foreground flex items-center gap-1">
                   <span className="text-rose-500">*</span> รายละเอียดเหตุการณ์ พฤติกรรมโดยย่อ (สำหรับออก กพ.3/กพ.4):
@@ -1318,6 +1605,7 @@ export function LossIncidentReportTable() {
                 />
               </div>
 
+              {/* Medical/Behavior Summary */}
               <div className="md:col-span-12 space-y-1">
                 <label className="font-semibold text-foreground">หมายเหตุเพิ่มเติม / ข้อมูลทางการแพทย์:</label>
                 <Input
@@ -1394,7 +1682,19 @@ export function LossIncidentReportTable() {
                 </div>
                 <div className="md:col-span-6 space-y-1">
                   <label className="font-semibold text-foreground">ผู้รับรองข่าว / อนุมัติ:</label>
-                  <Input placeholder="เช่น พ.ต.วีรชาติ ภักดีสยาม" value={dispatchMeta.approverName || ""} onChange={(e) => setDispatchMeta((p) => ({ ...p, approverName: e.target.value }))} className="h-8 text-xs" />
+                  <div className="flex gap-2">
+                    <div className="w-[120px]">
+                      <AddressCombobox
+                        value={dispatchMeta.approverRank || ""}
+                        onValueChange={(val) => setDispatchMeta((p) => ({ ...p, approverRank: val }))}
+                        options={RANK_OPTIONS}
+                        placeholder="เลือกยศ..."
+                        searchPlaceholder="พิมพ์ยศ..."
+                        emptyText="ไม่พบยศ"
+                      />
+                    </div>
+                    <Input placeholder="ชื่อ-นามสกุล (เช่น วีรชาติ ภักดีสยาม)" value={dispatchMeta.approverName || ""} onChange={(e) => setDispatchMeta((p) => ({ ...p, approverName: e.target.value }))} className="h-9 flex-1 text-xs" />
+                  </div>
                 </div>
                 <div className="md:col-span-4 space-y-1">
                   <label className="font-semibold text-foreground">ชื่อผู้เขียนข่าว:</label>
@@ -1411,22 +1711,45 @@ export function LossIncidentReportTable() {
                 {/* KP3 Commander fields */}
                 <div className="md:col-span-12 pt-1">
                   <p className="text-xs font-bold text-foreground mb-2 flex items-center gap-1"><Shield className="h-3 w-3 text-slate-500" /> ลายเซ็นผู้บังคับบัญชา (สำหรับ กพ.๓ ฉบับสมบูรณ์)</p>
+                  <datalist id="commander-ranks-list">
+                    {MILITARY_RANKS.map((r) => (
+                      <option key={r} value={r} />
+                    ))}
+                  </datalist>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div className="space-y-1.5 p-2 bg-white/60 dark:bg-slate-900/50 rounded border border-slate-200 dark:border-slate-800">
                       <p className="font-semibold text-[11px] text-muted-foreground">ชั้นที่ ๑ ผบ.ร้อย</p>
-                      <Input placeholder="ยศ ชื่อ" value={dispatchMeta.commanderKP3Rank || ""} onChange={(e) => setDispatchMeta((p) => ({ ...p, commanderKP3Rank: e.target.value }))} className="h-7 text-xs" />
+                      <Input
+                        list="commander-ranks-list"
+                        placeholder="ยศ (พิมพ์ค้นหาได้)"
+                        value={dispatchMeta.commanderKP3Rank || ""}
+                        onChange={(e) => setDispatchMeta((p) => ({ ...p, commanderKP3Rank: e.target.value }))}
+                        className="h-7 text-xs"
+                      />
                       <Input placeholder="ชื่อ-สกุล" value={dispatchMeta.commanderKP3Name || ""} onChange={(e) => setDispatchMeta((p) => ({ ...p, commanderKP3Name: e.target.value }))} className="h-7 text-xs" />
                       <Input placeholder="ตำแหน่ง" value={dispatchMeta.commanderKP3Pos || ""} onChange={(e) => setDispatchMeta((p) => ({ ...p, commanderKP3Pos: e.target.value }))} className="h-7 text-xs" />
                     </div>
                     <div className="space-y-1.5 p-2 bg-white/60 dark:bg-slate-900/50 rounded border border-slate-200 dark:border-slate-800">
                       <p className="font-semibold text-[11px] text-muted-foreground">ชั้นที่ ๒ ผบ.พัน</p>
-                      <Input placeholder="ยศ ชื่อ" value={dispatchMeta.commander2KP3Rank || ""} onChange={(e) => setDispatchMeta((p) => ({ ...p, commander2KP3Rank: e.target.value }))} className="h-7 text-xs" />
+                      <Input
+                        list="commander-ranks-list"
+                        placeholder="ยศ (พิมพ์ค้นหาได้)"
+                        value={dispatchMeta.commander2KP3Rank || ""}
+                        onChange={(e) => setDispatchMeta((p) => ({ ...p, commander2KP3Rank: e.target.value }))}
+                        className="h-7 text-xs"
+                      />
                       <Input placeholder="ชื่อ-สกุล" value={dispatchMeta.commander2KP3Name || ""} onChange={(e) => setDispatchMeta((p) => ({ ...p, commander2KP3Name: e.target.value }))} className="h-7 text-xs" />
                       <Input placeholder="ตำแหน่ง" value={dispatchMeta.commander2KP3Pos || ""} onChange={(e) => setDispatchMeta((p) => ({ ...p, commander2KP3Pos: e.target.value }))} className="h-7 text-xs" />
                     </div>
                     <div className="space-y-1.5 p-2 bg-white/60 dark:bg-slate-900/50 rounded border border-slate-200 dark:border-slate-800">
                       <p className="font-semibold text-[11px] text-muted-foreground">ชั้นที่ ๓ ผบ.ฉก.</p>
-                      <Input placeholder="ยศ ชื่อ" value={dispatchMeta.commander3KP3Rank || ""} onChange={(e) => setDispatchMeta((p) => ({ ...p, commander3KP3Rank: e.target.value }))} className="h-7 text-xs" />
+                      <Input
+                        list="commander-ranks-list"
+                        placeholder="ยศ (พิมพ์ค้นหาได้)"
+                        value={dispatchMeta.commander3KP3Rank || ""}
+                        onChange={(e) => setDispatchMeta((p) => ({ ...p, commander3KP3Rank: e.target.value }))}
+                        className="h-7 text-xs"
+                      />
                       <Input placeholder="ชื่อ-สกุล" value={dispatchMeta.commander3KP3Name || ""} onChange={(e) => setDispatchMeta((p) => ({ ...p, commander3KP3Name: e.target.value }))} className="h-7 text-xs" />
                       <Input placeholder="ตำแหน่ง" value={dispatchMeta.commander3KP3Pos || ""} onChange={(e) => setDispatchMeta((p) => ({ ...p, commander3KP3Pos: e.target.value }))} className="h-7 text-xs" />
                     </div>
@@ -1498,9 +1821,9 @@ export function LossIncidentReportTable() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ALL">ประเภทสูญเสีย: ทั้งหมด</SelectItem>
-                  <SelectItem value="DECEASED">🔴 เสียชีวิต</SelectItem>
-                  <SelectItem value="DISABLED">🟣 พิการทุพพลภาพ</SelectItem>
-                  <SelectItem value="INJURED">🟡 บาดเจ็บ</SelectItem>
+                  <SelectItem value="DECEASED">⚫ เสียชีวิต</SelectItem>
+                  <SelectItem value="DISABLED">🔴 พิการทุพพลภาพ</SelectItem>
+                  <SelectItem value="INJURED">🟢 บาดเจ็บ</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -1602,17 +1925,17 @@ export function LossIncidentReportTable() {
                                   >
                                     {/* Loss Badge */}
                                     {c.lossType === "DECEASED" && (
-                                      <span className="bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300 font-bold px-1.5 py-0.2 rounded text-[10px] shrink-0">
+                                      <span className="bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950 font-bold px-1.5 py-0.2 rounded text-[10px] shrink-0">
                                         เสียชีวิต
                                       </span>
                                     )}
                                     {c.lossType === "DISABLED" && (
-                                      <span className="bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300 font-bold px-1.5 py-0.2 rounded text-[10px] shrink-0">
+                                      <span className="bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300 font-bold px-1.5 py-0.2 rounded text-[10px] shrink-0">
                                         พิการ
                                       </span>
                                     )}
                                     {c.lossType === "INJURED" && (
-                                      <span className="bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 font-bold px-1.5 py-0.2 rounded text-[10px] shrink-0">
+                                      <span className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 font-bold px-1.5 py-0.2 rounded text-[10px] shrink-0">
                                         บาดเจ็บ
                                       </span>
                                     )}
@@ -1933,7 +2256,7 @@ export function LossIncidentReportTable() {
                               </p>
                             )}
                             <p style={{ margin: "0", paddingLeft: "2em" }}>
-                              <span style={{ color: c.lossType === "DECEASED" ? "#CC0000" : c.lossType === "INJURED" ? "#B35C00" : "#6600CC", fontWeight: "bold" }}>{lossLabel}</span>
+                              <span style={{ color: c.lossType === "DECEASED" ? "#000000" : c.lossType === "DISABLED" ? "#CC0000" : "#008800", fontWeight: "bold" }}>{lossLabel}</span>
                               {c.lossSeverity ? ` (${c.lossSeverity})` : ""}
                               {c.injuryDetails ? `  ${c.injuryDetails}` : ""}
                               {c.hospital ? `  ปัจจุบัน นำส่ง รพ.${c.hospital}` : (c.lossType === "DECEASED" ? "  เสียชีวิตในพื้นที่เหตุการณ์" : "")}
@@ -1963,7 +2286,7 @@ export function LossIncidentReportTable() {
                         </div>
                         <div style={{ textAlign: "right" }}>
                           <div>ลงชื่อ .................................................</div>
-                          <div>({meta.approverName || "........................................"})</div>
+                          <div>({meta.approverRank || ".............."} {meta.approverName || "........................................"})</div>
                           <div style={{ color: "#555" }}>ผู้รับรองข่าว</div>
                         </div>
                       </div>
@@ -2045,7 +2368,7 @@ export function LossIncidentReportTable() {
                                 <td style={{ border: "1px solid #ccc", padding: "3px 6px", textAlign: "center" }}>{c.bloodGroup || "-"}</td>
                                 <td style={{ border: "1px solid #ccc", padding: "3px 6px", fontSize: "10pt" }}>{c.salaryLevel || "-"}{c.salaryAmount ? <><br/>{c.salaryAmount.toLocaleString("th-TH")} บ.</> : ""}</td>
                                 <td style={{ border: "1px solid #ccc", padding: "3px 6px" }}>
-                                  <span style={{ color: c.lossType === "DECEASED" ? "#CC0000" : c.lossType === "INJURED" ? "#B35C00" : "#6600CC", fontWeight: "bold" }}>{lossLabel}</span>
+                                  <span style={{ color: c.lossType === "DECEASED" ? "#000000" : c.lossType === "DISABLED" ? "#CC0000" : "#008800", fontWeight: "bold" }}>{lossLabel}</span>
                                   {c.lossSeverity ? <><br/>{c.lossSeverity}</> : ""}
                                   {c.injuryDetails ? <><br/><span style={{ color: "#555", fontSize: "10pt" }}>{c.injuryDetails}</span></> : ""}
                                 </td>
@@ -2099,6 +2422,73 @@ export function LossIncidentReportTable() {
           </div>
         );
       })()}
+
+      {/* FULL MAP PICKER DIALOG */}
+      <Dialog open={showMapModal} onOpenChange={setShowMapModal}>
+        <DialogContent className="max-w-4xl p-5 sm:p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <MapPinned className="h-5 w-5 text-rose-600" />
+              ปักหมุดพิกัดทางทหาร MGRS บนแผนที่ดิจิตอล
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              คลิกบนจุดเกิดเหตุในแผนที่เพื่อคำนวณพิกัดภูมิศาสตร์ (Lat/Long) และพิกัดทางทหาร MGRS โดยอัตโนมัติ
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            {/* Coordinate readout bar */}
+            <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-slate-700 dark:text-slate-300">พิกัด MGRS ที่เลือก:</span>
+                <span className="font-mono font-bold text-sm px-2.5 py-0.5 rounded bg-rose-600 text-white tracking-wider">
+                  {tempModalMgrs || form.mgrsCoordinate || "ยังไม่ได้ปักหมุด"}
+                </span>
+              </div>
+              {tempModalPoint && (
+                <div className="text-xs font-mono text-muted-foreground">
+                  ละติจูด: <span className="font-semibold text-foreground">{tempModalPoint.lat.toFixed(6)}</span>, 
+                  ลองจิจูด: <span className="font-semibold text-foreground">{tempModalPoint.lon.toFixed(6)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Map Container */}
+            <div className="relative isolate z-0 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-inner">
+              <MgrsPickerMap
+                point={tempModalPoint || mapPoint}
+                onPick={handleModalMapPick}
+                className="h-[420px] w-full"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex items-center justify-between sm:justify-between w-full pt-3">
+            <span className="text-[11px] text-muted-foreground">
+              💡 คลิกที่ตำแหน่งใดก็ได้บนแผนที่เพื่อย้ายหมุด
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowMapModal(false)}
+                className="h-9 text-xs"
+              >
+                ยกเลิก
+              </Button>
+              <Button
+                type="button"
+                onClick={confirmModalMapPick}
+                disabled={!tempModalMgrs && !form.mgrsCoordinate}
+                className="h-9 text-xs bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1.5"
+              >
+                <Check className="h-4 w-4" />
+                นำพิกัดนี้ไปใช้ & ปิดแผนที่
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

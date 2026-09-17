@@ -36,6 +36,7 @@ interface ThaiBuddhistDatePickerProps {
     onChange: (isoDate: string | undefined) => void;
     placeholder?: string;
     className?: string;
+    inputClassName?: string;
     disabled?: boolean;
     required?: boolean;
 }
@@ -53,6 +54,7 @@ export function ThaiBuddhistDatePicker({
     onChange,
     placeholder = "ระบุ วว/ดด/ปปปป (พ.ศ.)",
     className,
+    inputClassName,
     disabled,
     required,
 }: ThaiBuddhistDatePickerProps) {
@@ -239,6 +241,7 @@ export function ThaiBuddhistDatePicker({
                     disabled={disabled}
                     className={cn(
                         "pr-10 text-xs",
+                        inputClassName,
                         error && "border-red-500 focus-visible:ring-red-500"
                     )}
                 />
@@ -259,7 +262,7 @@ export function ThaiBuddhistDatePicker({
                     <Calendar className="h-4 w-4" />
                 </button>
                 {calendarOpen && !disabled && (
-                    <div className="absolute z-50 mt-2 w-[20rem] rounded-2xl border border-slate-200 dark:border-slate-800 bg-popover text-popover-foreground shadow-xl p-3">
+                    <div className="absolute z-[9999] mt-2 w-[20rem] rounded-2xl border border-slate-200 dark:border-slate-800 bg-popover text-popover-foreground shadow-2xl p-3">
                         <div className="flex items-center justify-between mb-3">
                             <button
                                 type="button"
@@ -351,6 +354,50 @@ export function ThaiBuddhistDatePicker({
                                     </button>
                                 );
                             })}
+                        </div>
+
+                        {/* Quick actions footer */}
+                        <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                            <div className="flex gap-1">
+                                <button
+                                    type="button"
+                                    onClick={() => handleSelectDate(new Date())}
+                                    className="px-2 py-1 text-[11px] rounded bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 font-medium transition-colors"
+                                >
+                                    วันนี้
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        const yest = new Date();
+                                        yest.setDate(yest.getDate() - 1);
+                                        handleSelectDate(yest);
+                                    }}
+                                    className="px-2 py-1 text-[11px] rounded bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 transition-colors"
+                                >
+                                    เมื่อวาน
+                                </button>
+                                {value && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            onChange(undefined);
+                                            setTextValue("");
+                                            setCalendarOpen(false);
+                                        }}
+                                        className="px-2 py-1 text-[11px] rounded text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                                    >
+                                        ล้างค่า
+                                    </button>
+                                )}
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setCalendarOpen(false)}
+                                className="px-2 py-1 text-[11px] text-muted-foreground hover:text-foreground font-medium"
+                            >
+                                ปิด
+                            </button>
                         </div>
                     </div>
                 )}

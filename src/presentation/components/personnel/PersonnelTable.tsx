@@ -3241,9 +3241,11 @@ export function PersonnelTable() {
                   </Badge>
                 </div>
                 <div className="max-h-52 overflow-y-auto divide-y divide-emerald-100 dark:divide-emerald-900/50">
-                  {pfmSearchResults.map((p, idx) => (
+                  {pfmSearchResults.map((p, idx) => {
+                    const anyP = p as any;
+                    return (
                     <div
-                      key={`pfm-${p.personnelId || p.militaryId || idx}`}
+                      key={`pfm-${anyP.personnelId || p.militaryId || idx}`}
                       className="flex items-center justify-between gap-2 px-3 py-2 bg-white dark:bg-slate-900 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/40 transition-colors"
                     >
                       <div className="flex-1 min-w-0">
@@ -3254,9 +3256,9 @@ export function PersonnelTable() {
                           <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
                             {p.fullName || `${p.firstName} ${p.lastName}`}
                           </span>
-                          {p.slotTypeLabel && (
+                          {anyP.slotTypeLabel && (
                             <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
-                              ({p.slotTypeLabel})
+                              ({anyP.slotTypeLabel})
                             </span>
                           )}
                         </div>
@@ -3277,7 +3279,8 @@ export function PersonnelTable() {
                         เลือก
                       </Button>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
