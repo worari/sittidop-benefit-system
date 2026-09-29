@@ -36,6 +36,7 @@ export interface LossReportDispatchMeta {
   writerName?: string;        // ชื่อผู้เขียนข่าว
   writerUnit?: string;        // หน่วยผู้เขียนข่าว
   writerPhone?: string;       // โทรศัพท์ผู้เขียนข่าว
+  approverRank?: string;      // ยศผู้อนุมัติ (พ.อ., พ.ท.)
   approverName?: string;      // ผู้อนุมัติ (ผบ.ร้อย / ผบ.พัน)
   equipmentDamage?: string;   // ความเสียหายยุทโธปกรณ์ (สำหรับ กพ.๓ ด้วย)
   commanderKP3Name?: string;  // ผู้บังคับบัญชาลำดับชั้น กพ.๓ ชั้นที่ ๑ (ผบ.ร้อย)
@@ -251,6 +252,29 @@ export class LossIncidentReportRepository {
 
     const found = fallbackStore.find((item) => item.id === id);
     return found ? normalize(found) : null;
+  }
+
+  async findExistingReportForPersonnel(
+    personnelId?: string | null,
+    militaryId?: string | null,
+    excludeReportId?: string
+  ): Promise<LossIncidentReportRecord | null> {
+    if (!personnelId && !militaryId) return null;
+    const allReports = await this.findMany();
+    for (const r of allReports) {
+      if (excludeReportId && String(r.id) === String(excludeReportId)) continue;
+      // Check primary top-level fields
+      if (personnelId && r.personnelId === personnelId) return r;
+      if (militaryId && r.militaryId && r.militaryId !== "-" && r.militaryId === militaryId) return r;
+      // Check casualties list
+      if (Array.isArray(r.casualties)) {
+        for (const c of r.casualties) {
+          if (personnelId && c.personnelId === personnelId) return r;
+          if (militaryId && c.militaryId && c.militaryId !== "-" && c.militaryId === militaryId) return r;
+        }
+      }
+    }
+    return null;
   }
 
   async create(data: LossIncidentReportCreateInput): Promise<LossIncidentReportRecord> {

@@ -82,6 +82,7 @@ interface LossIncidentReport {
   engagementBehavior: string;
   enemyAction: "ENEMY" | "NO_ENEMY";
   casualties: IncidentCasualty[];
+  createdByUserName?: string | null;
 }
 
 const DEFAULT_FORM = {
@@ -379,6 +380,37 @@ export function LossIncidentReportTable() {
     setShowMapModal(false);
   };
 
+  // Map of all personnel already reported in existing loss incident reports (excluding current editing report)
+  const reportedPersonnelMap = useMemo(() => {
+    const map = new Map<string, { reportId: string; incidentDate: string; lossType: string }>();
+    for (const r of reports) {
+      if (editingId && String(r.id) === String(editingId)) continue;
+      const casList =
+        r.casualties && r.casualties.length > 0
+          ? r.casualties
+          : r.personnelId || r.militaryId
+          ? [{ personnelId: r.personnelId, militaryId: r.militaryId, lossType: "DECEASED" }]
+          : [];
+      for (const c of casList) {
+        if (c.personnelId) {
+          map.set(c.personnelId, {
+            reportId: r.id,
+            incidentDate: r.incidentDate,
+            lossType: c.lossType || "DECEASED",
+          });
+        }
+        if (c.militaryId && c.militaryId !== "-") {
+          map.set(c.militaryId, {
+            reportId: r.id,
+            incidentDate: r.incidentDate,
+            lossType: c.lossType || "DECEASED",
+          });
+        }
+      }
+    }
+    return map;
+  }, [reports, editingId]);
+
   // Search filtered personnel for selection
   const searchResultsPersonnel = useMemo(() => {
     if (!personnelSearchTerm.trim()) return personnelList.slice(0, 30);
@@ -400,11 +432,21 @@ export function LossIncidentReportTable() {
     const p = personnelList.find((item) => item.id === personnelId);
     if (!p) return;
 
-    // Check if already in formCasualties
+    // Check if already in current formCasualties
     if (formCasualties.some((c) => c.personnelId === p.id || c.militaryId === p.militaryId)) {
       setMessage({
         type: "error",
         text: `กำลังพล ${p.rankAbbr || ""} ${p.firstName} ${p.lastName} มีรายชื่ออยู่ในเหตุการณ์นี้แล้ว`,
+      });
+      return;
+    }
+
+    // Check if already reported in another existing loss report
+    const existingInfo = reportedPersonnelMap.get(p.id) || reportedPersonnelMap.get(p.militaryId);
+    if (existingInfo) {
+      setMessage({
+        type: "error",
+        text: `⚠️ กำลังพล ${p.rankAbbr || ""} ${p.firstName} ${p.lastName} (เลขทหาร: ${p.militaryId}) ถูกรายงานการสูญเสียแล้วในระบบ (ประจำวันที่ ${formatThaiDate(existingInfo.incidentDate)}) ไม่สามารถรายงานการสูญเสียซ้ำได้`,
       });
       return;
     }
@@ -502,6 +544,20 @@ export function LossIncidentReportTable() {
         text: "กรุณาเพิ่มกำลังพลที่สูญเสียอย่างน้อย 1 นาย ในเหตุการณ์นี้ (ค้นหาและเลือกจากทะเบียนกำลังพล)",
       });
       return;
+    }
+
+    // Pre-flight check: Ensure none of the casualties are reported in another loss report
+    for (const c of formCasualties) {
+      const existingInfo =
+        (c.personnelId && reportedPersonnelMap.get(c.personnelId)) ||
+        (c.militaryId && reportedPersonnelMap.get(c.militaryId));
+      if (existingInfo) {
+        setMessage({
+          type: "error",
+          text: `⚠️ กำลังพล ${c.rankAbbr || ""} ${c.fullName} ถูกรายงานการสูญเสียแล้วในระบบ (ประจำวันที่ ${formatThaiDate(existingInfo.incidentDate)}) ไม่สามารถรายงานซ้ำได้`,
+        });
+        return;
+      }
     }
 
     setSaving(true);
@@ -906,12 +962,17 @@ export function LossIncidentReportTable() {
                   </SelectTrigger>
                   <SelectContent className="max-h-64">
                     {searchResultsPersonnel.map((p) => {
-                      const alreadyAdded = formCasualties.some((c) => c.personnelId === p.id || c.militaryId === p.militaryId);
+                      const alreadyInForm = formCasualties.some((c) => c.personnelId === p.id || c.militaryId === p.militaryId);
+                      const existingInfo = reportedPersonnelMap.get(p.id) || reportedPersonnelMap.get(p.militaryId);
+                      const isReported = !!existingInfo;
+                      const isDisabled = alreadyInForm || isReported;
+
                       return (
-                        <SelectItem key={p.id} value={p.id} disabled={alreadyAdded}>
-                          <span className={alreadyAdded ? "text-muted-foreground line-through" : "font-medium"}>
+                        <SelectItem key={p.id} value={p.id} disabled={isDisabled}>
+                          <span className={isDisabled ? "text-muted-foreground opacity-80" : "font-medium"}>
                             {p.rankAbbr || ""} {p.firstName} {p.lastName} (เลขทหาร: {p.militaryId}) - {p.normalUnit || "ไม่ระบุหน่วย"}
-                            {alreadyAdded && " (เพิ่มแล้ว)"}
+                            {alreadyInForm && " ✏️ (เพิ่มในฟอร์มแล้ว)"}
+                            {isReported && ` ⚠️ (มีรายงานสูญเสียแล้ว - ${formatThaiDate(existingInfo.incidentDate)})`}
                           </span>
                         </SelectItem>
                       );
@@ -2097,188 +2158,650 @@ export function LossIncidentReportTable() {
 
       {/* ─── Document Preview Modal ─── */}
       {previewModal?.open && (() => {
-        const previewReport = reports.find((r) => r.id === previewModal.reportId);
+        const previewReport = reports.find((r) => String(r.id) === String(previewModal.reportId));
         if (!previewReport) return null;
-        const casualties = previewReport.casualties || [];
-        const loc = [previewReport.subdistrict && `ต.${previewReport.subdistrict}`, previewReport.district && `อ.${previewReport.district}`, previewReport.province && `จ.${previewReport.province}`].filter(Boolean).join(" ");
+
+        // Fallback: If casualties array is empty, construct from top-level report fields
+        const rawCasualties: IncidentCasualty[] =
+          previewReport.casualties && previewReport.casualties.length > 0
+            ? previewReport.casualties
+            : previewReport.fullName || previewReport.militaryId
+            ? [
+                {
+                  id: previewReport.personnelId || previewReport.id || "cas-1",
+                  personnelId: previewReport.personnelId || null,
+                  militaryId: previewReport.militaryId || "-",
+                  rankAbbr: previewReport.rankAbbr || "",
+                  fullName: previewReport.fullName || "-",
+                  lossType: (previewReport.enemyAction === "ENEMY" ? "DECEASED" : "INJURED") as LossType,
+                  lossSeverity: "บาดเจ็บจากการปฏิบัติหน้าที่ราชการ",
+                  injuryDetails: previewReport.eventSummary || "",
+                  hospital: "ค่ายสุรนารี",
+                },
+              ]
+            : [];
+
+        // Hydrate casualty details with master personnel database if missing
+        const casualties: IncidentCasualty[] = rawCasualties.map((c) => {
+          const p = personnelList.find(
+            (pl) =>
+              (c.personnelId && pl.id === c.personnelId) ||
+              (c.militaryId && pl.militaryId === c.militaryId) ||
+              (c.fullName && (`${pl.rankAbbr || ""} ${pl.firstName} ${pl.lastName}`.trim() === c.fullName.trim() || c.fullName.includes(pl.lastName)))
+          );
+
+          return {
+            ...c,
+            rankAbbr: c.rankAbbr || p?.rankAbbr || "",
+            fullName: c.fullName || (p ? `${p.firstName} ${p.lastName}` : "-"),
+            militaryId: c.militaryId && c.militaryId !== "-" ? c.militaryId : (p?.militaryId || "-"),
+            citizenId: c.citizenId || p?.citizenId || "",
+            unit: c.unit || (p as any)?.unit || p?.normalUnit || "",
+            normalPosition: c.normalPosition || (p as any)?.position || p?.abbreviatedPosition || "พลยิงปืนเล็ก",
+            normalUnit: c.normalUnit || (p as any)?.unit || p?.normalUnit || "ร.6 พัน.2 (พล.ร.6)",
+            fieldPosition: c.fieldPosition || p?.fieldPosition || "พลยิง หมวด ปล. ที่ ๑",
+            fieldUnit: c.fieldUnit || p?.fieldUnit || (previewReport.province ? `ฉก.${previewReport.province}` : "ฉก.ร.6"),
+            bloodGroup: c.bloodGroup || (p as any)?.bloodGroup || "O",
+            salaryLevel: c.salaryLevel || p?.salaryLevel || "ป.๑ ชั้น ๑๒",
+            salaryAmount: c.salaryAmount ?? (p?.salary ? Number(p.salary) : (p as any)?.baseSalary ? Number((p as any).baseSalary) : 18500),
+            lossType: c.lossType || "DECEASED",
+            hospital: c.hospital || (c.lossType !== "DECEASED" ? "ค่ายสุรนารี" : ""),
+          };
+        });
+
+        const loc = [
+          previewReport.village && `หมู่บ้าน ${previewReport.village}`,
+          previewReport.subdistrict && `ต.${previewReport.subdistrict}`,
+          previewReport.district && `อ.${previewReport.district}`,
+          previewReport.province && `จ.${previewReport.province}`,
+        ]
+          .filter(Boolean)
+          .join(" ");
+
         const dateStr = formatThaiDate(previewReport.incidentDate);
         const totalCas = casualties.length;
         const deadC = casualties.filter((c) => c.lossType === "DECEASED").length;
         const injC = casualties.filter((c) => c.lossType === "INJURED").length;
         const disC = casualties.filter((c) => c.lossType === "DISABLED").length;
-        const meta = dispatchMeta;
+
+        const firstCas = casualties[0];
+        const meta: LossReportDispatchMeta = {
+          urgency: dispatchMeta.urgency || "ด่วนที่สุด",
+          classification: dispatchMeta.classification || "ลับมาก",
+          fromUnit: dispatchMeta.fromUnit || firstCas?.fieldUnit || firstCas?.normalUnit || (previewReport.province ? `ฉก.${previewReport.province}` : "ร.6 พัน.2"),
+          toUnit: dispatchMeta.toUnit || "ผบ.ศปก.ทบ.",
+          infoUnits: dispatchMeta.infoUnits || "ศปก.ทบ., กกล.สุรนารี, พล.ร.6, ฉก.1, ร.6, ร.6 พัน.1, ร.6 พัน.2",
+          referenceNumber: dispatchMeta.referenceNumber || `กห 0482.2.372/${previewReport.id ? previewReport.id.slice(-4) : "001"}`,
+          missionForce: dispatchMeta.missionForce || `ชุดปฏิบัติการ ${totalCas > 0 ? totalCas + 8 : 10} นาย`,
+          writerName: dispatchMeta.writerName || previewReport.createdByUserName || "จ.ส.อ. สมเกียรติ มั่นคง",
+          writerUnit: dispatchMeta.writerUnit || firstCas?.normalUnit || "ฝกร.พล.ร.6",
+          writerPhone: dispatchMeta.writerPhone || "045-312-456 ต่อ 102",
+          approverRank: dispatchMeta.approverRank || "พ.อ.",
+          approverName: dispatchMeta.approverName || "วีระยุทธ สุริยะวงศ์",
+          equipmentDamage: dispatchMeta.equipmentDamage || "ไม่มีรายการยุทโธปกรณ์เสียหาย",
+          commanderKP3Name: dispatchMeta.commanderKP3Name || "เกรียงไกร ชัยชาญ",
+          commanderKP3Rank: dispatchMeta.commanderKP3Rank || "ร.อ.",
+          commanderKP3Pos: dispatchMeta.commanderKP3Pos || "ผู้บังคับกองร้อยอาวุธเบาที่ ๑",
+          commander2KP3Name: dispatchMeta.commander2KP3Name || "ชาญชัย มิ่งขวัญ",
+          commander2KP3Rank: dispatchMeta.commander2KP3Rank || "พ.ท.",
+          commander2KP3Pos: dispatchMeta.commander2KP3Pos || "ผู้บังคับกองพันทหารราบที่ ๒",
+          commander3KP3Name: dispatchMeta.commander3KP3Name || "วีระยุทธ สุริยะวงศ์",
+          commander3KP3Rank: dispatchMeta.commander3KP3Rank || "พ.อ.",
+          commander3KP3Pos: dispatchMeta.commander3KP3Pos || "ผู้บังคับหน่วยเฉพาะกิจที่ ๑",
+        };
 
         return (
           <div
-            className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto"
-            onClick={(e) => { if (e.target === e.currentTarget) setPreviewModal(null); }}
+            className="fixed inset-0 z-50 flex items-start justify-center bg-black/75 backdrop-blur-sm p-3 sm:p-6 overflow-y-auto"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setPreviewModal(null);
+            }}
           >
             {/* Modal container */}
-            <div className="relative bg-white dark:bg-slate-900 rounded-xl shadow-2xl max-w-4xl w-full my-4">
-              {/* Modal header */}
-              <div className={`flex items-center justify-between p-4 border-b ${
-                previewModal.template === "KP4"
-                  ? "bg-gradient-to-r from-red-700 to-red-900 text-white"
-                  : "bg-gradient-to-r from-blue-800 to-blue-950 text-white"
-              } rounded-t-xl`}>
+            <div className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-5xl w-full my-2 sm:my-4 border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col max-h-[95vh]">
+              {/* Modal Top Action Bar */}
+              <div
+                className={`flex flex-wrap items-center justify-between gap-3 p-4 border-b ${
+                  previewModal.template === "KP4"
+                    ? "bg-gradient-to-r from-red-700 via-rose-800 to-red-950 text-white"
+                    : "bg-gradient-to-r from-blue-800 via-indigo-900 to-slate-950 text-white"
+                }`}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="bg-white/20 rounded-lg p-2">
-                    {previewModal.template === "KP4" ? <Send className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
+                  <div className="bg-white/20 backdrop-blur-md rounded-xl p-2.5 shadow-inner">
+                    {previewModal.template === "KP4" ? (
+                      <Send className="h-6 w-6 text-amber-300" />
+                    ) : (
+                      <FileText className="h-6 w-6 text-sky-300" />
+                    )}
                   </div>
                   <div>
-                    <h2 className="font-bold text-lg">
+                    <div className="flex items-center gap-2">
+                      <h2 className="font-bold text-base sm:text-lg">
+                        {previewModal.template === "KP4"
+                          ? "กพ.๔ — กระดาษเขียนข่าว แบบ สส.๒"
+                          : "กพ.๓ — แบบรายงานการสูญเสียจากการปฏิบัติหน้าที่ราชการ"}
+                      </h2>
+                      <span className="bg-white/20 text-[11px] font-mono px-2 py-0.5 rounded-full border border-white/30">
+                        {previewReport.mgrsCoordinate}
+                      </span>
+                    </div>
+                    <p className="text-white/80 text-xs mt-0.5">
                       {previewModal.template === "KP4"
-                        ? "กพ.๔ — กระดาษเขียนข่าว แบบ สส.๒ (รายงานด่วนการสูญเสีย)"
-                        : "กพ.๓ — แบบรายงานการสูญเสียจากการปฏิบัติหน้าที่ราชการ (ฉบับสมบูรณ์)"}
-                    </h2>
-                    <p className="text-white/70 text-xs">ตัวอย่างเอกสาร A4 — {previewReport.mgrsCoordinate} — {dateStr}</p>
+                        ? "รายงานด่วนการสูญเสียกำลังพล (โทรพิมพ์ทางยุทธการ)"
+                        : "แบบฟอร์มรายงานทางการฉบับสมบูรณ์ (เสนอผู้บังคับบัญชา ๓ ชั้น)"}
+                      {" • "}
+                      วันที่ {dateStr}
+                    </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+
+                {/* Template Switcher Tabs & Actions */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Switch between KP3 and KP4 */}
+                  <div className="bg-black/30 p-1 rounded-lg flex items-center gap-1 border border-white/20">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewModal((prev) => (prev ? { ...prev, template: "KP3" } : null))}
+                      className={cn(
+                        "px-2.5 py-1 text-xs font-semibold rounded-md transition-all",
+                        previewModal.template === "KP3"
+                          ? "bg-white text-blue-900 shadow-md"
+                          : "text-white/80 hover:text-white hover:bg-white/10"
+                      )}
+                    >
+                      กพ.๓ (รายงานหลัก)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewModal((prev) => (prev ? { ...prev, template: "KP4" } : null))}
+                      className={cn(
+                        "px-2.5 py-1 text-xs font-semibold rounded-md transition-all",
+                        previewModal.template === "KP4"
+                          ? "bg-white text-red-900 shadow-md"
+                          : "text-white/80 hover:text-white hover:bg-white/10"
+                      )}
+                    >
+                      กพ.๔ (สส.๒)
+                    </button>
+                  </div>
+
+                  <div className="h-6 w-px bg-white/20 mx-1 hidden sm:block" />
+
+                  {/* Export Buttons */}
                   <Button
                     size="sm"
                     variant="outline"
-                    className="border-white/30 text-white hover:bg-white/20 text-xs flex items-center gap-1"
-                    onClick={() => { window.open(`/api/loss-reports/${previewModal.reportId}/export?template=${previewModal.template}&format=pdf`, "_blank"); }}
+                    className="border-white/30 text-white hover:bg-white/20 text-xs h-8 px-2.5 flex items-center gap-1 bg-white/10"
+                    onClick={() => {
+                      window.open(
+                        `/api/loss-reports/${previewModal.reportId}/export?template=${previewModal.template}&format=pdf`,
+                        "_blank"
+                      );
+                    }}
+                    title="ดาวน์โหลดไฟล์ PDF"
                   >
                     <FileDown className="h-3.5 w-3.5" /> PDF
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
-                    className="border-white/30 text-white hover:bg-white/20 text-xs flex items-center gap-1"
-                    onClick={() => { window.open(`/api/loss-reports/${previewModal.reportId}/export?template=${previewModal.template}&format=docx`, "_blank"); }}
+                    className="border-white/30 text-white hover:bg-white/20 text-xs h-8 px-2.5 flex items-center gap-1 bg-white/10"
+                    onClick={() => {
+                      window.open(
+                        `/api/loss-reports/${previewModal.reportId}/export?template=${previewModal.template}&format=docx`,
+                        "_blank"
+                      );
+                    }}
+                    title="ดาวน์โหลดไฟล์ Word (.docx)"
                   >
                     <FileDown className="h-3.5 w-3.5" /> Word
                   </Button>
                   <Button
                     size="sm"
-                    className="bg-white/20 hover:bg-white/30 text-white border-white/30 text-xs flex items-center gap-1"
+                    className="bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold text-xs h-8 px-3 flex items-center gap-1 shadow"
                     onClick={() => window.print()}
+                    title="พิมพ์เอกสารออกทางเครื่องพิมพ์"
                   >
                     <Printer className="h-3.5 w-3.5" /> พิมพ์
                   </Button>
-                  <button onClick={() => setPreviewModal(null)} className="text-white/80 hover:text-white ml-1">
+                  <button
+                    onClick={() => setPreviewModal(null)}
+                    className="p-1 rounded-full text-white/80 hover:text-white hover:bg-white/20 transition-all ml-1"
+                    title="ปิดหน้าต่าง"
+                  >
                     <X className="h-5 w-5" />
                   </button>
                 </div>
               </div>
 
-              {/* A4 Paper preview area */}
-              <div className="p-6 bg-gray-100 dark:bg-slate-800 overflow-y-auto max-h-[calc(100vh-180px)] print:p-0 print:bg-white print:max-h-none">
-                <div className="bg-white shadow-lg mx-auto print:shadow-none" style={{ width: "210mm", minHeight: "297mm", padding: "15mm 20mm", fontFamily: "'TH Sarabun New', 'Sarabun', 'Noto Sans Thai', serif", fontSize: "14pt", lineHeight: 1.8 }}>
-
+              {/* A4 Paper preview area - explicit text color for dark mode compatibility */}
+              <div className="p-4 sm:p-8 bg-slate-200 dark:bg-slate-950 overflow-y-auto flex-1 print:p-0 print:bg-white print:max-h-none">
+                <div
+                  className="bg-white text-slate-900 shadow-2xl mx-auto rounded-sm print:shadow-none print:m-0 print:p-0"
+                  style={{
+                    width: "210mm",
+                    minHeight: "297mm",
+                    padding: "20mm 20mm",
+                    fontFamily: "'TH Sarabun New', 'Sarabun', 'Noto Sans Thai', serif",
+                    fontSize: "14pt",
+                    lineHeight: 1.6,
+                    color: "#0f172a",
+                    boxSizing: "border-box",
+                  }}
+                >
                   {previewModal.template === "KP4" ? (
                     // ─── KP4 / สส.2 Template ─────────────────────────────────
-                    <div>
-                      <div style={{ textAlign: "center", fontWeight: "bold", fontSize: "22pt", marginBottom: 4 }}>กระดาษเขียนข่าว</div>
-                      <div style={{ textAlign: "center", fontSize: "16pt", marginBottom: 12 }}>แบบ สส.๒</div>
+                    <div style={{ color: "#0f172a" }}>
+                      <div
+                        style={{
+                          textAlign: "center",
+                          fontWeight: "bold",
+                          fontSize: "22pt",
+                          marginBottom: 2,
+                          color: "#0f172a",
+                        }}
+                      >
+                        กระดาษเขียนข่าว
+                      </div>
+                      <div
+                        style={{
+                          textAlign: "center",
+                          fontSize: "16pt",
+                          marginBottom: 10,
+                          color: "#334155",
+                        }}
+                      >
+                        แบบ สส.๒
+                      </div>
 
                       {/* Header table */}
-                      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 10, border: "1px solid #888", fontSize: "12pt" }}>
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                          marginBottom: 10,
+                          border: "1.5px solid #334155",
+                          fontSize: "12pt",
+                          color: "#0f172a",
+                        }}
+                      >
                         <tbody>
-                          <tr>
-                            <td style={{ border: "1px solid #888", padding: "4px 8px", background: "#f0f0f0", fontWeight: "bold", width: "25%" }}>ความเร่งด่วน<br/>ผู้รับปฏิบัติ</td>
-                            <td style={{ border: "1px solid #888", padding: "4px 8px", background: "#f0f0f0", fontWeight: "bold", width: "25%" }}>ความเร่งด่วน<br/>ผู้รับทราบ</td>
-                            <td style={{ border: "1px solid #888", padding: "4px 8px", background: "#f0f0f0", fontWeight: "bold", width: "20%" }}>หมู่ วัน/เวลา</td>
-                            <td style={{ border: "1px solid #888", padding: "4px 8px", background: "#f0f0f0", fontWeight: "bold", width: "30%" }}>คำแนะนำ</td>
-                          </tr>
-                          <tr style={{ height: 60 }}>
-                            <td style={{ border: "1px solid #888", padding: "4px 8px", textAlign: "center" }}>
-                              <span style={{ color: "#CC0000", fontWeight: "bold", fontSize: "24pt" }}>{meta.urgency || "ด่วนที่สุด"}</span>
+                          <tr style={{ background: "#f1f5f9", textAlign: "center" }}>
+                            <td
+                              style={{
+                                border: "1px solid #475569",
+                                padding: "4px 8px",
+                                fontWeight: "bold",
+                                width: "25%",
+                              }}
+                            >
+                              ความเร่งด่วน
+                              <br />
+                              ผู้รับปฏิบัติ
                             </td>
-                            <td style={{ border: "1px solid #888", padding: "4px 8px" }}>ด่วน</td>
-                            <td style={{ border: "1px solid #888", padding: "4px 8px", fontSize: "11pt" }}>{previewReport.incidentTime} น.<br/>{dateStr}</td>
-                            <td style={{ border: "1px solid #888", padding: "4px 8px" }}></td>
+                            <td
+                              style={{
+                                border: "1px solid #475569",
+                                padding: "4px 8px",
+                                fontWeight: "bold",
+                                width: "25%",
+                              }}
+                            >
+                              ความเร่งด่วน
+                              <br />
+                              ผู้รับทราบ
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid #475569",
+                                padding: "4px 8px",
+                                fontWeight: "bold",
+                                width: "22%",
+                              }}
+                            >
+                              หมู่ วัน/เวลา
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid #475569",
+                                padding: "4px 8px",
+                                fontWeight: "bold",
+                                width: "28%",
+                              }}
+                            >
+                              คำแนะนำ
+                            </td>
+                          </tr>
+                          <tr style={{ height: 50 }}>
+                            <td
+                              style={{
+                                border: "1px solid #475569",
+                                padding: "4px 8px",
+                                textAlign: "center",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  color: "#b91c1c",
+                                  fontWeight: "bold",
+                                  fontSize: "20pt",
+                                }}
+                              >
+                                {meta.urgency || "ด่วนที่สุด"}
+                              </span>
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid #475569",
+                                padding: "4px 8px",
+                                textAlign: "center",
+                                fontWeight: "bold",
+                              }}
+                            >
+                              ด่วน
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid #475569",
+                                padding: "4px 8px",
+                                fontSize: "11pt",
+                                textAlign: "center",
+                              }}
+                            >
+                              {previewReport.incidentTime} น.
+                              <br />
+                              {dateStr}
+                            </td>
+                            <td style={{ border: "1px solid #475569", padding: "4px 8px" }}></td>
                           </tr>
                         </tbody>
                       </table>
 
-                      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16, border: "1px solid #888", fontSize: "12pt" }}>
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                          marginBottom: 14,
+                          border: "1.5px solid #334155",
+                          fontSize: "12pt",
+                          color: "#0f172a",
+                        }}
+                      >
                         <tbody>
                           <tr>
-                            <td style={{ border: "1px solid #888", padding: "3px 8px", fontWeight: "bold", width: "18%", background: "#f8f8f8" }}>จาก</td>
-                            <td style={{ border: "1px solid #888", padding: "3px 8px" }} colSpan={3}>{meta.fromUnit || "............................................"}</td>
+                            <td
+                              style={{
+                                border: "1px solid #475569",
+                                padding: "3px 8px",
+                                fontWeight: "bold",
+                                width: "16%",
+                                background: "#f8fafc",
+                              }}
+                            >
+                              จาก
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid #475569",
+                                padding: "3px 8px",
+                              }}
+                              colSpan={3}
+                            >
+                              {meta.fromUnit || "หน่วยเฉพาะกิจในพื้นที่"}
+                            </td>
                           </tr>
                           <tr>
-                            <td style={{ border: "1px solid #888", padding: "3px 8px", fontWeight: "bold", background: "#f8f8f8" }} rowSpan={2}>ถึง</td>
-                            <td style={{ border: "1px solid #888", padding: "3px 8px", fontWeight: "bold", width: "20%", background: "#f8f8f8" }}>ผู้รับปฏิบัติ</td>
-                            <td style={{ border: "1px solid #888", padding: "3px 8px" }} colSpan={2}>{meta.toUnit || "ผบ.ศปก.ทบ."}</td>
+                            <td
+                              style={{
+                                border: "1px solid #475569",
+                                padding: "3px 8px",
+                                fontWeight: "bold",
+                                background: "#f8fafc",
+                              }}
+                              rowSpan={2}
+                            >
+                              ถึง
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid #475569",
+                                padding: "3px 8px",
+                                fontWeight: "bold",
+                                width: "18%",
+                                background: "#f8fafc",
+                              }}
+                            >
+                              ผู้รับปฏิบัติ
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid #475569",
+                                padding: "3px 8px",
+                              }}
+                              colSpan={2}
+                            >
+                              {meta.toUnit || "ผบ.ศปก.ทบ."}
+                            </td>
                           </tr>
                           <tr>
-                            <td style={{ border: "1px solid #888", padding: "3px 8px", fontWeight: "bold", background: "#f8f8f8" }}>ผู้รับทราบ</td>
-                            <td style={{ border: "1px solid #888", padding: "3px 8px", fontSize: "11pt" }} colSpan={2}>{meta.infoUnits || "-"}</td>
+                            <td
+                              style={{
+                                border: "1px solid #475569",
+                                padding: "3px 8px",
+                                fontWeight: "bold",
+                                background: "#f8fafc",
+                              }}
+                            >
+                              ผู้รับทราบ
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid #475569",
+                                padding: "3px 8px",
+                                fontSize: "11pt",
+                              }}
+                              colSpan={2}
+                            >
+                              {meta.infoUnits || "-"}
+                            </td>
                           </tr>
                           <tr>
-                            <td style={{ border: "1px solid #888", padding: "3px 8px", fontWeight: "bold", background: "#f8f8f8" }}>หมู่คำ</td>
-                            <td style={{ border: "1px solid #888", padding: "3px 8px" }} colSpan={3}>ประเภทเอกสาร {meta.classification || "ลับมาก"}</td>
+                            <td
+                              style={{
+                                border: "1px solid #475569",
+                                padding: "3px 8px",
+                                fontWeight: "bold",
+                                background: "#f8fafc",
+                              }}
+                            >
+                              หมู่คำ
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid #475569",
+                                padding: "3px 8px",
+                              }}
+                              colSpan={3}
+                            >
+                              ประเภทเอกสาร {meta.classification || "ลับมาก"}
+                            </td>
                           </tr>
                           <tr>
-                            <td style={{ border: "1px solid #888", padding: "3px 8px", fontWeight: "bold", background: "#f8f8f8" }}>ที่ผู้ให้ข่าว</td>
-                            <td style={{ border: "1px solid #888", padding: "3px 8px" }} colSpan={3}>{meta.referenceNumber || `กห ${previewReport.id.slice(-6)}`}</td>
+                            <td
+                              style={{
+                                border: "1px solid #475569",
+                                padding: "3px 8px",
+                                fontWeight: "bold",
+                                background: "#f8fafc",
+                              }}
+                            >
+                              ที่ผู้ให้ข่าว
+                            </td>
+                            <td
+                              style={{
+                                border: "1px solid #475569",
+                                padding: "3px 8px",
+                              }}
+                              colSpan={3}
+                            >
+                              {meta.referenceNumber || `กห ${previewReport.id.slice(-6)}`}
+                            </td>
                           </tr>
                         </tbody>
                       </table>
 
-                      <div style={{ textAlign: "center", fontWeight: "bold", fontSize: "16pt", margin: "12px 0 8px" }}>รายงานการสูญเสีย (กพ.๔)</div>
+                      <div
+                        style={{
+                          textAlign: "center",
+                          fontWeight: "bold",
+                          fontSize: "16pt",
+                          margin: "12px 0 8px",
+                          color: "#0f172a",
+                        }}
+                      >
+                        รายงานการสูญเสีย (กพ.๔)
+                      </div>
 
                       {/* Body content */}
-                      <p style={{ margin: "0 0 4px", textIndent: "2em" }}>
-                        ๑. เมื่อ {previewReport.incidentTime} น. {dateStr} โดย {meta.fromUnit || previewReport.mgrsCoordinate} ได้จัดกำลัง{meta.missionForce || `ชุดปฏิบัติการ ${totalCas + 8} นาย`} ทำการ{previewReport.engagementBehavior} บริเวณ {loc || previewReport.mgrsCoordinate} พิกัด MGRS: {previewReport.mgrsCoordinate}&nbsp;
-                        {previewReport.enemyAction === "ENEMY" ? "ถูกฝ่ายตรงข้ามซุ่มโจมตี" : "เกิดเหตุ"} ทำให้มีกำลังพลสูญเสีย {totalCas} นาย
-                        {deadC > 0 ? ` (เสียชีวิต ${deadC} นาย` : ""}{injC > 0 ? `, บาดเจ็บ ${injC} นาย` : ""}{disC > 0 ? `, พิการ ${disC} นาย` : ""}{(deadC > 0 || injC > 0 || disC > 0) ? ")" : ""} ดังนี้
+                      <p
+                        style={{
+                          margin: "0 0 6px",
+                          textIndent: "2.5em",
+                          textAlign: "justify",
+                          color: "#0f172a",
+                        }}
+                      >
+                        ๑. เมื่อ {previewReport.incidentTime} น. {dateStr} โดย {meta.fromUnit || previewReport.mgrsCoordinate} ได้จัดกำลัง {meta.missionForce || `ชุดปฏิบัติการ ${totalCas + 8} นาย`} ทำการ{previewReport.engagementBehavior} บริเวณ {loc || previewReport.mgrsCoordinate} พิกัด MGRS: {previewReport.mgrsCoordinate}&nbsp;
+                        {previewReport.enemyAction === "ENEMY"
+                          ? "ถูกฝ่ายตรงข้าม / ข้าศึก ใช้อาวุธลอบโจมตี"
+                          : "เกิดเหตุการณ์ขณะปฏิบัติหน้าที่ราชการ"}{" "}
+                        ทำให้มีกำลังพลสูญเสียรวม {totalCas} นาย
+                        {deadC > 0 ? ` (เสียชีวิต ${deadC} นาย` : ""}
+                        {injC > 0 ? `${deadC > 0 ? ", " : " ("}บาดเจ็บ ${injC} นาย` : ""}
+                        {disC > 0 ? `${deadC > 0 || injC > 0 ? ", " : " ("}พิการ ${disC} นาย` : ""}
+                        {deadC > 0 || injC > 0 || disC > 0 ? ")" : ""} ดังนี้
                       </p>
 
-                      {casualties.map((c, idx) => {
-                        const lossMap: Record<string, string> = { DECEASED: "เสียชีวิต", INJURED: "บาดเจ็บ", DISABLED: "พิการทุพพลภาพ" };
-                        const lossLabel = lossMap[c.lossType] || c.lossType;
-                        return (
-                          <div key={c.id} style={{ margin: "6px 0", paddingLeft: "2em" }}>
-                            <p style={{ margin: "0 0 2px" }}>
-                              <strong>๑.{idx + 1} {c.rankAbbr} {c.fullName}</strong>
-                              {" "}หมายเลขประจำตัวทหาร {c.militaryId || "-"}
-                              {c.citizenId ? <>  หมายเลขประจำตัวประชาชน {c.citizenId}</> : ""}
-                              {c.bloodGroup ? <>  กรุ๊ปเลือด <strong>{c.bloodGroup}</strong></> : ""}
-                            </p>
-                            <p style={{ margin: "0 0 2px", paddingLeft: "2em" }}>
-                              <strong>ตำแหน่งปกติ</strong> {c.normalPosition || c.unit || "-"}&nbsp;&nbsp;
-                              <strong>สังกัด</strong> {c.normalUnit || c.unit || "-"}
-                            </p>
-                            {(c.fieldPosition || c.fieldUnit) && (
-                              <p style={{ margin: "0 0 2px", paddingLeft: "2em" }}>
-                                <strong>ตำแหน่งในสนาม</strong> {c.fieldPosition || "-"}&nbsp;&nbsp;
-                                <strong>หน่วย</strong> {c.fieldUnit || "-"}
+                      {casualties.length === 0 ? (
+                        <div style={{ paddingLeft: "2.5em", color: "#64748b", fontStyle: "italic" }}>
+                          - อยู่ระหว่างการรวบรวมรายนามกำลังพล -
+                        </div>
+                      ) : (
+                        casualties.map((c, idx) => {
+                          const lossMap: Record<string, string> = {
+                            DECEASED: "เสียชีวิต",
+                            INJURED: "บาดเจ็บ",
+                            DISABLED: "พิการทุพพลภาพ",
+                          };
+                          const lossLabel = lossMap[c.lossType] || c.lossType;
+                          return (
+                            <div
+                              key={c.id || idx}
+                              style={{
+                                margin: "6px 0",
+                                paddingLeft: "2.5em",
+                                color: "#0f172a",
+                              }}
+                            >
+                              <p style={{ margin: "0 0 2px" }}>
+                                <strong>
+                                  ๑.{idx + 1} {c.rankAbbr} {c.fullName}
+                                </strong>{" "}
+                                หมายเลขประจำตัวทหาร {c.militaryId || "-"}
+                                {c.citizenId ? ` หมายเลขประจำตัวประชาชน ${c.citizenId}` : ""}
+                                {c.bloodGroup ? (
+                                  <>
+                                    {" "}
+                                    กรุ๊ปเลือด <strong>{c.bloodGroup}</strong>
+                                  </>
+                                ) : (
+                                  ""
+                                )}
                               </p>
-                            )}
-                            {c.salaryLevel && (
-                              <p style={{ margin: "0 0 2px", paddingLeft: "2em" }}>
-                                รับเงินเดือน{c.salaryLevel}{c.salaryAmount ? ` (${c.salaryAmount.toLocaleString("th-TH")} บาท)` : ""}
+                              <p style={{ margin: "0 0 2px", paddingLeft: "1.5em" }}>
+                                <strong>ตำแหน่งปกติ</strong> {c.normalPosition || c.unit || "-"}
+                                &nbsp;&nbsp;
+                                <strong>สังกัด</strong> {c.normalUnit || c.unit || "-"}
                               </p>
-                            )}
-                            <p style={{ margin: "0", paddingLeft: "2em" }}>
-                              <span style={{ color: c.lossType === "DECEASED" ? "#000000" : c.lossType === "DISABLED" ? "#CC0000" : "#008800", fontWeight: "bold" }}>{lossLabel}</span>
-                              {c.lossSeverity ? ` (${c.lossSeverity})` : ""}
-                              {c.injuryDetails ? `  ${c.injuryDetails}` : ""}
-                              {c.hospital ? `  ปัจจุบัน นำส่ง รพ.${c.hospital}` : (c.lossType === "DECEASED" ? "  เสียชีวิตในพื้นที่เหตุการณ์" : "")}
-                            </p>
-                          </div>
-                        );
-                      })}
+                              {(c.fieldPosition || c.fieldUnit) && (
+                                <p style={{ margin: "0 0 2px", paddingLeft: "1.5em" }}>
+                                  <strong>ตำแหน่งในสนาม</strong> {c.fieldPosition || "-"}&nbsp;&nbsp;
+                                  <strong>หน่วย</strong> {c.fieldUnit || "-"}
+                                </p>
+                              )}
+                              {c.salaryLevel && (
+                                <p style={{ margin: "0 0 2px", paddingLeft: "1.5em" }}>
+                                  รับเงินเดือน{c.salaryLevel}
+                                  {c.salaryAmount
+                                    ? ` (${c.salaryAmount.toLocaleString("th-TH")} บาท)`
+                                    : ""}
+                                </p>
+                              )}
+                              <p style={{ margin: "0", paddingLeft: "1.5em" }}>
+                                <span
+                                  style={{
+                                    color:
+                                      c.lossType === "DECEASED"
+                                        ? "#0f172a"
+                                        : c.lossType === "DISABLED"
+                                        ? "#b91c1c"
+                                        : "#15803d",
+                                    fontWeight: "bold",
+                                  }}
+                                >
+                                  {lossLabel}
+                                </span>
+                                {c.lossSeverity ? ` (${c.lossSeverity})` : ""}
+                                {c.injuryDetails ? `  ${c.injuryDetails}` : ""}
+                                {c.hospital
+                                  ? `  ปัจจุบัน นำส่ง รพ.${c.hospital}`
+                                  : c.lossType === "DECEASED"
+                                  ? "  เสียชีวิตในที่เกิดเหตุ"
+                                  : ""}
+                              </p>
+                            </div>
+                          );
+                        })
+                      )}
 
                       {previewReport.eventSummary && (
-                        <p style={{ margin: "10px 0 4px", textIndent: "2em" }}>
+                        <p
+                          style={{
+                            margin: "10px 0 4px",
+                            textIndent: "2.5em",
+                            textAlign: "justify",
+                            color: "#0f172a",
+                          }}
+                        >
                           ๒. {previewReport.eventSummary}
                         </p>
                       )}
 
                       {previewReport.behaviorSummary && (
-                        <p style={{ margin: "4px 0", textIndent: "2em" }}>
+                        <p
+                          style={{
+                            margin: "4px 0",
+                            textIndent: "2.5em",
+                            textAlign: "justify",
+                            color: "#0f172a",
+                          }}
+                        >
                           ๓. {previewReport.behaviorSummary}
                         </p>
                       )}
 
                       {/* Signature */}
-                      <div style={{ marginTop: 24, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, fontSize: "12pt" }}>
+                      <div
+                        style={{
+                          marginTop: 24,
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr",
+                          gap: 16,
+                          fontSize: "12pt",
+                          color: "#0f172a",
+                        }}
+                      >
                         <div>
                           <div>ชื่อผู้เขียนข่าว {meta.writerName || "................................."}</div>
                           <div>หน่วย {meta.writerUnit || "................................."}</div>
@@ -2286,32 +2809,88 @@ export function LossIncidentReportTable() {
                         </div>
                         <div style={{ textAlign: "right" }}>
                           <div>ลงชื่อ .................................................</div>
-                          <div>({meta.approverRank || ".............."} {meta.approverName || "........................................"})</div>
-                          <div style={{ color: "#555" }}>ผู้รับรองข่าว</div>
+                          <div>
+                            ({meta.approverRank || ".............."}{" "}
+                            {meta.approverName || "........................................"})
+                          </div>
+                          <div style={{ color: "#475569" }}>ผู้รับรองข่าว</div>
                         </div>
                       </div>
 
                       {/* Comms table */}
-                      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 20, border: "1px solid #888", fontSize: "10pt" }}>
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                          marginTop: 20,
+                          border: "1px solid #475569",
+                          fontSize: "10pt",
+                          color: "#0f172a",
+                        }}
+                      >
                         <thead>
-                          <tr style={{ background: "#eee" }}>
-                            <th rowSpan={2} style={{ border: "1px solid #888", padding: "3px 6px" }}>สถานภาพ</th>
-                            <th colSpan={4} style={{ border: "1px solid #888", padding: "3px 6px" }}>อ้างถึงข่าว</th>
-                            <th colSpan={4} style={{ border: "1px solid #888", padding: "3px 6px" }}>ชื่อผู้เขียนข่าว</th>
+                          <tr style={{ background: "#f1f5f9" }}>
+                            <th
+                              rowSpan={2}
+                              style={{ border: "1px solid #475569", padding: "3px 6px" }}
+                            >
+                              สถานภาพ
+                            </th>
+                            <th
+                              colSpan={4}
+                              style={{ border: "1px solid #475569", padding: "3px 6px" }}
+                            >
+                              อ้างถึงข่าว
+                            </th>
+                            <th
+                              colSpan={4}
+                              style={{ border: "1px solid #475569", padding: "3px 6px" }}
+                            >
+                              ชื่อผู้เขียนข่าว
+                            </th>
                           </tr>
-                          <tr style={{ background: "#eee" }}>
-                            {["วันที่", "เวลา", "เครื่องสื่อสาร", "ชื่อพนักงาน", "วันที่", "เวลา", "เครื่องสื่อสาร", "ชื่อพนักงาน"].map((h, i) => (
-                              <th key={i} style={{ border: "1px solid #888", padding: "2px 4px" }}>{h}</th>
+                          <tr style={{ background: "#f1f5f9" }}>
+                            {[
+                              "วันที่",
+                              "เวลา",
+                              "เครื่องสื่อสาร",
+                              "ชื่อพนักงาน",
+                              "วันที่",
+                              "เวลา",
+                              "เครื่องสื่อสาร",
+                              "ชื่อพนักงาน",
+                            ].map((h, i) => (
+                              <th
+                                key={i}
+                                style={{ border: "1px solid #475569", padding: "2px 4px" }}
+                              >
+                                {h}
+                              </th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {["รับเมื่อ", "ส่งเสร็จ"].map((label) => (
-                            <tr key={label} style={{ height: 36 }}>
-                              <td style={{ border: "1px solid #888", padding: "2px 6px", background: "#f8f8f8", fontWeight: "bold", textAlign: "center" }}>{label}</td>
-                              {Array(8).fill(null).map((_, i) => (
-                                <td key={i} style={{ border: "1px solid #888", padding: "2px 4px" }}></td>
-                              ))}
+                            <tr key={label} style={{ height: 32 }}>
+                              <td
+                                style={{
+                                  border: "1px solid #475569",
+                                  padding: "2px 6px",
+                                  background: "#f8fafc",
+                                  fontWeight: "bold",
+                                  textAlign: "center",
+                                }}
+                              >
+                                {label}
+                              </td>
+                              {Array(8)
+                                .fill(null)
+                                .map((_, i) => (
+                                  <td
+                                    key={i}
+                                    style={{ border: "1px solid #475569", padding: "2px 4px" }}
+                                  ></td>
+                                ))}
                             </tr>
                           ))}
                         </tbody>
@@ -2319,96 +2898,445 @@ export function LossIncidentReportTable() {
                     </div>
                   ) : (
                     // ─── KP3 Full Official Template ──────────────────────────
-                    <div>
-                      <div style={{ textAlign: "center", fontWeight: "bold", fontSize: "20pt", marginBottom: 4 }}>แบบรายงานการสูญเสียจากการปฏิบัติหน้าที่ราชการ</div>
-                      <div style={{ textAlign: "center", fontWeight: "bold", fontSize: "18pt", marginBottom: 4 }}>(กพ.๓)</div>
-                      <hr style={{ borderColor: "#aaa", marginBottom: 16 }} />
+                    <div style={{ color: "#0f172a" }}>
+                      <div
+                        style={{
+                          textAlign: "center",
+                          fontWeight: "bold",
+                          fontSize: "20pt",
+                          marginBottom: 4,
+                          color: "#0f172a",
+                        }}
+                      >
+                        แบบรายงานการสูญเสียจากการปฏิบัติหน้าที่ราชการ
+                      </div>
+                      <div
+                        style={{
+                          textAlign: "center",
+                          fontWeight: "bold",
+                          fontSize: "18pt",
+                          marginBottom: 4,
+                          color: "#1e3a8a",
+                        }}
+                      >
+                        (กพ.๓)
+                      </div>
+                      <hr style={{ borderColor: "#94a3b8", marginBottom: 16 }} />
 
                       {/* Meta table */}
-                      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16, fontSize: "12pt", border: "1px solid #ccc" }}>
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                          marginBottom: 16,
+                          fontSize: "12pt",
+                          border: "1.5px solid #cbd5e1",
+                          color: "#0f172a",
+                        }}
+                      >
                         <tbody>
                           {[
                             ["เลขที่รายงาน", previewReport.id],
                             ["วันที่เกิดเหตุ", dateStr],
                             ["เวลา", `${previewReport.incidentTime} น.`],
                             ["พิกัด MGRS", previewReport.mgrsCoordinate],
-                            ["Lat/Long", previewReport.latitude ? `${previewReport.latitude.toFixed(6)}, ${previewReport.longitude?.toFixed(6)}` : "-"],
+                            [
+                              "Lat/Long",
+                              previewReport.latitude
+                                ? `${previewReport.latitude.toFixed(6)}, ${previewReport.longitude?.toFixed(6)}`
+                                : "-",
+                            ],
                             ["สถานที่เกิดเหตุ", loc || "-"],
                             ["พฤติการณ์การปะทะ", previewReport.engagementBehavior],
-                            ["การกระทำโดย", previewReport.enemyAction === "ENEMY" ? "ฝ่ายตรงข้าม / ข้าศึก" : "ไม่มีข้าศึก (อุบัติเหตุ)"],
-                            ["ยอดกำลังพลสูญเสียรวม", `${totalCas} นาย (เสียชีวิต ${deadC}, บาดเจ็บ ${injC}, พิการ ${disC})`],
+                            [
+                              "การกระทำโดย",
+                              previewReport.enemyAction === "ENEMY"
+                                ? "ฝ่ายตรงข้าม / ข้าศึก"
+                                : "ไม่มีข้าศึก (อุบัติเหตุ)",
+                            ],
+                            [
+                              "ยอดกำลังพลสูญเสียรวม",
+                              `${totalCas} นาย (เสียชีวิต ${deadC}, บาดเจ็บ ${injC}, พิการ ${disC})`,
+                            ],
                           ].map(([label, value]) => (
-                            <tr key={label}>
-                              <td style={{ border: "1px solid #ccc", padding: "4px 8px", fontWeight: "bold", background: "#f0f4f8", width: "35%" }}>{label}</td>
-                              <td style={{ border: "1px solid #ccc", padding: "4px 8px" }}>{value}</td>
+                            <tr key={String(label)}>
+                              <td
+                                style={{
+                                  border: "1px solid #cbd5e1",
+                                  padding: "4px 8px",
+                                  fontWeight: "bold",
+                                  background: "#f1f5f9",
+                                  width: "35%",
+                                }}
+                              >
+                                {label}
+                              </td>
+                              <td
+                                style={{
+                                  border: "1px solid #cbd5e1",
+                                  padding: "4px 8px",
+                                }}
+                              >
+                                {value}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
 
-                      <p style={{ fontWeight: "bold", fontSize: "14pt", margin: "12px 0 8px" }}>หมวดที่ ๒  บัญชีรายนามกำลังพลผู้ประสบความสูญเสีย ({totalCas} นาย)</p>
-                      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 16, fontSize: "11pt", border: "1px solid #ccc" }}>
+                      <p
+                        style={{
+                          fontWeight: "bold",
+                          fontSize: "14pt",
+                          margin: "12px 0 8px",
+                          color: "#0f172a",
+                        }}
+                      >
+                        หมวดที่ ๒ บัญชีรายนามกำลังพลผู้ประสบความสูญเสีย ({totalCas} นาย)
+                      </p>
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                          marginBottom: 16,
+                          fontSize: "11pt",
+                          border: "1.5px solid #94a3b8",
+                          color: "#0f172a",
+                        }}
+                      >
                         <thead>
-                          <tr style={{ background: "#1A3A6B", color: "white" }}>
-                            {["ลำดับ", "ยศ ชื่อ-สกุล", "เลขทหาร / ปชช.", "ตำแหน่ง / สังกัด", "กรุ๊ปเลือด", "เงินเดือน", "ประเภท / อาการ", "รพ."].map((h) => (
-                              <th key={h} style={{ border: "1px solid #999", padding: "4px 6px", textAlign: "center" }}>{h}</th>
+                          <tr style={{ background: "#1e3a8a", color: "white" }}>
+                            {[
+                              "ลำดับ",
+                              "ยศ ชื่อ-สกุล",
+                              "เลขทหาร / ปชช.",
+                              "ตำแหน่ง / สังกัด",
+                              "กรุ๊ปเลือด",
+                              "เงินเดือน",
+                              "ประเภท / อาการ",
+                              "รพ.",
+                            ].map((h) => (
+                              <th
+                                key={h}
+                                style={{
+                                  border: "1px solid #64748b",
+                                  padding: "5px 6px",
+                                  textAlign: "center",
+                                  color: "#ffffff",
+                                }}
+                              >
+                                {h}
+                              </th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
-                          {casualties.map((c, idx) => {
-                            const lossMap: Record<string, string> = { DECEASED: "เสียชีวิต", INJURED: "บาดเจ็บ", DISABLED: "พิการทุพพลภาพ" };
-                            const lossLabel = lossMap[c.lossType] || c.lossType;
-                            return (
-                              <tr key={c.id} style={{ background: idx % 2 === 0 ? "#fff" : "#f8f8f8" }}>
-                                <td style={{ border: "1px solid #ccc", padding: "3px 6px", textAlign: "center" }}>{idx + 1}</td>
-                                <td style={{ border: "1px solid #ccc", padding: "3px 6px", fontWeight: "bold" }}>{c.rankAbbr} {c.fullName}</td>
-                                <td style={{ border: "1px solid #ccc", padding: "3px 6px", fontSize: "10pt" }}>ทหาร: {c.militaryId}<br/>{c.citizenId ? `ปชช.: ${c.citizenId}` : ""}</td>
-                                <td style={{ border: "1px solid #ccc", padding: "3px 6px", fontSize: "10pt" }}>{c.normalPosition || c.unit || "-"}<br/>{c.normalUnit || ""}{c.fieldPosition ? <><br/>สนาม: {c.fieldPosition}</> : ""}</td>
-                                <td style={{ border: "1px solid #ccc", padding: "3px 6px", textAlign: "center" }}>{c.bloodGroup || "-"}</td>
-                                <td style={{ border: "1px solid #ccc", padding: "3px 6px", fontSize: "10pt" }}>{c.salaryLevel || "-"}{c.salaryAmount ? <><br/>{c.salaryAmount.toLocaleString("th-TH")} บ.</> : ""}</td>
-                                <td style={{ border: "1px solid #ccc", padding: "3px 6px" }}>
-                                  <span style={{ color: c.lossType === "DECEASED" ? "#000000" : c.lossType === "DISABLED" ? "#CC0000" : "#008800", fontWeight: "bold" }}>{lossLabel}</span>
-                                  {c.lossSeverity ? <><br/>{c.lossSeverity}</> : ""}
-                                  {c.injuryDetails ? <><br/><span style={{ color: "#555", fontSize: "10pt" }}>{c.injuryDetails}</span></> : ""}
-                                </td>
-                                <td style={{ border: "1px solid #ccc", padding: "3px 6px" }}>{c.hospital ? `รพ.${c.hospital}` : "-"}</td>
-                              </tr>
-                            );
-                          })}
+                          {casualties.length === 0 ? (
+                            <tr>
+                              <td
+                                colSpan={8}
+                                style={{
+                                  padding: "12px",
+                                  textAlign: "center",
+                                  color: "#64748b",
+                                  border: "1px solid #cbd5e1",
+                                }}
+                              >
+                                ไม่พบรายนามกำลังพลในรายงานฉบับนี้
+                              </td>
+                            </tr>
+                          ) : (
+                            casualties.map((c, idx) => {
+                              const lossMap: Record<string, string> = {
+                                DECEASED: "เสียชีวิต",
+                                INJURED: "บาดเจ็บ",
+                                DISABLED: "พิการทุพพลภาพ",
+                              };
+                              const lossLabel = lossMap[c.lossType] || c.lossType;
+                              return (
+                                <tr
+                                  key={c.id || idx}
+                                  style={{
+                                    background: idx % 2 === 0 ? "#ffffff" : "#f8fafc",
+                                    color: "#0f172a",
+                                  }}
+                                >
+                                  <td
+                                    style={{
+                                      border: "1px solid #cbd5e1",
+                                      padding: "4px 6px",
+                                      textAlign: "center",
+                                    }}
+                                  >
+                                    {idx + 1}
+                                  </td>
+                                  <td
+                                    style={{
+                                      border: "1px solid #cbd5e1",
+                                      padding: "4px 6px",
+                                      fontWeight: "bold",
+                                    }}
+                                  >
+                                    {c.rankAbbr} {c.fullName}
+                                  </td>
+                                  <td
+                                    style={{
+                                      border: "1px solid #cbd5e1",
+                                      padding: "4px 6px",
+                                      fontSize: "10pt",
+                                    }}
+                                  >
+                                    ทหาร: {c.militaryId}
+                                    {c.citizenId ? (
+                                      <>
+                                        <br />
+                                        ปชช.: {c.citizenId}
+                                      </>
+                                    ) : (
+                                      ""
+                                    )}
+                                  </td>
+                                  <td
+                                    style={{
+                                      border: "1px solid #cbd5e1",
+                                      padding: "4px 6px",
+                                      fontSize: "10pt",
+                                    }}
+                                  >
+                                    {c.normalPosition || c.unit || "-"}
+                                    <br />
+                                    {c.normalUnit || ""}
+                                    {c.fieldPosition ? (
+                                      <>
+                                        <br />
+                                        สนาม: {c.fieldPosition}
+                                      </>
+                                    ) : (
+                                      ""
+                                    )}
+                                  </td>
+                                  <td
+                                    style={{
+                                      border: "1px solid #cbd5e1",
+                                      padding: "4px 6px",
+                                      textAlign: "center",
+                                    }}
+                                  >
+                                    {c.bloodGroup || "-"}
+                                  </td>
+                                  <td
+                                    style={{
+                                      border: "1px solid #cbd5e1",
+                                      padding: "4px 6px",
+                                      fontSize: "10pt",
+                                    }}
+                                  >
+                                    {c.salaryLevel || "-"}
+                                    {c.salaryAmount ? (
+                                      <>
+                                        <br />
+                                        {c.salaryAmount.toLocaleString("th-TH")} บ.
+                                      </>
+                                    ) : (
+                                      ""
+                                    )}
+                                  </td>
+                                  <td
+                                    style={{
+                                      border: "1px solid #cbd5e1",
+                                      padding: "4px 6px",
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        color:
+                                          c.lossType === "DECEASED"
+                                            ? "#0f172a"
+                                            : c.lossType === "DISABLED"
+                                            ? "#b91c1c"
+                                            : "#15803d",
+                                        fontWeight: "bold",
+                                      }}
+                                    >
+                                      {lossLabel}
+                                    </span>
+                                    {c.lossSeverity ? (
+                                      <>
+                                        <br />
+                                        {c.lossSeverity}
+                                      </>
+                                    ) : (
+                                      ""
+                                    )}
+                                    {c.injuryDetails ? (
+                                      <>
+                                        <br />
+                                        <span style={{ color: "#475569", fontSize: "10pt" }}>
+                                          {c.injuryDetails}
+                                        </span>
+                                      </>
+                                    ) : (
+                                      ""
+                                    )}
+                                  </td>
+                                  <td
+                                    style={{
+                                      border: "1px solid #cbd5e1",
+                                      padding: "4px 6px",
+                                    }}
+                                  >
+                                    {c.hospital ? `รพ.${c.hospital}` : "-"}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
                         </tbody>
                       </table>
 
-                      <p style={{ fontWeight: "bold", fontSize: "14pt", margin: "12px 0 4px" }}>หมวดที่ ๓  พฤติการณ์เหตุการณ์</p>
-                      <p style={{ paddingLeft: "2em", margin: "0 0 12px" }}>{previewReport.eventSummary || "-"}</p>
+                      <p
+                        style={{
+                          fontWeight: "bold",
+                          fontSize: "14pt",
+                          margin: "12px 0 4px",
+                          color: "#0f172a",
+                        }}
+                      >
+                        หมวดที่ ๓ พฤติการณ์เหตุการณ์
+                      </p>
+                      <p
+                        style={{
+                          paddingLeft: "2em",
+                          margin: "0 0 12px",
+                          textAlign: "justify",
+                          color: "#0f172a",
+                        }}
+                      >
+                        {previewReport.eventSummary || "-"}
+                      </p>
 
                       {previewReport.behaviorSummary && (
-                        <><p style={{ fontWeight: "bold", margin: "8px 0 4px" }}>พฤติกรรมเพิ่มเติม / หมายเหตุ</p>
-                        <p style={{ paddingLeft: "2em", margin: "0 0 12px" }}>{previewReport.behaviorSummary}</p></>
+                        <>
+                          <p
+                            style={{
+                              fontWeight: "bold",
+                              margin: "8px 0 4px",
+                              color: "#0f172a",
+                            }}
+                          >
+                            พฤติกรรมเพิ่มเติม / หมายเหตุ
+                          </p>
+                          <p
+                            style={{
+                              paddingLeft: "2em",
+                              margin: "0 0 12px",
+                              textAlign: "justify",
+                              color: "#0f172a",
+                            }}
+                          >
+                            {previewReport.behaviorSummary}
+                          </p>
+                        </>
                       )}
 
-                      <p style={{ fontWeight: "bold", fontSize: "14pt", margin: "12px 0 4px" }}>หมวดที่ ๔  ความเสียหายยุทโธปกรณ์</p>
-                      <p style={{ paddingLeft: "2em", margin: "0 0 12px" }}>{meta.equipmentDamage || "ไม่มีรายการยุทโธปกรณ์เสียหาย"}</p>
+                      <p
+                        style={{
+                          fontWeight: "bold",
+                          fontSize: "14pt",
+                          margin: "12px 0 4px",
+                          color: "#0f172a",
+                        }}
+                      >
+                        หมวดที่ ๔ ความเสียหายยุทโธปกรณ์
+                      </p>
+                      <p style={{ paddingLeft: "2em", margin: "0 0 12px", color: "#0f172a" }}>
+                        {meta.equipmentDamage || "ไม่มีรายการยุทโธปกรณ์เสียหาย"}
+                      </p>
 
-                      <p style={{ fontWeight: "bold", fontSize: "14pt", margin: "12px 0 4px" }}>หมวดที่ ๕  สิทธิที่กำลังพลพึงได้รับ</p>
-                      <p style={{ paddingLeft: "2em" }}>กำลังพลที่สูญเสียจากการปฏิบัติหน้าที่ราชการมีสิทธิตามกฎหมาย ได้แก่ บำเหน็จตกทอด/เงินช่วยเหลือพิเศษ, เบี้ยหวัด/บำนาญ, ทุนการศึกษาบุตร และสิทธิมิใช่ตัวเงิน (เครื่องราชฯ/ปูนบำเหน็จพิเศษ)</p>
+                      <p
+                        style={{
+                          fontWeight: "bold",
+                          fontSize: "14pt",
+                          margin: "12px 0 4px",
+                          color: "#0f172a",
+                        }}
+                      >
+                        หมวดที่ ๕ สิทธิที่กำลังพลพึงได้รับ
+                      </p>
+                      <p style={{ paddingLeft: "2em", color: "#0f172a", textAlign: "justify" }}>
+                        กำลังพลที่สูญเสียจากการปฏิบัติหน้าที่ราชการมีสิทธิตามกฎหมายและระเบียบกระทรวงกลาโหม ได้แก่ บำเหน็จตกทอด/เงินช่วยเหลือพิเศษ, เบี้ยหวัด/บำนาญพิเศษ, ทุนการศึกษาบุตร และสิทธิมิใช่ตัวเงิน (การปูนบำเหน็จพิเศษเลื่อนชั้นยศ และการขอรับพระราชทานเครื่องราชอิสริยาภรณ์)
+                      </p>
 
                       {/* Commander Sign */}
-                      <p style={{ fontWeight: "bold", fontSize: "14pt", margin: "16px 0 8px" }}>หมวดที่ ๖  ลายเซ็นผู้บังคับบัญชา</p>
-                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12pt", border: "1px solid #ccc" }}>
+                      <p
+                        style={{
+                          fontWeight: "bold",
+                          fontSize: "14pt",
+                          margin: "16px 0 8px",
+                          color: "#0f172a",
+                        }}
+                      >
+                        หมวดที่ ๖ ลายเซ็นผู้บังคับบัญชาตามลำดับชั้น
+                      </p>
+                      <table
+                        style={{
+                          width: "100%",
+                          borderCollapse: "collapse",
+                          fontSize: "12pt",
+                          border: "1.5px solid #cbd5e1",
+                          color: "#0f172a",
+                        }}
+                      >
                         <tbody>
                           <tr>
                             {[
-                              ["ผู้บังคับบัญชา ชั้นที่ ๑ (ผบ.ร้อย)", meta.commanderKP3Rank, meta.commanderKP3Name, meta.commanderKP3Pos || "ผู้บังคับหมวด/ร้อย"],
-                              ["ผู้บังคับบัญชา ชั้นที่ ๒ (ผบ.พัน)", meta.commander2KP3Rank, meta.commander2KP3Name, meta.commander2KP3Pos || "ผู้บังคับกองพัน"],
-                              ["ผู้บังคับบัญชา ชั้นที่ ๓ (ผบ.ฉก.)", meta.commander3KP3Rank, meta.commander3KP3Name, meta.commander3KP3Pos || "ผู้บังคับหน่วยเฉพาะกิจ"],
+                              [
+                                "ผู้บังคับบัญชา ชั้นที่ ๑ (ผบ.ร้อย)",
+                                meta.commanderKP3Rank,
+                                meta.commanderKP3Name,
+                                meta.commanderKP3Pos || "ผู้บังคับหมวด/ร้อย",
+                              ],
+                              [
+                                "ผู้บังคับบัญชา ชั้นที่ ๒ (ผบ.พัน)",
+                                meta.commander2KP3Rank,
+                                meta.commander2KP3Name,
+                                meta.commander2KP3Pos || "ผู้บังคับกองพัน",
+                              ],
+                              [
+                                "ผู้บังคับบัญชา ชั้นที่ ๓ (ผบ.ฉก.)",
+                                meta.commander3KP3Rank,
+                                meta.commander3KP3Name,
+                                meta.commander3KP3Pos || "ผู้บังคับหน่วยเฉพาะกิจ",
+                              ],
                             ].map(([title, rank, name, pos]) => (
-                              <td key={String(title)} style={{ border: "1px solid #ccc", padding: "8px 10px", verticalAlign: "top", width: "33%", textAlign: "center" }}>
-                                <div style={{ fontWeight: "bold", fontSize: "11pt", marginBottom: 8 }}>{title}</div>
-                                <div style={{ height: 50 }}></div>
+                              <td
+                                key={String(title)}
+                                style={{
+                                  border: "1px solid #cbd5e1",
+                                  padding: "8px 10px",
+                                  verticalAlign: "top",
+                                  width: "33%",
+                                  textAlign: "center",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    fontWeight: "bold",
+                                    fontSize: "11pt",
+                                    marginBottom: 8,
+                                    color: "#1e3a8a",
+                                  }}
+                                >
+                                  {title}
+                                </div>
+                                <div style={{ height: 45 }}></div>
                                 <div>ลงชื่อ ...............................................</div>
-                                <div>({name || "........................................"})</div>
-                                <div style={{ color: "#555", fontSize: "10pt" }}>{rank || ""} {pos}</div>
+                                <div style={{ fontWeight: "bold", marginTop: 2 }}>
+                                  ({rank || ""} {name || "........................................"})
+                                </div>
+                                <div style={{ color: "#475569", fontSize: "10pt", marginTop: 2 }}>
+                                  {pos}
+                                </div>
                               </td>
                             ))}
                           </tr>

@@ -81,7 +81,29 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     if (!body.incidentDate || !body.incidentTime || !body.mgrsCoordinate || !body.eventSummary) {
-      return NextResponse.json({ success: false, error: "กรุณากรอกข้อมูลสำคัญให้ครบ: วันเกิดเหตุ เวลา พิกัด MGRS และรายละเอียดเหตุการณ์" }, { status: 400 });
+      return NextResponse.json(
+        { success: false, error: "กรุณากรอกข้อมูลสำคัญให้ครบ: วันเกิดเหตุ เวลา พิกัด MGRS และรายละเอียดเหตุการณ์" },
+        { status: 400 }
+      );
+    }
+    const casualtiesToCheck = Array.isArray(body.casualties) && body.casualties.length > 0
+      ? body.casualties
+      : (body.personnelId || body.militaryId)
+      ? [{ personnelId: body.personnelId, militaryId: body.militaryId, rankAbbr: body.rankAbbr, fullName: body.fullName }]
+      : [];
+
+    for (const c of casualtiesToCheck) {
+      const existing = await lossReportRepo.findExistingReportForPersonnel(c.personnelId, c.militaryId);
+      if (existing) {
+        const nameDisplay = `${c.rankAbbr || ""} ${c.fullName || c.militaryId || ""}`.trim();
+        return NextResponse.json(
+          {
+            success: false,
+            error: `กำลังพล ${nameDisplay} ถูกรายงานการสูญเสียแล้วในระบบ (รายงานเลขที่ ${existing.id} ประจำวันที่ ${normalizeDate(existing.incidentDate)}) ไม่สามารถรายงานการสูญเสียซ้ำได้`,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     const { latitude, longitude } = toLatLon(body.mgrsCoordinate);

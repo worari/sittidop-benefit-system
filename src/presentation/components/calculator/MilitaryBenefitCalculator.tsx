@@ -59,9 +59,11 @@ import {
   Link2,
   ExternalLink,
   Eye,
+  Send,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { BenefitClaimProposalModal } from "./BenefitClaimProposalModal";
 
 const RANK_OPTIONS = [
   { value: "GENERAL", label: "พลเอก (พล.อ.)" },
@@ -152,7 +154,9 @@ export function MilitaryBenefitCalculator() {
   const [actionCause, setActionCause] = useState<"ENEMY_ACTION" | "NON_ENEMY_ACTION" | "BOTH">("ENEMY_ACTION");
   const [personnelCategory, setPersonnelCategory] = useState<string>("COMMISSIONED_OFFICER");
 
-  // Hospital Stay dates
+  // Hospital Stay state
+  const [hospitalName, setHospitalName] = useState("รพ.พระมงกุฎเกล้า");
+  const [injuryDetails, setInjuryDetails] = useState("ได้รับบาดเจ็บจากการปฏิบัติหน้าที่ราชการสนาม");
   const [hospitalAdmissionDate, setHospitalAdmissionDate] = useState("2026-03-12");
   const [hospitalDischargeDate, setHospitalDischargeDate] = useState("2026-03-27");
 
@@ -175,6 +179,7 @@ export function MilitaryBenefitCalculator() {
   const [reportRemark, setReportRemark] = useState("");
   const [exportMsg, setExportMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [lastVerification, setLastVerification] = useState<{ code: string; hash: string; verifyUrl: string; format: "pdf" | "docx" } | null>(null);
+  const [showClaimModal, setShowClaimModal] = useState(false);
 
   // Personnel CRUD state
   const [searchQuery, setSearchQuery] = useState("");
@@ -371,6 +376,20 @@ export function MilitaryBenefitCalculator() {
       setIncidentDate(report.incidentDate);
     }
 
+    if (casualty?.hospital) {
+      setHospitalName(casualty.hospital);
+    } else if (report?.district || report?.province) {
+      setHospitalName(`รพ.ศูนย์${report.province || report.district}`);
+    }
+
+    if (casualty?.injuryDetails) {
+      setInjuryDetails(casualty.injuryDetails);
+    } else if (casualty?.lossSeverity) {
+      setInjuryDetails(casualty.lossSeverity);
+    } else if (report?.eventSummary) {
+      setInjuryDetails(report.eventSummary);
+    }
+
     const enemyCause = report.enemyAction === "ENEMY" ? "ENEMY_ACTION" : "NON_ENEMY_ACTION";
     setActionCause(enemyCause);
 
@@ -416,7 +435,7 @@ export function MilitaryBenefitCalculator() {
     setLinkedLossReport({ report, casualty });
     setActionMsg({
       type: "success",
-      text: `เชื่อมโยงข้อมูล 4 แหล่งเรียบร้อย: ${casualty ? `${casualty.rankAbbr} ${casualty.fullName} (${casualty.militaryId})` : report.eventSummary} จากรายงาน กพ.3/กพ.4`,
+      text: `เชื่อมโยงข้อมูลกำลังพลผู้สูญเสียเรียบร้อย: ${casualty ? `${casualty.rankAbbr} ${casualty.fullName} (${casualty.militaryId})` : report.eventSummary} จากรายงาน กพ.3/กพ.4`,
     });
   };
 
@@ -801,11 +820,11 @@ export function MilitaryBenefitCalculator() {
   };
 
   const steps = [
-    { num: 1, title: "ข้อมูลกำลังพล" },
-    { num: 2, title: "เวลาราชการ & ทวีคูณ" },
-    { num: 3, title: "ความสูญเสีย & ปูนบำเหน็จ" },
-    { num: 4, title: "ครอบครัว & ทายาท" },
-    { num: 5, title: "สรุป 4 หมวดสิทธิประโยชน์" },
+    { num: 1, title: "เลือกกำลังพลผู้สูญเสีย" },
+    { num: 2, title: "คำนวณปูนบำเหน็จ & ชั้นยศ" },
+    { num: 3, title: "การพักรักษาพยาบาล" },
+    { num: 4, title: "ข้อมูลครอบครัว & ทายาท" },
+    { num: 5, title: "สรุปสิทธิ 4 หมวด & สวัสดิการ ทบ." },
   ];
 
   const renderScopeComparison = (comparison: BenefitScopeComparison) => {
@@ -997,15 +1016,16 @@ export function MilitaryBenefitCalculator() {
         </div>
       </div>
 
-      {/* Step 1: Select or Input Personnel */}
+      {/* Step 1: Select Casualty & Show Personnel Details */}
       {step === 1 && (
         <Card className="border border-slate-200 dark:border-slate-800 p-6 space-y-5">
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-              ขั้นตอนที่ 1: เลือกกำลังพลหรือระบุฐานเงินเดือน
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <MapPinned className="h-5 w-5 text-amber-600" />
+              ขั้นตอนที่ 1: เลือกกำลังพลผู้สูญเสีย (กพ.3 / กพ.4) & แสดงรายละเอียดกำลังพล
             </h2>
-            <p className="text-xs text-muted-foreground">
-              สามารถค้นหาจากรายงานการสูญเสีย (กพ.3/กพ.4) หรือเลือกจากทะเบียนกำลังพลที่มีอยู่แล้ว เพื่อบูรณาการข้อมูล 4 แหล่ง
+            <p className="text-xs text-muted-foreground mt-0.5">
+              กดเลือกกำลังพลที่ถูกรายงานการสูญเสีย หรือเลือกจากทะเบียนกำลังพล เพื่อดึงข้อมูลประวัติ ครอบครัว ทายาท และข้อมูลเหตุการณ์มาแสดงรายละเอียดและคำนวณสิทธิ
             </p>
           </div>
 
@@ -1076,14 +1096,14 @@ export function MilitaryBenefitCalculator() {
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-xs sm:text-sm font-bold text-amber-900 dark:text-amber-200">
-                      ค้นหากำลังพลจากรายงานการสูญเสียจากการปฏิบัติหน้าที่ราชการ (กพ.3 / กพ.4)
+                      กดเลือกกำลังพลที่ถูกรายงานการสูญเสียจากการปฏิบัติหน้าที่ราชการ (กพ.3 / กพ.4)
                     </h3>
                     <Badge className="bg-amber-600 text-white text-[10px]">
                       บูรณาการ Tab 5 ➔ Tab 6
                     </Badge>
                   </div>
                   <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-0.5">
-                    เลือกกำลังพลที่ถูกรายงานการสูญเสีย เพื่อดึงข้อมูลประวัติ ครอบครัว ทายาท และประเภทการสูญเสียมาประมาณการสิทธิทันที
+                    คลิกเลือกกำลังพลด้านล่างเพื่อแสดงข้อมูลรายละเอียดของกำลังพล และเริ่มการประมาณการสิทธิ
                   </p>
                 </div>
               </div>
@@ -1102,7 +1122,7 @@ export function MilitaryBenefitCalculator() {
                 <Input
                   value={lossReportSearchTerm}
                   onChange={(e) => setLossReportSearchTerm(e.target.value)}
-                  placeholder="ค้นหาตามชื่อ-สกุล, เลขประจำตัว, พิกัด MGRS, จังหวัด หรือพฤติกรรมเหตุการณ์..."
+                  placeholder="ค้นหา: ชื่อ-สกุล, เลขประจำตัวทหาร, พิกัด MGRS, จังหวัด หรือรายละเอียดเหตุการณ์..."
                   className="pl-8 text-xs h-8 bg-white dark:bg-slate-900 border-amber-200 dark:border-amber-800"
                 />
               </div>
@@ -1188,7 +1208,7 @@ export function MilitaryBenefitCalculator() {
                           onClick={() => handleSelectCasualtyFromLossReport(r, c)}
                         >
                           <Calculator className="h-3 w-3" />
-                          {isSelected ? "เลือกอยู่ (ใช้งาน)" : "เลือกคำนวณสิทธิ"}
+                          {isSelected ? "เลือกอยู่ (ใช้งาน)" : "เลือกกำลังพลนี้"}
                         </Button>
                       </div>
                     </div>
@@ -1198,17 +1218,91 @@ export function MilitaryBenefitCalculator() {
             )}
           </div>
 
-          {/* Personnel CRUD Panel */}
+          {/* Showcase Card: ข้อมูลรายละเอียดของกำลังพลที่เลือก */}
+          <div className="rounded-2xl border-2 border-emerald-500/40 bg-white dark:bg-slate-900 p-5 space-y-4 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center font-bold text-sm shrink-0">
+                  <Shield className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    ข้อมูลรายละเอียดของกำลังพลที่เลือก (Personnel Details Overview)
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground">
+                    ข้อมูลส่วนตัว สังกัด ฐานเงินเดือน และรายละเอียดเหตุการณ์ความสูญเสีย
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge className="bg-emerald-600 text-white text-xs px-2.5 py-0.5 font-bold">
+                  {rankAbbr} {firstName} {lastName}
+                </Badge>
+                <Badge variant="outline" className="font-mono text-xs">
+                  ID: {militaryId}
+                </Badge>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+              {/* Box 1: Profile */}
+              <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 space-y-1">
+                <span className="text-[10px] font-bold text-muted-foreground block uppercase">๑. ข้อมูลกำลังพล</span>
+                <p className="font-bold text-slate-900 dark:text-slate-100 text-sm">
+                  {rankAbbr} {firstName} {lastName}
+                </p>
+                <p className="text-muted-foreground text-[11px]">เลขประจำตัว: <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">{militaryId}</span></p>
+                <p className="text-muted-foreground text-[11px]">ตำแหน่งปกติ: <span className="font-medium text-slate-700 dark:text-slate-300">{normalUnit}</span></p>
+                <p className="text-muted-foreground text-[11px]">หน่วยสนาม: <span className="font-medium text-slate-700 dark:text-slate-300">{fieldUnit || "-"}</span></p>
+              </div>
+
+              {/* Box 2: Salary */}
+              <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 space-y-1">
+                <span className="text-[10px] font-bold text-muted-foreground block uppercase">๒. ฐานเงินเดือน & เยียวยา</span>
+                <p className="font-bold text-emerald-700 dark:text-emerald-400 text-sm font-mono">
+                  {formatCurrency(salary)}
+                </p>
+                <p className="text-muted-foreground text-[11px]">ระดับชั้น: <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{salaryLevel}</span> ขั้น <span className="font-mono font-bold text-slate-700 dark:text-slate-300">{salaryStep}</span></p>
+                <p className="text-muted-foreground text-[11px]">เงินเยียวยา: <span className="font-mono text-slate-700 dark:text-slate-300">{compensationAmount ? formatCurrency(compensationAmount) : "-"}</span></p>
+                <p className="text-muted-foreground text-[11px]">เงินเพิ่มพิเศษ: <span className="font-mono text-slate-700 dark:text-slate-300">{additionalPay ? formatCurrency(additionalPay) : "-"}</span></p>
+              </div>
+
+              {/* Box 3: Incident Details */}
+              <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 space-y-1">
+                <span className="text-[10px] font-bold text-muted-foreground block uppercase">๓. ข้อมูลเหตุการณ์สูญเสีย</span>
+                <p className="font-semibold text-slate-900 dark:text-slate-100">
+                  {formatThaiBE(incidentDate)}
+                </p>
+                <p className="text-muted-foreground text-[11px]">พิกัด MGRS: <span className="font-mono font-semibold text-slate-700 dark:text-slate-300">{linkedLossReport?.report.mgrsCoordinate || "-"}</span></p>
+                <p className="text-muted-foreground text-[11px]">การถูกกระทำ: <span className="font-bold text-amber-700 dark:text-amber-400">{actionCause === "ENEMY_ACTION" ? "⚡ ข้าศึก/สู้รบ" : "🛡️ มิใช่ข้าศึก"}</span></p>
+                <p className="text-muted-foreground text-[11px]">ประเภทสูญเสีย: <span className="font-bold text-rose-600">{lossType === "KIA_COMBAT_DEATH" ? "เสียชีวิตในสมรภูมิ (KIA)" : lossType === "TOTAL_PERMANENT_DISABILITY" ? "ทุพพลภาพถาวร" : lossType === "SEVERE_WOUND_WIA" ? "บาดเจ็บสาหัส (WIA)" : "เสียชีวิตขณะปฏิบัติหน้าที่"}</span></p>
+              </div>
+
+              {/* Box 4: Medical / Hospital */}
+              <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 space-y-1">
+                <span className="text-[10px] font-bold text-muted-foreground block uppercase">๔. สถานพยาบาล & อาการ</span>
+                <p className="font-semibold text-slate-900 dark:text-slate-100 truncate">
+                  🏥 {hospitalName || "รพ.พระมงกุฎเกล้า"}
+                </p>
+                <p className="text-muted-foreground text-[11px] line-clamp-2">
+                  อาการ: {injuryDetails || "ได้รับบาดเจ็บจากการปฏิบัติหน้าที่"}
+                </p>
+                <p className="text-muted-foreground text-[11px]">วันบรรจุ: <span className="font-semibold text-slate-700 dark:text-slate-300">{formatThaiBE(appointmentDate)}</span></p>
+              </div>
+            </div>
+          </div>
+
+          {/* Personnel CRUD / Adjustment Panel */}
           <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/40 dark:bg-emerald-950/20 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Database className="h-4 w-4 text-emerald-600" />
                 <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
-                  จัดการข้อมูลกำลังพล (เพิ่ม / ลบ / แก้ไข / ค้นหา)
+                  ปรับแก้ข้อมูลกำลังพล หรือเลือกจากทะเบียนกำลังพล (Tab 2)
                 </span>
               </div>
               <Badge variant="outline" className="text-[10px]">
-                {personnelList.length} รายการ
+                {personnelList.length} รายการในทะเบียน
               </Badge>
             </div>
 
@@ -1224,7 +1318,7 @@ export function MilitaryBenefitCalculator() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleSearchPersonnel(); }}
-                placeholder="ค้นหา: ชื่อ, เลขประจำตัวทหาร, สังกัด..."
+                placeholder="ค้นหาทะเบียน: ชื่อ, เลขประจำตัวทหาร, สังกัด..."
                 className="text-xs h-9"
               />
               <Button variant="outline" size="sm" className="text-xs gap-1.5 shrink-0" onClick={handleSearchPersonnel}>
@@ -1238,7 +1332,7 @@ export function MilitaryBenefitCalculator() {
 
             {/* Results select */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">เลือกกำลังพลจากรายการ</Label>
+              <Label className="text-xs font-bold">เลือกกำลังพลจากทะเบียน</Label>
               <select
                 value={selectedPersonnelId}
                 onChange={(e) => {
@@ -1247,23 +1341,105 @@ export function MilitaryBenefitCalculator() {
                 }}
                 className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
               >
-                <option value="">-- กรุณาเลือกกำลังพล --</option>
+                <option value="">-- กรุณาเลือกกำลังพลจากทะเบียน --</option>
                 {personnelList.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.rankAbbr} {p.firstName} {p.lastName} - {p.normalUnit} ({p.militaryId})
                   </option>
                 ))}
               </select>
-              <p className="text-[10px] text-muted-foreground">
-                เลือกเพื่อโหลดลงฟอร์ม แก้ไขข้อมูลแล้วกด "บันทึกการแก้ไข" เพื่ออัปเดต
-              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+              <div className="space-y-1">
+                <Label className="text-[11px]">ยศ</Label>
+                <select
+                  value={rank}
+                  onChange={(e) => {
+                    setRank(e.target.value);
+                    const found = RANK_OPTIONS.find((r) => r.value === e.target.value);
+                    if (found) {
+                      const abbrMatch = found.label.match(/\(([^)]+)\)/);
+                      setRankAbbr(abbrMatch ? abbrMatch[1] : found.value);
+                    }
+                  }}
+                  className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs"
+                >
+                  {RANK_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">ชื่อ</Label>
+                <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} className="text-xs h-8" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">สกุล</Label>
+                <Input value={lastName} onChange={(e) => setLastName(e.target.value)} className="text-xs h-8" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">เลขประจำตัวทหาร 10 หลัก</Label>
+                <Input
+                  value={militaryId}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, "").slice(0, 10);
+                    setMilitaryId(v);
+                  }}
+                  maxLength={10}
+                  className="text-xs h-8 font-mono"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[11px]">สังกัดปกติ</Label>
+                <Input value={normalUnit} onChange={(e) => setNormalUnit(e.target.value)} className="text-xs h-8" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">สังกัดสนาม</Label>
+                <Input value={fieldUnit} onChange={(e) => setFieldUnit(e.target.value)} className="text-xs h-8" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">ระดับชั้นเงินเดือน</Label>
+                <select
+                  value={salaryLevel}
+                  onChange={(e) => {
+                    const nextLevel = normalizeSalaryLevel(e.target.value);
+                    setSalaryLevel(nextLevel);
+                    setSalary(getSalaryAmount(nextLevel, salaryStep));
+                  }}
+                  className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs font-mono"
+                >
+                  {SALARY_LEVEL_OPTIONS.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-[11px]">ขั้น</Label>
+                <select
+                  value={salaryStep}
+                  onChange={(e) => {
+                    const nextStep = Number(e.target.value);
+                    setSalaryStep(nextStep);
+                    setSalary(getSalaryAmount(salaryLevel, nextStep));
+                  }}
+                  className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs font-mono"
+                >
+                  {SALARY_STEP_OPTIONS.map((option) => (
+                    <option key={option} value={option}>ขั้น {formatSalaryStep(option)}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* CRUD actions */}
             <div className="flex flex-wrap gap-2 pt-1">
-              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5 flex-1" onClick={handleCreatePersonnel}>
+              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5" onClick={handleCreatePersonnel}>
                 <Plus className="h-3.5 w-3.5" />
-                เพิ่มกำลังพลใหม่ (บันทึกจากฟอร์ม)
+                เพิ่มกำลังพลใหม่
               </Button>
               <Button variant="outline" size="sm" className="text-xs gap-1.5" onClick={handleUpdatePersonnel}>
                 <PencilLine className="h-3.5 w-3.5 text-emerald-600" />
@@ -1276,526 +1452,462 @@ export function MilitaryBenefitCalculator() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs">ยศ</Label>
-              <select
-                value={rank}
-                onChange={(e) => {
-                  setRank(e.target.value);
-                  const found = RANK_OPTIONS.find((r) => r.value === e.target.value);
-                  if (found) {
-                    const abbrMatch = found.label.match(/\(([^)]+)\)/);
-                    setRankAbbr(abbrMatch ? abbrMatch[1] : found.value);
-                  }
-                }}
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
-              >
-                {RANK_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">ชื่อ</Label>
-              <Input
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                className="text-xs"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">สกุล</Label>
-              <Input
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                className="text-xs"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">เลขประจำตัวทหาร 10 หลัก (เฉพาะตัวเลข)</Label>
-              <Input
-                value={militaryId}
-                onChange={(e) => {
-                  const v = e.target.value.replace(/\D/g, "").slice(0, 10);
-                  setMilitaryId(v);
-                }}
-                onKeyDown={(e) => {
-                  if (
-                    !/[0-9]/.test(e.key) &&
-                    !["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "Enter"].includes(e.key) &&
-                    !e.ctrlKey &&
-                    !e.metaKey
-                  ) {
-                    e.preventDefault();
-                  }
-                }}
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={10}
-                placeholder="0000000000"
-                className="text-xs font-mono"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">สังกัดปกติ (ต้นสังกัด)</Label>
-              <Input
-                value={normalUnit}
-                onChange={(e) => setNormalUnit(e.target.value)}
-                className="text-xs"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">สังกัดสนาม / หน่วยเฉพาะกิจ</Label>
-              <Input
-                value={fieldUnit}
-                onChange={(e) => setFieldUnit(e.target.value)}
-                className="text-xs"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">ระดับชั้นเงินเดือน</Label>
-              <select
-                value={salaryLevel}
-                onChange={(e) => {
-                  const nextLevel = normalizeSalaryLevel(e.target.value);
-                  setSalaryLevel(nextLevel);
-                  setSalary(getSalaryAmount(nextLevel, salaryStep));
-                }}
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs font-mono"
-              >
-                {SALARY_LEVEL_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">ขั้น</Label>
-              <select
-                value={salaryStep}
-                onChange={(e) => {
-                  const nextStep = Number(e.target.value);
-                  setSalaryStep(nextStep);
-                  setSalary(getSalaryAmount(salaryLevel, nextStep));
-                }}
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs font-mono"
-              >
-                {SALARY_STEP_OPTIONS.map((option) => (
-                  <option key={option} value={option}>
-                    ขั้น {formatSalaryStep(option)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">เงินเดือนปัจจุบัน (บาท)</Label>
-              <Input
-                type="number"
-                value={salary}
-                readOnly
-                className="text-xs font-mono font-bold bg-slate-50 dark:bg-slate-900/60"
-                title="คำนวณอัตโนมัติจากระดับชั้นเงินเดือนและขั้น"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">ระดับเงินเยียวยา</Label>
-              <Input
-                value={compensationLevel}
-                onChange={(e) => setCompensationLevel(e.target.value)}
-                className="text-xs"
-                placeholder="เช่น ระดับ 1"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">จำนวนเงินเยียวยา (บาท)</Label>
-              <Input
-                type="number"
-                value={compensationAmount}
-                onChange={(e) => setCompensationAmount(Number(e.target.value))}
-                className="text-xs font-mono"
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end pt-4">
+          <div className="flex justify-end pt-4 border-t border-slate-200 dark:border-slate-800">
             <Button
-              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-xs"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 text-xs px-5 py-2.5 shadow-md"
               onClick={() => setStep(2)}
             >
-              ถัดไป: เวลาราชการทวีคูณ
+              ถัดไป: คำนวณการปูนบำเหน็จพิเศษและชั้นยศ
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
         </Card>
       )}
 
-      {/* Step 2: Service Years and Multipliers */}
+      {/* Step 2: Special Merit & Rank Promotion Calculation */}
       {step === 2 && (
         <Card className="border border-slate-200 dark:border-slate-800 p-6 space-y-5">
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-              ขั้นตอนที่ 2: วันบรรจุ เวลาราชการปกติ และเวลาราชการทวีคูณ
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Award className="h-5 w-5 text-amber-600" />
+              ขั้นตอนที่ 2: คำนวณการปูนบำเหน็จพิเศษและชั้นยศ
             </h2>
-            <p className="text-xs text-muted-foreground">
-              ระบุวันบรรจุ วันเกิดเหตุ และวันทวีคูณ ระบบจะคำนวณเวลาราชการอัตโนมัติ
+            <p className="text-xs text-muted-foreground mt-0.5">
+              คำนวณเวลาราชการปกติ เวลาราชการทวีคูณ การปูนบำเหน็จพิเศษ แต่งตั้งเลื่อนชั้นยศ และเงินเดือนใหม่
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <ThaiBuddhistDatePicker
-              label="วัน เดือน ปี บรรจุ"
-              value={appointmentDate}
-              onChange={(v) => setAppointmentDate(v || "")}
-              required
-            />
-            <ThaiBuddhistDatePicker
-              label="วันเกิดเหตุ"
-              value={incidentDate}
-              onChange={setIncidentDate}
-            />
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">เวลาราชการทวีคูณรวม</Label>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">ปี</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={multiplierYears}
-                    onChange={(e) => setMultiplierYears(Number(e.target.value))}
-                    className="text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">เดือน</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={multiplierMonths}
-                    onChange={(e) => setMultiplierMonths(Number(e.target.value))}
-                    className="text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-[11px] text-muted-foreground">วัน</Label>
-                  <Input
-                    type="number"
-                    min={0}
-                    value={multiplierDays}
-                    onChange={(e) => setMultiplierDays(Number(e.target.value))}
-                    className="text-xs"
-                  />
+          {/* Section 1: Service Time & Multiplier */}
+          <div className="space-y-3 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-slate-100">
+              <Calendar className="h-4 w-4 text-emerald-600" />
+              <span>๑. วันบรรจุและเวลาราชการ (ปกติ & ทวีคูณ)</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <ThaiBuddhistDatePicker
+                label="วัน เดือน ปี บรรจุ"
+                value={appointmentDate}
+                onChange={(v) => setAppointmentDate(v || "")}
+                required
+              />
+              <ThaiBuddhistDatePicker
+                label="วันเกิดเหตุสูญเสีย"
+                value={incidentDate}
+                onChange={setIncidentDate}
+              />
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">เวลาราชการทวีคูณรวม</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">ปี</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={multiplierYears}
+                      onChange={(e) => setMultiplierYears(Number(e.target.value))}
+                      className="text-xs h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">เดือน</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={multiplierMonths}
+                      onChange={(e) => setMultiplierMonths(Number(e.target.value))}
+                      className="text-xs h-9"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">วัน</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={multiplierDays}
+                      onChange={(e) => setMultiplierDays(Number(e.target.value))}
+                      className="text-xs h-9"
+                    />
+                  </div>
                 </div>
               </div>
-              <p className="text-[10px] text-muted-foreground">กรอกระยะเวลาราชการทวีคูณที่ได้จากช่วงปฏิบัติงานสนาม</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+              <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                <Label className="text-xs text-muted-foreground">เวลาราชการปกติ</Label>
+                <p className="text-base font-black text-slate-800 dark:text-slate-200 pt-0.5">
+                  {formatServiceTime({ years: serviceYearsNormal, months: serviceMonthsNormal, days: serviceDaysNormal })}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/30">
+                <Label className="text-xs font-bold text-emerald-800 dark:text-emerald-300">เวลาราชการทวีคูณ</Label>
+                <p className="text-base font-black text-emerald-700 dark:text-emerald-400 pt-0.5">
+                  {formatServiceTime({ years: serviceYearsMultiplier, months: serviceMonthsMultiplier, days: serviceDaysMultiplier })}
+                </p>
+              </div>
+
+              <div className="p-3 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/30">
+                <Label className="text-xs font-bold text-amber-800 dark:text-amber-300">รวมเวลาราชการคำนวณ</Label>
+                <p className="text-base font-black text-amber-700 dark:text-amber-400 pt-0.5">
+                  {formatServiceTime({ years: totalServiceYears, months: totalServiceMonths, days: totalServiceDays })}
+                </p>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="space-y-1.5 p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-              <Label className="text-xs font-bold">เวลาราชการปกติ</Label>
-              <p className="text-lg font-black text-slate-700 dark:text-slate-300 pt-1">
-                {formatServiceTime({ years: serviceYearsNormal, months: serviceMonthsNormal, days: serviceDaysNormal })}
-              </p>
-              <p className="text-[10px] text-muted-foreground">นับจากวันบรรจุถึงวันเกิดเหตุ</p>
+          {/* Section 2: Special Pension & Promotion */}
+          <div className="space-y-4 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50">
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-900 dark:text-slate-100">
+              <Award className="h-4 w-4 text-amber-600" />
+              <span>๒. การปูนบำเหน็จพิเศษ แต่งตั้งเลื่อนชั้นยศ และฐานเงินเดือนใหม่</span>
             </div>
 
-            <div className="space-y-1.5 p-4 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/30">
-              <Label className="text-xs font-bold text-emerald-800 dark:text-emerald-300">เวลาราชการทวีคูณ</Label>
-              <p className="text-lg font-black text-emerald-700 dark:text-emerald-400 pt-1">
-                {formatServiceTime({ years: serviceYearsMultiplier, months: serviceMonthsMultiplier, days: serviceDaysMultiplier })}
-              </p>
-              <p className="text-[10px] text-emerald-700 dark:text-emerald-400">ราชการสนาม / ปราบปราม</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">ประเภทสิทธิ (Benefit Scope)</Label>
+                <select
+                  value={benefitScope}
+                  onChange={(e) => setBenefitScope(e.target.value as any)}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
+                >
+                  <option value="IN_ARMY">ใน ทบ. (สิทธิและเงินกองทุนภายในกองทัพบก)</option>
+                  <option value="OUTSIDE_ARMY">นอก ทบ. (ประกันภัยร่วม กห., กรมบัญชีกลาง, มูลนิธิสายใจไทย)</option>
+                  <option value="BOTH">ทั้งในและนอก ทบ. (เปรียบเทียบ)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">สาเหตุการถูกกระทำ (Action Cause)</Label>
+                <select
+                  value={actionCause}
+                  onChange={(e) => setActionCause(e.target.value as any)}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
+                >
+                  <option value="ENEMY_ACTION">การกระทำของข้าศึก / ผู้ก่อความไม่สงบ / การสู้รบ</option>
+                  <option value="NON_ENEMY_ACTION">มิใช่การกระทำของข้าศึก (อุบัติเหตุสนาม, ปฏิบัติงานปกติ)</option>
+                  <option value="BOTH">ทั้งสองกรณี</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">ประเภทความสูญเสีย (Loss Type)</Label>
+                <select
+                  value={lossType}
+                  onChange={(e) => setLossType(e.target.value)}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
+                >
+                  <option value="KIA_COMBAT_DEATH">เสียชีวิตจากการสู้รบในสมรภูมิ (KIA - 7-9 ชั้นยศ)</option>
+                  <option value="DUTY_DEATH">เสียชีวิตขณะปฏิบัติหน้าที่ราชการสนาม (5-7 ชั้นยศ)</option>
+                  <option value="TOTAL_PERMANENT_DISABILITY">ทุพพลภาพถาวรจากการรบ (WIA)</option>
+                  <option value="SEVERE_WOUND_WIA">บาดเจ็บสาหัสจากการรบ</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">ประเภทภารกิจ (Mission Type)</Label>
+                <select
+                  value={missionType}
+                  onChange={(e) => setMissionType(e.target.value)}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
+                >
+                  <option value="COUNTER_INSURGENCY">ปราบปรามผู้ก่อการร้าย / จชต.</option>
+                  <option value="BORDER_DEFENSE">ป้องกันชายแดน</option>
+                  <option value="PEACEKEEPING_UN">รักษาสันติภาพ UN</option>
+                  <option value="INTERNAL_SECURITY">รักษาความมั่นคงภายใน</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">การปูนบำเหน็จพิเศษ</Label>
+                <select
+                  value={specialPensionType}
+                  onChange={(e) => setSpecialPensionType(e.target.value as any)}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
+                >
+                  <option value="EMERGENCY_TIME">1. ในเวลาเหตุฉุกเฉิน</option>
+                  <option value="NORMAL_TIME">2. ในเวลาเหตุปกติ</option>
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">จำนวนชั้นปูนบำเหน็จพิเศษ</Label>
+                <select
+                  value={specialPensionTier}
+                  onChange={(e) => setSpecialPensionTier(Number(e.target.value))}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs font-bold"
+                >
+                  {SPECIAL_PENSION_TIERS.map((tier) => (
+                    <option key={tier} value={tier}>
+                      ปูนบำเหน็จพิเศษ {tier} ชั้นยศ
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">แต่งตั้ง/เลื่อนชั้นยศ เป็น</Label>
+                <select
+                  value={promotedRank}
+                  onChange={(e) => {
+                    setPromotedRank(e.target.value);
+                    const found = RANK_OPTIONS.find((r) => r.value === e.target.value);
+                    if (found) {
+                      const abbrMatch = found.label.match(/\(([^)]+)\)/);
+                      setPromotedRankAbbr(abbrMatch ? abbrMatch[1] : found.value);
+                    }
+                  }}
+                  className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs font-bold"
+                >
+                  {RANK_OPTIONS.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">ปรับระดับ (ชั้นเงิน)</Label>
+                <Input
+                  value={salaryLevelAdjustment}
+                  onChange={(e) => setSalaryLevelAdjustment(e.target.value)}
+                  className="text-xs h-9 font-mono"
+                  placeholder="เช่น น.3 ขั้น 27.5"
+                />
+              </div>
+
+              <div className="sm:col-span-2 space-y-1.5">
+                <Label className="text-xs font-bold">เงินเดือนหลังปูนบำเหน็จเลื่อนชั้นยศ (บาท)</Label>
+                <Input
+                  type="number"
+                  value={promotedSalary}
+                  onChange={(e) => setPromotedSalary(Number(e.target.value))}
+                  className="text-xs font-mono font-bold text-amber-600 h-9"
+                />
+              </div>
             </div>
 
-            <div className="space-y-1.5 p-4 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/30">
-              <Label className="text-xs font-bold text-amber-800 dark:text-amber-300">รวมเวลาราชการคำนวณ</Label>
-              <p className="text-lg font-black text-amber-700 dark:text-amber-400 pt-1">
-                {formatServiceTime({ years: totalServiceYears, months: totalServiceMonths, days: totalServiceDays })}
-              </p>
-              <p className="text-[10px] text-amber-700 dark:text-amber-400">ใช้คำนวณบำเหน็จบำนาญพิเศษ</p>
+            {/* Summary Box */}
+            <div className="rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/30 p-4 space-y-2">
+              <div className="text-xs font-bold text-amber-900 dark:text-amber-300">
+                สรุปผลการคำนวณปูนบำเหน็จพิเศษและชั้นยศ
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
+                <div className="rounded-lg bg-white/80 dark:bg-slate-900 p-2 border border-amber-100 dark:border-amber-900/50">
+                  <p className="text-muted-foreground text-[10px]">แต่งตั้งเลื่อนยศ</p>
+                  <p className="font-bold text-slate-900 dark:text-slate-100">{promotedRankAbbr} ({promotedRank})</p>
+                </div>
+                <div className="rounded-lg bg-white/80 dark:bg-slate-900 p-2 border border-amber-100 dark:border-amber-900/50">
+                  <p className="text-muted-foreground text-[10px]">จำนวนชั้นบำเหน็จ</p>
+                  <p className="font-bold text-slate-900 dark:text-slate-100">{specialPensionTier} ชั้น</p>
+                </div>
+                <div className="rounded-lg bg-white/80 dark:bg-slate-900 p-2 border border-amber-100 dark:border-amber-900/50">
+                  <p className="text-muted-foreground text-[10px]">ระดับชั้นเงินใหม่</p>
+                  <p className="font-bold font-mono text-slate-900 dark:text-slate-100">{salaryLevelAdjustment || "-"}</p>
+                </div>
+                <div className="rounded-lg bg-white/80 dark:bg-slate-900 p-2 border border-amber-100 dark:border-amber-900/50">
+                  <p className="text-muted-foreground text-[10px]">ยอดเงินเดือนใหม่</p>
+                  <p className="font-bold font-mono text-amber-700 dark:text-amber-400">{formatCurrency(promotedSalary)}</p>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="flex justify-between pt-4">
+          <div className="flex justify-between pt-4 border-t border-slate-200 dark:border-slate-800">
             <Button variant="outline" size="sm" onClick={() => setStep(1)} className="text-xs gap-1.5">
               <ArrowLeft className="h-4 w-4" />
-              ย้อนกลับ
+              ย้อนกลับ: เลือกกำลังพล
             </Button>
             <Button
-              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-xs"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 text-xs px-5 py-2.5 shadow-md"
               onClick={() => setStep(3)}
             >
-              ถัดไป: เหตุการณ์และความสูญเสีย
+              ถัดไป: ข้อมูลการพักรักษาพยาบาลในโรงพยาบาล
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
         </Card>
       )}
 
-      {/* Step 3: Loss & Promotion */}
+      {/* Step 3: Hospital Stay & Medical Assistance */}
       {step === 3 && (
         <Card className="border border-slate-200 dark:border-slate-800 p-6 space-y-5">
           <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">
-              ขั้นตอนที่ 3: เหตุการณ์ความสูญเสีย ปูนบำเหน็จพิเศษ และชั้นยศ
+            <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+              <Activity className="h-5 w-5 text-emerald-600" />
+              ขั้นตอนที่ 3: ข้อมูลการพักรักษาพยาบาลในโรงพยาบาล & สิทธิเงินช่วยเหลือ
             </h2>
-            <p className="text-xs text-muted-foreground">
-              กำหนดประเภทความสูญเสีย การปูนบำเหน็จพิเศษ แต่งตั้ง/เลื่อนชั้นยศ และเงินเดือนหลังเลื่อนชั้นยศ
+            <p className="text-xs text-muted-foreground mt-0.5">
+              บันทึกข้อมูลการเข้ารับการรักษาพยาบาลในโรงพยาบาล วันที่รักษา และคำนวณสิทธิเงินช่วยเหลือรายวัน/ค่ารักษาพยาบาล
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">1. ประเภทสิทธิ (Benefit Scope)</Label>
-              <select
-                value={benefitScope}
-                onChange={(e) => setBenefitScope(e.target.value as any)}
-                aria-label="1. ประเภทสิทธิ (Benefit Scope)"
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
-              >
-                <option value="IN_ARMY">ใน ทบ. (สิทธิและเงินกองทุนภายในกองทัพบก)</option>
-                <option value="OUTSIDE_ARMY">นอก ทบ. (ประกันภัยร่วม กห., กรมบัญชีกลาง, มูลนิธิสายใจไทย)</option>
-                <option value="BOTH">ทั้งในและนอก ทบ. (เปรียบเทียบ)</option>
-              </select>
-            </div>
+          {(() => {
+            const stayDays = calculateStayDays(hospitalAdmissionDate, hospitalDischargeDate);
+            const isTier1 = stayDays > 0 && stayDays <= 10;
+            const isTier2 = stayDays > 10;
+            const benefitAmount = stayDays <= 0 ? 0 : stayDays <= 10 ? 10000 : 20000;
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">2. ถูกกระทำ (Action Cause)</Label>
-              <select
-                value={actionCause}
-                onChange={(e) => setActionCause(e.target.value as any)}
-                aria-label="2. ถูกกระทำ (Action Cause)"
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
-              >
-                <option value="ENEMY_ACTION">การกระทำของข้าศึก / ผู้ก่อความไม่สงบ / การสู้รบ</option>
-                <option value="NON_ENEMY_ACTION">มิใช่การกระทำของข้าศึก (อุบัติเหตุสนาม, ปฏิบัติงานปกติ)</option>
-                <option value="BOTH">ทั้งสองกรณี</option>
-              </select>
-            </div>
+            const popularHospitals = [
+              "รพ.พระมงกุฎเกล้า",
+              "รพ.ค่ายวชิราวุธ",
+              "รพ.ศูนย์ยะลา",
+              "รพ.ค่ายอิงคยุทธบริหาร",
+              "รพ.ค่ายเสนาณรงค์",
+              "รพ.สงขลานครินทร์",
+              "รพ.สุไหงโก-ลก",
+              "รพ.ค่ายสุรนารี",
+              "รพ.ค่ายกาวิละ",
+            ];
 
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">3. ประเภทความสูญเสีย (Loss Type)</Label>
-              <select
-                value={lossType}
-                onChange={(e) => setLossType(e.target.value)}
-                aria-label="3. ประเภทความสูญเสีย (Loss Type)"
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
-              >
-                <option value="KIA_COMBAT_DEATH">เสียชีวิตจากการสู้รบในสมรภูมิ (KIA - 7-9 ชั้นยศ)</option>
-                <option value="DUTY_DEATH">เสียชีวิตขณะปฏิบัติหน้าที่ราชการสนาม (5-7 ชั้นยศ)</option>
-                <option value="TOTAL_PERMANENT_DISABILITY">ทุพพลภาพถาวรจากการรบ (WIA)</option>
-                <option value="SEVERE_WOUND_WIA">บาดเจ็บสาหัสจากการรบ</option>
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">ประเภทภารกิจ (Mission Type)</Label>
-              <select
-                value={missionType}
-                onChange={(e) => setMissionType(e.target.value)}
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
-              >
-                <option value="COUNTER_INSURGENCY">ปราบปรามผู้ก่อการร้าย / จชต.</option>
-                <option value="BORDER_DEFENSE">ป้องกันชายแดน</option>
-                <option value="PEACEKEEPING_UN">รักษาสันติภาพ UN</option>
-                <option value="INTERNAL_SECURITY">รักษาความมั่นคงภายใน</option>
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">การปูนบำเหน็จพิเศษ</Label>
-              <select
-                value={specialPensionType}
-                onChange={(e) => setSpecialPensionType(e.target.value as any)}
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
-              >
-                <option value="EMERGENCY_TIME">1. ในเวลาเหตุฉุกเฉิน</option>
-                <option value="NORMAL_TIME">2. ในเวลาเหตุปกติ</option>
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">ปูนบำเหน็จพิเศษ (จำนวนชั้นยศ)</Label>
-              <select
-                value={specialPensionTier}
-                onChange={(e) => setSpecialPensionTier(Number(e.target.value))}
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
-              >
-                {SPECIAL_PENSION_TIERS.map((tier) => (
-                  <option key={tier} value={tier}>
-                    ปูนบำเหน็จพิเศษ {tier} ชั้นยศ
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">แต่งตั้ง/เลื่อนชั้นยศ เป็น</Label>
-              <select
-                value={promotedRank}
-                onChange={(e) => {
-                  setPromotedRank(e.target.value);
-                  const found = RANK_OPTIONS.find((r) => r.value === e.target.value);
-                  if (found) {
-                    const abbrMatch = found.label.match(/\(([^)]+)\)/);
-                    setPromotedRankAbbr(abbrMatch ? abbrMatch[1] : found.value);
-                  }
-                }}
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs"
-              >
-                {RANK_OPTIONS.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">ปรับระดับ (ชั้นเงิน)</Label>
-              <Input
-                value={salaryLevelAdjustment}
-                onChange={(e) => setSalaryLevelAdjustment(e.target.value)}
-                className="text-xs"
-                placeholder="เช่น น.3 ขั้น 27.5"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">เงินเดือนหลังปูนบำเหน็จเลื่อนชั้นยศ (บาท)</Label>
-              <Input
-                type="number"
-                value={promotedSalary}
-                onChange={(e) => setPromotedSalary(Number(e.target.value))}
-                className="text-xs font-mono font-bold text-amber-600"
-              />
-            </div>
-
-            <div className="sm:col-span-2 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/30 p-4 space-y-2">
-              <div className="text-xs font-bold text-amber-900 dark:text-amber-300">
-                สรุปการคำนวณปูนบำเหน็จพิเศษ
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 text-xs">
-                <div className="rounded-lg bg-white/80 dark:bg-slate-900 p-2 border border-amber-100 dark:border-amber-900/50">
-                  <p className="text-muted-foreground">แต่งตั้ง/เลื่อนยศพิเศษ</p>
-                  <p className="font-bold">{promotedRankAbbr} ({promotedRank})</p>
-                </div>
-                <div className="rounded-lg bg-white/80 dark:bg-slate-900 p-2 border border-amber-100 dark:border-amber-900/50">
-                  <p className="text-muted-foreground">จำนวนชั้นบำเหน็จ</p>
-                  <p className="font-bold">{specialPensionTier} ชั้น</p>
-                </div>
-                <div className="rounded-lg bg-white/80 dark:bg-slate-900 p-2 border border-amber-100 dark:border-amber-900/50">
-                  <p className="text-muted-foreground">ระดับเงินเดือนใหม่</p>
-                  <p className="font-bold">{salaryLevelAdjustment || "-"}</p>
-                </div>
-                <div className="rounded-lg bg-white/80 dark:bg-slate-900 p-2 border border-amber-100 dark:border-amber-900/50">
-                  <p className="text-muted-foreground">ยอดรับเงินเดือนใหม่</p>
-                  <p className="font-bold text-amber-700 dark:text-amber-400">{formatCurrency(promotedSalary)}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Hospitalization Stay Section */}
-            {(() => {
-              const stayDays = calculateStayDays(hospitalAdmissionDate, hospitalDischargeDate);
-              const isTier1 = stayDays > 0 && stayDays <= 10;
-              const isTier2 = stayDays > 10;
-              const benefitAmount = stayDays <= 0 ? 0 : stayDays <= 10 ? 10000 : 20000;
-
-              return (
-                <div className="sm:col-span-2 p-4 rounded-xl border border-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-950/20 space-y-3">
+            return (
+              <div className="space-y-4">
+                {/* 1. Hospital Information */}
+                <div className="p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 space-y-3.5">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs font-bold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+                    <Label className="text-xs font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                       <Activity className="h-4 w-4 text-emerald-600" />
-                      การพักรักษาพยาบาลในโรงพยาบาล (Hospital Stay)
+                      ๑. สถานพยาบาลและระยะเวลาการรักษา
                     </Label>
-                    <div className="flex items-center gap-2">
-                      <Badge className="bg-emerald-700 text-white font-mono text-xs px-2 py-0.5">
-                        คำนวณอัตโนมัติ: {stayDays} วัน
-                      </Badge>
-                      {stayDays > 0 && (
-                        <Badge className="bg-amber-600 text-white font-semibold text-xs px-2.5 py-0.5">
-                          เงินช่วยเหลือ: {formatCurrency(benefitAmount)}
-                        </Badge>
-                      )}
+                    <Badge className="bg-emerald-600 text-white font-mono text-xs">
+                      ระยะเวลารวม: {stayDays} วัน
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold">ชื่อโรงพยาบาลที่เข้ารับการรักษา (Hospital Name)</Label>
+                    <Input
+                      value={hospitalName}
+                      onChange={(e) => setHospitalName(e.target.value)}
+                      placeholder="เช่น รพ.พระมงกุฎเกล้า, รพ.ค่ายวชิราวุธ, รพ.ศูนย์ยะลา..."
+                      className="text-xs h-9 bg-background"
+                    />
+                    {/* Quick Badges */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[10px] text-muted-foreground">เลือกด่วน:</span>
+                      {popularHospitals.map((h) => (
+                        <button
+                          key={h}
+                          type="button"
+                          onClick={() => setHospitalName(h)}
+                          className={`text-[10px] px-2 py-0.5 rounded-md border transition-all ${
+                            hospitalName === h
+                              ? "bg-emerald-600 text-white border-emerald-600 font-bold"
+                              : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-emerald-400"
+                          }`}
+                        >
+                          {h}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">วันที่เข้ารับการรักษาพยาบาล (Admission Date)</Label>
-                      <Input
-                        type="date"
-                        value={hospitalAdmissionDate}
-                        onChange={(e) => setHospitalAdmissionDate(e.target.value)}
-                        className="text-xs h-9 bg-background"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-[11px] text-muted-foreground">วันที่จำหน่าย/ออกจากโรงพยาบาล (Discharge Date)</Label>
-                      <Input
-                        type="date"
-                        value={hospitalDischargeDate}
-                        onChange={(e) => setHospitalDischargeDate(e.target.value)}
-                        className="text-xs h-9 bg-background"
-                      />
-                    </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <ThaiBuddhistDatePicker
+                      label="วันที่เข้ารับการรักษาพยาบาล (Admission Date)"
+                      value={hospitalAdmissionDate}
+                      onChange={(v) => setHospitalAdmissionDate(v || "")}
+                    />
+                    <ThaiBuddhistDatePicker
+                      label="วันที่จำหน่าย/ออกจากโรงพยาบาล (Discharge Date)"
+                      value={hospitalDischargeDate}
+                      onChange={(v) => setHospitalDischargeDate(v || "")}
+                    />
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-slate-600 dark:text-slate-400">
-                    <span className="font-semibold">เกณฑ์เงินช่วยเหลือ:</span>
-                    <span
-                      className={`px-2.5 py-1 rounded-md border transition-all ${
+                  <div className="space-y-1.5 pt-1">
+                    <Label className="text-xs font-bold">รายละเอียดบาดแผล / อาการบาดเจ็บ / พฤติการณ์การรักษา</Label>
+                    <textarea
+                      rows={3}
+                      value={injuryDetails}
+                      onChange={(e) => setInjuryDetails(e.target.value)}
+                      placeholder="ระบุรายละเอียด เช่น ถูกสะเก็ดระเบิดเข้าที่บริเวณหน้าอกและแขนขวา ได้รับการผ่าตัดและนอนพักฟื้น..."
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-xs"
+                    />
+                  </div>
+                </div>
+
+                {/* 2. Benefit Calculation Box */}
+                <div className="p-4 rounded-2xl border-2 border-emerald-500/40 bg-gradient-to-br from-emerald-50/70 via-teal-50/40 to-white dark:from-emerald-950/30 dark:via-teal-950/10 dark:to-slate-900 space-y-3 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-bold text-emerald-900 dark:text-emerald-200 flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                        ๒. การประมาณการสิทธิเงินช่วยเหลือการนอนพักรักษาตัวใน รพ. (ทบ. & กห.)
+                      </h4>
+                      <p className="text-[11px] text-emerald-800/80 dark:text-emerald-300/80 mt-0.5">
+                        คำนวณตามระเบียบกองทัพบกว่าด้วยเงินช่วยเหลือกำลังพลที่บาดเจ็บจากการปฏิบัติราชการสนาม
+                      </p>
+                    </div>
+
+                    <Badge className="bg-emerald-600 text-white font-bold text-sm px-3 py-1 self-start sm:self-center shadow-xs">
+                      สิทธิเงินช่วยเหลือ: {formatCurrency(benefitAmount)}
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div
+                      className={`p-3 rounded-xl border transition-all ${
                         isTier1
-                          ? "bg-emerald-100 text-emerald-900 border-emerald-500 font-bold dark:bg-emerald-900/60 dark:text-emerald-200 ring-2 ring-emerald-500/20"
-                          : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                          ? "bg-emerald-100/80 text-emerald-950 border-emerald-500 font-bold dark:bg-emerald-900/60 dark:text-emerald-100 ring-2 ring-emerald-500/20 shadow-xs"
+                          : "bg-white/80 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800"
                       }`}
                     >
-                      พักรักษาตัวไม่เกิน &le; 10 วัน: <strong>10,000 บ.</strong>
-                    </span>
-                    <span
-                      className={`px-2.5 py-1 rounded-md border transition-all ${
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs">ระดับที่ ๑: พักรักษาตัวไม่เกิน ๑๐ วัน</span>
+                        <span className="font-bold text-xs font-mono">10,000 บาท</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        กำลังพลนอนพักรักษาตัวตั้งแต่ ๑ ถึง ๑๐ วัน ได้รับเงินช่วยเหลือ ๑๐,๐๐๐ บาท
+                      </p>
+                    </div>
+
+                    <div
+                      className={`p-3 rounded-xl border transition-all ${
                         isTier2
-                          ? "bg-emerald-100 text-emerald-900 border-emerald-500 font-bold dark:bg-emerald-900/60 dark:text-emerald-200 ring-2 ring-emerald-500/20"
-                          : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+                          ? "bg-emerald-100/80 text-emerald-950 border-emerald-500 font-bold dark:bg-emerald-900/60 dark:text-emerald-100 ring-2 ring-emerald-500/20 shadow-xs"
+                          : "bg-white/80 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800"
                       }`}
                     >
-                      พักรักษาตัวตั้งแต่ 11 - 20 วันขึ้นไป (&ge; 20 วัน): รับเงินเพิ่มอีก <strong>10,000 บ.</strong> (รวมเป็นเงิน <strong>20,000 บ.</strong>)
-                    </span>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs">ระดับที่ ๒: พักรักษาตัวเกิน ๑๐ วัน (๑๑-๒๐ วันขึ้นไป)</span>
+                        <span className="font-bold text-xs font-mono">20,000 บาท</span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        ได้รับเงินช่วยเหลือเพิ่มอีก ๑๐,๐๐๐ บาท (รวมเป็นเงินทั้งสิ้น ๒๐,๐๐๐ บาท)
+                      </p>
+                    </div>
                   </div>
 
                   {stayDays > 0 && (
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-white/80 dark:bg-slate-900/80 border border-emerald-200 dark:border-emerald-800/60 text-xs">
-                      <span className="text-emerald-700 dark:text-emerald-400 font-bold">✓ สิทธิประมาณการ:</span>
+                    <div className="flex items-center gap-2 p-2.5 rounded-xl bg-white/90 dark:bg-slate-900/90 border border-emerald-200 dark:border-emerald-800/60 text-xs">
+                      <span className="text-emerald-700 dark:text-emerald-400 font-bold shrink-0">✓ สรุปผลสิทธิ:</span>
                       <span className="text-slate-700 dark:text-slate-300">
                         {stayDays <= 10 ? (
-                          <>พักรักษาตัว <strong>{stayDays} วัน</strong> (&le; 10 วัน) ได้รับเงินช่วยเหลือ <strong>10,000 บาท</strong></>
+                          <>พักรักษาตัว ณ <strong>{hospitalName || "โรงพยาบาล"}</strong> เป็นเวลา <strong>{stayDays} วัน</strong> (&le; 10 วัน) ได้รับเงินช่วยเหลือ <strong>10,000 บาท</strong></>
                         ) : (
-                          <>พักรักษาตัว <strong>{stayDays} วัน</strong> (เกิน 10 วัน ถึง 20 วันขึ้นไป) ได้รับเงินเพิ่มอีก 10,000 บาท รวมเป็นเงิน <strong>20,000 บาท</strong></>
+                          <>พักรักษาตัว ณ <strong>{hospitalName || "โรงพยาบาล"}</strong> เป็นเวลา <strong>{stayDays} วัน</strong> (เกิน 10 วัน) ได้รับเงินช่วยเหลือเพิ่ม 10,000 บาท รวมเป็นเงินทั้งสิ้น <strong>20,000 บาท</strong></>
                         )}
                       </span>
                     </div>
                   )}
                 </div>
-              );
-            })()}
-          </div>
+              </div>
+            );
+          })()}
 
-          <div className="flex justify-between pt-4">
+          <div className="flex justify-between pt-4 border-t border-slate-200 dark:border-slate-800">
             <Button variant="outline" size="sm" onClick={() => setStep(2)} className="text-xs gap-1.5">
               <ArrowLeft className="h-4 w-4" />
-              ย้อนกลับ
+              ย้อนกลับ: ปูนบำเหน็จ & ชั้นยศ
             </Button>
             <Button
-              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-xs"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 text-xs px-5 py-2.5 shadow-md"
               onClick={() => setStep(4)}
             >
-              ถัดไป: ข้อมูลครอบครัว & ทายาท
+              ถัดไป: ข้อมูลครอบครัวและทายาท
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
@@ -2179,6 +2291,31 @@ export function MilitaryBenefitCalculator() {
             </div>
           </Card>
 
+          {/* Propose Formal Claim Banner */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 text-white shadow-xl border border-emerald-500/40 flex flex-wrap items-center justify-between gap-4">
+            <div className="space-y-1 max-w-xl">
+              <div className="flex items-center gap-2">
+                <Badge className="bg-emerald-500 text-slate-950 font-black text-[10px] uppercase tracking-wider">
+                  ขั้นตอนเสนอขอรับสิทธิ
+                </Badge>
+                <h3 className="text-sm font-bold text-emerald-300 flex items-center gap-1.5">
+                  <Send className="h-4 w-4 text-emerald-400" />
+                  ขั้นตอนการเสนอขอรับสิทธิและสวัสดิการอย่างเป็นทางการ
+                </h3>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                ยื่นเรื่องพร้อมแนบเอกสารหลักฐาน (กพ.3, กพ.4, คำสั่งสนาม, ใบมรณบัตร/ใบรับรองแพทย์, สมุดบัญชีธนาคาร) จากผลการประมาณการ 4 หมวดนี้ เข้าสู่ระบบติดตามและพิจารณาอนุมัติจ่ายสิทธิประโยชน์ได้ทันที
+              </p>
+            </div>
+            <Button
+              onClick={() => setShowClaimModal(true)}
+              className="bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-600 hover:to-teal-700 text-slate-950 font-extrabold text-xs gap-2 px-5 py-3 rounded-xl shadow-lg shadow-emerald-900/50 transition-all transform hover:scale-[1.02]"
+            >
+              <Send className="h-4 w-4 text-slate-950" />
+              เสนอขอรับสิทธิและสวัสดิการทันที (Submit Claim)
+            </Button>
+          </div>
+
           {/* Top 4 Categories Metric Banner */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Cat 1: Lump Sum */}
@@ -2459,6 +2596,13 @@ export function MilitaryBenefitCalculator() {
 
             <div className="flex flex-wrap gap-2">
               <Button
+                className="bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-700 hover:to-teal-800 text-white text-xs gap-1.5 font-bold shadow-md"
+                onClick={() => setShowClaimModal(true)}
+              >
+                <Send className="h-4 w-4" />
+                เสนอขอรับสิทธิและสวัสดิการ (ยื่นเรื่องพร้อมเอกสารหลักฐาน)
+              </Button>
+              <Button
                 className="bg-blue-600 hover:bg-blue-700 text-white text-xs gap-1.5"
                 onClick={() => handleExportEstimateReport("pdf")}
                 disabled={exportingFormat !== null}
@@ -2483,15 +2627,66 @@ export function MilitaryBenefitCalculator() {
               คำนวณใหม่
             </Button>
             <div className="flex items-center gap-2">
+              <Button
+                onClick={() => setShowClaimModal(true)}
+                className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs gap-1.5 font-bold shadow-md"
+              >
+                <Send className="h-4 w-4" />
+                เสนอขอรับสิทธิและสวัสดิการ
+              </Button>
               <Link href="/documents">
-                <Button className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5 shadow-md">
+                <Button variant="outline" className="text-xs gap-1.5">
                   <FileText className="h-4 w-4" />
-                  สร้างหนังสือรับรองสิทธิทางการทันที (Official Certificate)
+                  สร้างหนังสือรับรองสิทธิ (Official Certificate)
                 </Button>
               </Link>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Benefit Claim Proposal & Submission Workflow Modal */}
+      {calculationResult && (
+        <BenefitClaimProposalModal
+          open={showClaimModal}
+          onOpenChange={setShowClaimModal}
+          calculationResult={calculationResult}
+          personnel={
+            personnelList.find((p) => p.id === selectedPersonnelId) ||
+            ({
+              id: selectedPersonnelId || "p-curr",
+              militaryId,
+              firstName,
+              lastName,
+              rank: rankAbbr,
+              department: normalUnit,
+              fieldUnit,
+              salary,
+              lossType: lossType === "KIA_COMBAT_DEATH" ? "DEATH" : "DISABLED",
+              lossIncidentDate: incidentDate,
+              appointmentDate,
+              idCardNo: "3100600123456",
+            } as any)
+          }
+          heirs={heirsList.length > 0 ? heirsList : [
+            { fullName: spouseName, relationship: "คู่สมรส", sharePercentage: 50 },
+            ...childrenList.map((c) => ({ fullName: c.name || `บุตร (${c.gender === "MALE" ? "ชาย" : "หญิง"})`, relationship: "บุตร", sharePercentage: 25 })),
+          ]}
+          hospitalData={{
+            hospitalName,
+            admissionDate: hospitalAdmissionDate,
+            dischargeDate: hospitalDischargeDate,
+            totalDays: Math.max(
+              1,
+              Math.ceil(
+                (new Date(hospitalDischargeDate).getTime() - new Date(hospitalAdmissionDate).getTime()) /
+                  (1000 * 60 * 60 * 24)
+              ) + 1
+            ),
+          }}
+          eSignatureName={eSignatureName}
+          eSignaturePosition={eSignaturePosition}
+        />
       )}
     </div>
   );

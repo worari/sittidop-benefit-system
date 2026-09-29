@@ -232,4 +232,76 @@ describe("LossIncidentMultiCasualty System", () => {
     expect(pdfKp4).toBeInstanceOf(Buffer);
     expect(pdfKp4.length).toBeGreaterThan(500);
   });
+
+  it("should correctly find existing report for personnel to prevent duplicate loss reporting", async () => {
+    // 1. Create a report with multiple casualties
+    const report = await repo.create({
+      incidentDate: new Date("2026-07-01T10:00:00Z"),
+      incidentTime: "10:00",
+      mgrsCoordinate: "47PNT11112222",
+      latitude: null,
+      longitude: null,
+      province: "ยะลา",
+      district: "เมือง",
+      subdistrict: "สะเตง",
+      village: null,
+      houseNo: null,
+      road: null,
+      eventSummary: "เหตุปะทะ",
+      behaviorSummary: null,
+      engagementBehavior: "ปะทะ+ยิงต่อสู้",
+      enemyAction: "ENEMY",
+      createdByUserId: "tester",
+      createdByUserName: "ผู้ทดสอบ",
+      updatedByUserId: null,
+      updatedByUserName: null,
+      personnelId: "pid-dup-1",
+      militaryId: "MIL-DUP-1",
+      rankAbbr: "ร.ต.",
+      fullName: "สมพงษ์ กล้าหาญ",
+      casualties: [
+        {
+          id: "cas-d1",
+          personnelId: "pid-dup-1",
+          militaryId: "MIL-DUP-1",
+          rankAbbr: "ร.ต.",
+          fullName: "สมพงษ์ กล้าหาญ",
+          lossType: "DECEASED",
+        },
+        {
+          id: "cas-d2",
+          personnelId: "pid-dup-2",
+          militaryId: "MIL-DUP-2",
+          rankAbbr: "ส.อ.",
+          fullName: "เอกชัย ร่วมรบ",
+          lossType: "INJURED",
+        },
+      ],
+    });
+
+    // Test finding by personnelId
+    const foundByPid1 = await repo.findExistingReportForPersonnel("pid-dup-1");
+    expect(foundByPid1).not.toBeNull();
+    expect(foundByPid1?.id).toBe(report.id);
+
+    const foundByPid2 = await repo.findExistingReportForPersonnel("pid-dup-2");
+    expect(foundByPid2).not.toBeNull();
+    expect(foundByPid2?.id).toBe(report.id);
+
+    // Test finding by militaryId
+    const foundByMil2 = await repo.findExistingReportForPersonnel(undefined, "MIL-DUP-2");
+    expect(foundByMil2).not.toBeNull();
+    expect(foundByMil2?.id).toBe(report.id);
+
+    // Test excludeReportId when editing the same report
+    const selfExcluded = await repo.findExistingReportForPersonnel("pid-dup-1", "MIL-DUP-1", report.id);
+    expect(selfExcluded).toBeNull();
+
+    // Test searching non-existent personnel
+    const notFound = await repo.findExistingReportForPersonnel("pid-non-existent", "MIL-NON-EXISTENT");
+    expect(notFound).toBeNull();
+
+    // Clean up
+    await repo.delete(report.id);
+  });
 });

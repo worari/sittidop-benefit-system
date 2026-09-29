@@ -86,6 +86,27 @@ export async function PUT(
       return NextResponse.json({ success: false, error: "กรุณากรอกข้อมูลสำคัญให้ครบ: วันเกิดเหตุ เวลา พิกัด MGRS และรายละเอียดเหตุการณ์" }, { status: 400 });
     }
 
+    // Check duplicate personnel in other existing loss reports
+    const casualtiesToCheck = Array.isArray(body.casualties) && body.casualties.length > 0
+      ? body.casualties
+      : (body.personnelId || body.militaryId)
+      ? [{ personnelId: body.personnelId, militaryId: body.militaryId, rankAbbr: body.rankAbbr, fullName: body.fullName }]
+      : [];
+
+    for (const c of casualtiesToCheck) {
+      const existing = await lossReportRepo.findExistingReportForPersonnel(c.personnelId, c.militaryId, id);
+      if (existing) {
+        const nameDisplay = `${c.rankAbbr || ""} ${c.fullName || c.militaryId || ""}`.trim();
+        return NextResponse.json(
+          {
+            success: false,
+            error: `กำลังพล ${nameDisplay} ถูกรายงานการสูญเสียแล้วในรายงานอื่น (รายงานเลขที่ ${existing.id} ประจำวันที่ ${normalizeDate(existing.incidentDate)}) ไม่สามารถรายงานการสูญเสียซ้ำได้`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const { latitude, longitude } = toLatLon(body.mgrsCoordinate);
 
     const updated = await lossReportRepo.update(id, {
