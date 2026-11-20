@@ -20,6 +20,7 @@ import {
   History,
   ShieldCheck,
   ClipboardList,
+  Send,
 } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Role } from "../../../core/domain/value-objects/enums";
@@ -97,6 +98,13 @@ export function Sidebar({ className, onNavigate }: SidebarProps) {
       href: "/calculator",
       icon: Calculator,
       badge: "Tab 6",
+      roles: [Role.SUPERADMIN, Role.ADMIN, Role.STAFF, Role.COMMANDER, Role.AUDITOR, Role.READONLY],
+    },
+    {
+      title: "เสนอขอรับสิทธิและสวัสดิการ",
+      href: "/claims",
+      icon: Send,
+      badge: "Tab 7",
       roles: [Role.SUPERADMIN, Role.ADMIN, Role.STAFF, Role.COMMANDER, Role.AUDITOR, Role.READONLY],
     },
     {

@@ -925,17 +925,23 @@ export function MilitaryBenefitCalculator() {
               รายงานการสูญเสีย (Tab 5)
             </Button>
           </Link>
+          <Link href="/claims">
+            <Button size="sm" className="text-xs gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold">
+              <Send className="h-3.5 w-3.5" />
+              เสนอขอรับสิทธิ (Tab 7)
+            </Button>
+          </Link>
           <Link href="/rules">
             <Button variant="outline" size="sm" className="text-xs gap-1.5">
               <Sliders className="h-3.5 w-3.5 text-emerald-600" />
-              ปรับแต่งสูตรคำนวณ (Rule Config)
+              สูตรคำนวณ (Rules)
             </Button>
           </Link>
         </div>
       </div>
 
       {/* Workflow Navigation Banner */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-xs">
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 text-xs">
         <Link href="/personnel" className="flex items-center gap-2 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-colors">
           <div className="h-6 w-6 rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400 flex items-center justify-center font-bold text-xs shrink-0">
             2
@@ -966,7 +972,7 @@ export function MilitaryBenefitCalculator() {
           </div>
         </Link>
 
-        <Link href="/loss-reports" className="flex items-center gap-2 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-colors col-span-2 sm:col-span-1">
+        <Link href="/loss-reports" className="flex items-center gap-2 p-2 rounded-xl hover:bg-white dark:hover:bg-slate-800 transition-colors">
           <div className="h-6 w-6 rounded-lg bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-400 flex items-center justify-center font-bold text-xs shrink-0">
             5
           </div>
@@ -976,15 +982,25 @@ export function MilitaryBenefitCalculator() {
           </div>
         </Link>
 
-        <div className="flex items-center gap-2 p-2 rounded-xl bg-teal-100/70 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-900 text-teal-900 dark:text-teal-200 col-span-2 sm:col-span-1">
+        <div className="flex items-center gap-2 p-2 rounded-xl bg-teal-100/70 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-900 text-teal-900 dark:text-teal-200">
           <div className="h-6 w-6 rounded-lg bg-teal-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
             6
           </div>
           <div className="truncate">
-            <p className="font-bold truncate">Tab 6: คำนวณสิทธิ 4 หมวด (กำลังใช้งาน)</p>
-            <p className="text-[10px] text-teal-700 dark:text-teal-300 truncate">ประมาณการสิทธิ</p>
+            <p className="font-bold truncate">Tab 6: คำนวณสิทธิ 4 หมวด</p>
+            <p className="text-[10px] text-teal-700 dark:text-teal-300 truncate">กำลังใช้งาน</p>
           </div>
         </div>
+
+        <Link href="/claims" className="flex items-center gap-2 p-2 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 hover:bg-indigo-100/80 transition-colors border border-indigo-200/60 dark:border-indigo-800/60">
+          <div className="h-6 w-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+            7
+          </div>
+          <div className="truncate">
+            <p className="font-semibold text-indigo-950 dark:text-indigo-200 truncate">Tab 7: เสนอขอรับสิทธิ</p>
+            <p className="text-[10px] text-indigo-600 dark:text-indigo-400 truncate">4 ขั้นตอน สก.ทบ./ประกัน</p>
+          </div>
+        </Link>
       </div>
 
       {/* Step Indicator */}
@@ -2631,13 +2647,19 @@ export function MilitaryBenefitCalculator() {
                 onClick={() => setShowClaimModal(true)}
                 className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs gap-1.5 font-bold shadow-md"
               >
-                <Send className="h-4 w-4" />
-                เสนอขอรับสิทธิและสวัสดิการ
+                <Sparkles className="h-4 w-4" />
+                กรอกฟอร์มเสนอขอรับสิทธิทันที
               </Button>
+              <Link href="/claims">
+                <Button className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs gap-1.5 font-bold shadow-md">
+                  <Send className="h-4 w-4" />
+                  ระบบเสนอขอรับสิทธิ (Tab 7)
+                </Button>
+              </Link>
               <Link href="/documents">
                 <Button variant="outline" className="text-xs gap-1.5">
                   <FileText className="h-4 w-4" />
-                  สร้างหนังสือรับรองสิทธิ (Official Certificate)
+                  สร้างหนังสือรับรองสิทธิ
                 </Button>
               </Link>
             </div>
