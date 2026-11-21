@@ -1,6 +1,10 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
+const isProduction = process.env.NODE_ENV === "production";
+const cookiePrefix = isProduction ? "__Secure-" : "";
+const sessionTokenName = `${cookiePrefix}wer-rta.session-token`;
+
 export default withAuth(
   function middleware(req) {
     const token = req.nextauth.token;
@@ -14,6 +18,11 @@ export default withAuth(
     return NextResponse.next();
   },
   {
+    cookies: {
+      sessionToken: {
+        name: sessionTokenName,
+      },
+    },
     callbacks: {
       authorized: ({ token }) => {
         // Must be logged in and active

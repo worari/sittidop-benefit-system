@@ -8,6 +8,10 @@ import { Role } from "../../core/domain/value-objects/enums";
 const userRepository = new PrismaUserRepository();
 const auditLogRepository = new PrismaAuditLogRepository();
 
+const isProduction = process.env.NODE_ENV === "production";
+const cookiePrefix = isProduction ? "__Secure-" : "";
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "/wer-rta";
+
 export const authOptions: AuthOptions = {
   session: {
     strategy: "jwt",
@@ -16,6 +20,34 @@ export const authOptions: AuthOptions = {
   pages: {
     signIn: "/login",
     error: "/login",
+  },
+  cookies: {
+    sessionToken: {
+      name: `${cookiePrefix}wer-rta.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: basePath,
+        secure: isProduction,
+      },
+    },
+    callbackUrl: {
+      name: `${cookiePrefix}wer-rta.callback-url`,
+      options: {
+        sameSite: "lax",
+        path: basePath,
+        secure: isProduction,
+      },
+    },
+    csrfToken: {
+      name: `${isProduction ? "__Host-" : ""}wer-rta.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: basePath,
+        secure: isProduction,
+      },
+    },
   },
   providers: [
     CredentialsProvider({
