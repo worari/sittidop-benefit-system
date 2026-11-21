@@ -130,8 +130,10 @@ async function getPfmGlobalPersonnelIndex(): Promise<PfmIndexedSoldier[]> {
       pfmGlobalPersonnelIndex = allSoldiers;
       pfmGlobalIndexTimestamp = Date.now();
       return allSoldiers;
-    } catch (err) {
-      console.error("[pfm-search] Failed to build global personnel index:", err);
+    } catch (err: any) {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[pfm-search] PFM server unreachable:", err?.message || err);
+      }
       return pfmGlobalPersonnelIndex ?? [];
     } finally {
       pfmGlobalIndexLoadingPromise = null;
@@ -141,10 +143,14 @@ async function getPfmGlobalPersonnelIndex(): Promise<PfmIndexedSoldier[]> {
   return pfmGlobalIndexLoadingPromise;
 }
 
-// Start index prefetch in background
-setTimeout(() => {
-  getPfmGlobalPersonnelIndex().catch(() => {});
-}, 100);
+export const dynamic = "force-dynamic";
+
+// Start index prefetch in background only in active server runtime (skip during build)
+if (process.env.NEXT_PHASE !== "phase-production-build") {
+  setTimeout(() => {
+    getPfmGlobalPersonnelIndex().catch(() => {});
+  }, 1000);
+}
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
