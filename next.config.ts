@@ -6,6 +6,9 @@ const nextConfig: NextConfig = {
   basePath: basePath,
   output: "standalone",
   reactStrictMode: true,
+  images: {
+    unoptimized: true,
+  },
   eslint: {
     ignoreDuringBuilds: true,
   },
