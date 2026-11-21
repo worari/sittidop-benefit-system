@@ -9,7 +9,6 @@ import { Button } from "../../../presentation/components/ui/button";
 import { Input } from "../../../presentation/components/ui/input";
 import { Label } from "../../../presentation/components/ui/label";
 import { Badge } from "../../../presentation/components/ui/badge";
-import { ThemeToggle } from "../../../presentation/components/layout/ThemeToggle";
 import {
     Lock,
     Mail,
@@ -48,13 +47,9 @@ export default function RegisterPage() {
     const [success, setSuccess] = useState(false);
 
     const validateEmail = (email: string) => {
-        const thaiArmyEmailPattern = /@(army\.mod\.go\.th|ทบ\.go\.th|กองทัพบก\.go\.th)$/;
-        if (!email.includes("@")) {
-            setEmailError("กรุณากรอกอีเมลให้ถูกต้อง");
-            return false;
-        }
-        if (!thaiArmyEmailPattern.test(email)) {
-            setEmailError("อีเมลต้องเป็นโดเมน @army.mod.go.th เท่านั้น");
+        const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!email.includes("@") || !emailPattern.test(email)) {
+            setEmailError("กรุณากรอกรูปแบบอีเมลให้ถูกต้อง (เช่น name@rta.mi.th หรือ officer@gmail.com)");
             return false;
         }
         setEmailError(null);
@@ -167,16 +162,12 @@ export default function RegisterPage() {
     };
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-emerald-950/20 via-slate-900 to-slate-950">
-            <div className="absolute top-4 right-4">
-                <ThemeToggle />
-            </div>
-
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#0d1526]">
             <div className="w-full max-w-md space-y-6">
                 {/* Branding Logo */}
                 <div className="text-center space-y-2">
                     <Link href="/" className="inline-flex items-center gap-3">
-                        <div className="relative h-20 w-20 rounded-2xl overflow-hidden shadow-lg shadow-emerald-900/30 border border-emerald-600/40 bg-white mx-auto">
+                        <div className="relative h-20 w-20 rounded-full overflow-hidden shadow-lg shadow-blue-900/40 border-2 border-[#1877F2]/60 bg-[#162136] mx-auto">
                             <Image
                                 src="/images/logo.png"
                                 alt="ตรากรมกำลังพลทหารบก"
@@ -211,13 +202,34 @@ export default function RegisterPage() {
                             </div>
                         )}
 
-                        {success && (
-                            <div className="p-3 rounded-xl bg-green-50 dark:bg-green-950/40 border border-green-200 dark:border-green-900 text-xs font-semibold text-green-700 dark:text-green-400 flex items-center gap-2">
-                                <CheckCircle className="h-4 w-4 shrink-0" />
-                                <span>ลงทะเบียนสำเร็จ! กำลังเปลี่ยนเข้าสู่หน้าเข้าสู่ระบบ...</span>
+                        {success ? (
+                            <div className="space-y-5 py-4 text-center">
+                                <div className="h-16 w-16 mx-auto rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                                    <ShieldCheck className="h-9 w-9 text-amber-400" />
+                                </div>
+                                <div className="space-y-2">
+                                    <h3 className="text-lg font-bold text-white">ลงทะเบียนสำเร็จ (รอการอนุมัติ)</h3>
+                                    <p className="text-xs text-slate-300 leading-relaxed max-w-sm mx-auto">
+                                        บัญชีของท่านได้รับการบันทึกลงในระบบ WeR-RTA แล้ว ขณะนี้อยู่ระหว่างรอ <b>ผู้ดูแลระบบ (Admin) กรมกำลังพลทหารบก</b> ตรวจสอบและอนุมัติสิทธิ์เข้าใช้งาน
+                                    </p>
+                                </div>
+                                <div className="p-3.5 rounded-xl bg-[#162136] border border-[#283b5c] text-xs text-slate-300 text-left space-y-1.5">
+                                    <p className="font-semibold text-blue-300">ℹ️ สิ่งที่ต้องปฏิบัติ:</p>
+                                    <p className="text-[11px] text-slate-400">
+                                        • บัญชีที่ลงทะเบียนใหม่จะยังไม่สามารถเข้าสู่ระบบได้จนกว่าจะได้รับการอนุมัติ<br />
+                                        • เมื่อได้รับการอนุมัติแล้ว ท่านจะสามารถลงชื่อเข้าใช้งานได้ทันที<br />
+                                        • หากต้องการเร่งรัดการอนุมัติ กรุณาติดต่อ แผนกสิทธิกำลังพล กรมกำลังพลทหารบก (กพ.ทบ.)
+                                    </p>
+                                </div>
+                                <div className="pt-2">
+                                    <Link href="/login?registered=pending">
+                                        <Button className="w-full bg-[#1877F2] hover:bg-[#166fe5] text-white font-semibold text-xs py-2.5">
+                                            ไปยังหน้าลงชื่อเข้าใช้งาน (Login)
+                                        </Button>
+                                    </Link>
+                                </div>
                             </div>
-                        )}
-
+                        ) : (
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <div className="space-y-1.5">
                                 <Label htmlFor="name">ชื่อ-นามสกุล (Name)</Label>
@@ -248,7 +260,7 @@ export default function RegisterPage() {
                                         value={formData.email}
                                         onChange={handleChange}
                                         className="pl-9 text-xs font-mono"
-                                        placeholder="name@army.mod.go.th"
+                                        placeholder="name@rta.mi.th หรือ email@example.com"
                                     />
                                 </div>
                                 {emailError && (
@@ -257,7 +269,7 @@ export default function RegisterPage() {
                                         {emailError}
                                     </p>
                                 )}
-                                <p className="text-xs text-slate-500">อีเมลต้องเป็นโดเมน @army.mod.go.th เท่านั้น</p>
+                                <p className="text-xs text-slate-400">ระบุอีเมลราชการหรืออีเมลส่วนบุคคลสำหรับลงชื่อเข้าใช้</p>
                             </div>
 
                             <div className="space-y-1.5">
@@ -372,6 +384,7 @@ export default function RegisterPage() {
                                 {isLoading ? "กำลังสร้างบัญชี..." : "สมัครสมาชิก"}
                             </Button>
                         </form>
+                        )}
 
                         {/* Login Links */}
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">

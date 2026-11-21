@@ -27,11 +27,14 @@ const config: Config = {
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
-          50: "#f0fdf4",
-          100: "#dcfce7",
-          500: "#22c55e",
-          600: "#16a34a",
-          700: "#15803d",
+          50: "#eff6ff",
+          100: "#dbeafe",
+          200: "#bfdbfe",
+          500: "#3b82f6",
+          600: "#1877F2",
+          700: "#166fe5",
+          800: "#1e40af",
+          900: "#0d1526",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -57,15 +60,25 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        armyGreen: {
+          DEFAULT: "#1b4332",
+          light: "#2d6a4f",
+          dark: "#143426",
+        },
+        armyGold: {
+          DEFAULT: "#926315",
+          light: "#b4842a",
+          dark: "#714c10",
+        },
         thaiNavy: {
           DEFAULT: "#0f2744",
           light: "#1e3a5f",
           dark: "#0a192f",
         },
         thaiGold: {
-          DEFAULT: "#d4af37",
-          light: "#f3e5ab",
-          dark: "#aa820a",
+          DEFAULT: "#926315",
+          light: "#b4842a",
+          dark: "#714c10",
         },
       },
       borderRadius: {
@@ -98,7 +111,7 @@ const config: Config = {
         float: "float 4s ease-in-out infinite",
       },
       fontFamily: {
-        sans: ["var(--font-sans)", "Inter", "Sarabun", "sans-serif"],
+        sans: ["Sarabun", "TH Sarabun New", "var(--font-sans)", "Tahoma", "sans-serif"],
       },
     },
   },

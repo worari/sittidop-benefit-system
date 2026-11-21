@@ -52,10 +52,10 @@ export default function DashboardPage() {
   });
 
   const categoryDistribution = [
-    { name: "หมวด 1: รับเงินครั้งเดียว", value: 18250000, color: "#d97706" },
-    { name: "หมวด 2: รับเงินรายเดือน", value: 4140000, color: "#2563eb" },
-    { name: "หมวด 3: รับเงินรายปี", value: 2220000, color: "#059669" },
-    { name: "หมวด 4: สิทธิมิใช่ตัวเงิน", value: 240000, color: "#9333ea" },
+    { name: "หมวด 1: รับเงินครั้งเดียว", value: 18250000, color: "#b45309" },
+    { name: "หมวด 2: รับเงินรายเดือน", value: 4140000, color: "#1e40af" },
+    { name: "หมวด 3: รับเงินรายปี", value: 2220000, color: "#1b4332" },
+    { name: "หมวด 4: สิทธิมิใช่ตัวเงิน", value: 240000, color: "#4338ca" },
   ];
 
   const monthlyTrends = [
@@ -70,23 +70,26 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <Shield className="h-6 w-6 text-emerald-600" />
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
-              ภาพรวมระบบประมาณการสิทธิกำลังพล 4 หมวด
+          <div className="flex items-center gap-2">
+            <Shield className="h-6 w-6 text-[#1877F2]" />
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+              ภาพรวมระบบ WeR-RTA บริหารจัดการสิทธิและสวัสดิการกำลังพล
             </h1>
+            <Badge variant="army" className="text-[11px] font-medium">
+              ศปก.ทบ. • กพ.ทบ.
+            </Badge>
           </div>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            แยก 4 หมวดหมู่: 1.รับเงินครั้งเดียว 2.รับเงินรายเดือน 3.รับเงินรายปี 4.สิทธิมิใช่ตัวเงิน
+          <p className="text-xs text-slate-300 mt-1">
+            กำลังพลสายสนาม จชต. • กองกำลังป้องกันชายแดน • พื้นที่เสี่ยงภัย • ประมาณการสิทธิ 4 หมวด และติดตามสิทธิสวัสดิการ
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <Link href="/calculator">
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5 shadow-sm">
-              <Calculator className="h-4 w-4" />
+            <Button size="sm" className="bg-[#1877F2] hover:bg-[#166fe5] text-white text-xs gap-1.5 shadow-sm border-0">
+              <Calculator className="h-4 w-4 text-amber-300" />
               คำนวณสิทธิ 4 หมวด
             </Button>
           </Link>
@@ -102,88 +105,88 @@ export default function DashboardPage() {
       {/* 4 Main Category KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Cat 1: Total Lump Sum */}
-        <Card className="border border-amber-200 dark:border-amber-900/60 bg-gradient-to-br from-amber-500/10 to-transparent p-5 space-y-1.5 shadow-xs">
+        <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-2 shadow-xs border-l-4 border-l-amber-600">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-800 dark:text-amber-300">
-              1. รับเงินครั้งเดียว
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+              หมวดที่ ๑ : รับเงินครั้งเดียว
             </span>
-            <div className="h-8 w-8 rounded-lg bg-amber-100 dark:bg-amber-950 flex items-center justify-center text-amber-600">
+            <div className="h-7 w-7 rounded bg-amber-50 dark:bg-amber-950/50 flex items-center justify-center text-amber-700 border border-amber-200 dark:border-amber-900">
               <Coins className="h-4 w-4" />
             </div>
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-slate-100 font-mono">
+          <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 font-mono">
             {formatCurrency(metrics.totalLumpSum)}
           </p>
-          <p className="text-[11px] text-muted-foreground">บำเหน็จตกทอด / ชดเชย 30 เท่า / ประกัน</p>
+          <p className="text-[11px] text-slate-500">บำเหน็จตกทอด / ชดเชย 30 เท่า / ประกันภัย</p>
         </Card>
 
         {/* Cat 2: Monthly Pension */}
-        <Card className="border border-blue-200 dark:border-blue-900/60 bg-gradient-to-br from-blue-500/10 to-transparent p-5 space-y-1.5 shadow-xs">
+        <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-2 shadow-xs border-l-4 border-l-blue-700">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-blue-800 dark:text-blue-300">
-              2. รับเงินรายเดือน
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+              หมวดที่ ๒ : รับเงินรายเดือน
             </span>
-            <div className="h-8 w-8 rounded-lg bg-blue-100 dark:bg-blue-950 flex items-center justify-center text-blue-600">
+            <div className="h-7 w-7 rounded bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-blue-700 border border-blue-200 dark:border-blue-900">
               <Calendar className="h-4 w-4" />
             </div>
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-slate-100 font-mono">
+          <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 font-mono">
             {formatCurrency(metrics.totalMonthlyPension)}
           </p>
-          <p className="text-[11px] text-muted-foreground">บำนาญพิเศษรายเดือนตลอดชีพ</p>
+          <p className="text-[11px] text-slate-500">บำนาญพิเศษรายเดือนตลอดชีพ / เงิน พ.ส.ร.</p>
         </Card>
 
         {/* Cat 3: Annual Scholarships */}
-        <Card className="border border-emerald-200 dark:border-emerald-900/60 bg-gradient-to-br from-emerald-500/10 to-transparent p-5 space-y-1.5 shadow-xs">
+        <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-2 shadow-xs border-l-4 border-l-[#1b4332]">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
-              3. รับเงินรายปี
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+              หมวดที่ ๓ : รับเงินรายปี
             </span>
-            <div className="h-8 w-8 rounded-lg bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600">
+            <div className="h-7 w-7 rounded bg-emerald-50 dark:bg-emerald-950/50 flex items-center justify-center text-[#1b4332] border border-emerald-200 dark:border-emerald-900">
               <CalendarDays className="h-4 w-4" />
             </div>
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-slate-100 font-mono">
+          <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 font-mono">
             {formatCurrency(metrics.totalAnnualScholarship)}
           </p>
-          <p className="text-[11px] text-muted-foreground">ทุนการศึกษาบุตรรายปีทุกระดับ</p>
+          <p className="text-[11px] text-slate-500">ทุนการศึกษาบุตรกำลังพล ทบ. ทุกระดับชั้น</p>
         </Card>
 
         {/* Cat 4: Non-Monetary */}
-        <Card className="border border-purple-200 dark:border-purple-900/60 bg-gradient-to-br from-purple-500/10 to-transparent p-5 space-y-1.5 shadow-xs">
+        <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 space-y-2 shadow-xs border-l-4 border-l-indigo-700">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-purple-800 dark:text-purple-300">
-              4. สิทธิมิใช่ตัวเงิน
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+              หมวดที่ ๔ : สิทธิมิใช่ตัวเงิน
             </span>
-            <div className="h-8 w-8 rounded-lg bg-purple-100 dark:bg-purple-950 flex items-center justify-center text-purple-600">
+            <div className="h-7 w-7 rounded bg-indigo-50 dark:bg-indigo-950/50 flex items-center justify-center text-indigo-700 border border-indigo-200 dark:border-indigo-900">
               <Gift className="h-4 w-4" />
             </div>
           </div>
-          <p className="text-2xl font-black text-slate-900 dark:text-slate-100 font-mono">
+          <p className="text-2xl font-bold text-slate-900 dark:text-slate-100 font-mono">
             4 สิทธิหลัก
           </p>
-          <p className="text-[11px] text-muted-foreground">บรรจุทายาท / รักษาพยาบาล / โควตา</p>
+          <p className="text-[11px] text-slate-500">บรรจุทายาท 1 อัตรา / รักษาพยาบาลตลอดชีพ</p>
         </Card>
       </div>
 
 
       {/* Benefit Tracking Summary */}
-      <Card className="border border-emerald-200 dark:border-emerald-900/60 bg-gradient-to-br from-emerald-500/5 to-transparent p-5">
+      <Card className="border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3">
-            <div className="h-10 w-10 rounded-lg bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 shrink-0">
+            <div className="h-9 w-9 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[#1b4332] dark:text-emerald-400 shrink-0 border border-slate-200 dark:border-slate-700">
               <ClipboardList className="h-5 w-5" />
             </div>
             <div>
               <CardTitle className="text-sm font-bold">ติดตามสถานะรายการสิทธิและเงินสงเคราะห์</CardTitle>
               <CardDescription className="text-xs mt-0.5">
-                ตรวจสอบรายการที่ได้รับ อนุมัติแล้ว หรืออยู่ระหว่างดำเนินการแบบเรียลไทม์
+                ตรวจสอบรายการที่ได้รับอนุมัติแล้ว หรืออยู่ระหว่างการเสนอขอตามขั้นตอนราชการ
               </CardDescription>
             </div>
           </div>
           <Link href="/benefit-tracking">
-            <Button size="sm" variant="outline" className="text-xs gap-1.5 border-emerald-600 text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/50">
-              <ClipboardList className="h-4 w-4" />
+            <Button size="sm" variant="outline" className="text-xs gap-1.5 border-slate-300">
+              <ClipboardList className="h-4 w-4 text-[#1b4332]" />
               เปิดระบบติดตาม
             </Button>
           </Link>
@@ -200,7 +203,7 @@ export default function DashboardPage() {
                 แนวโน้มประมาณการงบประมาณเปรียบเทียบยอดเบิกจ่ายจริง (ปีงบประมาณ 2569)
               </CardTitle>
               <CardDescription className="text-xs">
-                ยอดรวมสะสมการจัดสรรเงินสงเคราะห์และสวัสดิการทุกเหล่าทัพ (บาท)
+                ยอดรวมสะสมการจัดสรรเงินสงเคราะห์และสวัสดิการทุกหน่วยขึ้นตรง ทบ. (บาท)
               </CardDescription>
             </div>
             <Badge variant="outline" className="text-[10px]">
@@ -213,21 +216,21 @@ export default function DashboardPage() {
               <AreaChart data={monthlyTrends}>
                 <defs>
                   <linearGradient id="colorEst" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#059669" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#059669" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#1b4332" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#1b4332" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="colorDis" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#2563eb" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#2563eb" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#1e3a5f" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#1e3a5f" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
+                <CartesianGrid strokeDasharray="3 3" opacity={0.15} />
                 <XAxis dataKey="month" fontSize={11} />
                 <YAxis fontSize={11} tickFormatter={(val) => `${(val / 1000000).toFixed(1)}M`} />
                 <Tooltip formatter={(value: any) => formatCurrency(Number(value))} />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
-                <Area type="monotone" dataKey="estimated" name="ยอดประมาณการสิทธิ" stroke="#059669" fillOpacity={1} fill="url(#colorEst)" />
-                <Area type="monotone" dataKey="disbursed" name="ยอดเบิกจ่ายจริง" stroke="#2563eb" fillOpacity={1} fill="url(#colorDis)" />
+                <Area type="monotone" dataKey="estimated" name="ยอดประมาณการสิทธิ" stroke="#1b4332" fillOpacity={1} fill="url(#colorEst)" />
+                <Area type="monotone" dataKey="disbursed" name="ยอดเบิกจ่ายจริง" stroke="#1e3a5f" fillOpacity={1} fill="url(#colorDis)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -251,7 +254,7 @@ export default function DashboardPage() {
                   cy="50%"
                   innerRadius={50}
                   outerRadius={75}
-                  paddingAngle={4}
+                  paddingAngle={3}
                   dataKey="value"
                 >
                   {categoryDistribution.map((entry, index) => (
@@ -267,10 +270,10 @@ export default function DashboardPage() {
             {categoryDistribution.map((item, idx) => (
               <div key={idx} className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                  <span className="text-muted-foreground">{item.name}</span>
+                  <span className="h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: item.color }} />
+                  <span className="text-slate-600 dark:text-slate-400">{item.name}</span>
                 </div>
-                <span className="font-bold font-mono">{formatCurrency(item.value)}</span>
+                <span className="font-semibold font-mono">{formatCurrency(item.value)}</span>
               </div>
             ))}
           </div>
@@ -288,17 +291,17 @@ export default function DashboardPage() {
           const Icon = item.icon;
           return (
             <Link key={idx} href={item.href}>
-              <Card className="border border-slate-200 dark:border-slate-800 p-4 hover:border-emerald-500/50 transition-all group shadow-xs">
+              <Card className="border border-slate-200 dark:border-slate-800 p-3 hover:border-slate-400 dark:hover:border-slate-600 transition-colors group shadow-xs">
                 <div className="flex items-center justify-between">
-                  <div className="h-9 w-9 rounded-xl bg-slate-100 dark:bg-slate-900 group-hover:bg-emerald-50 dark:group-hover:bg-emerald-950 flex items-center justify-center text-slate-700 dark:text-slate-300 group-hover:text-emerald-600 transition-colors">
+                  <div className="h-8 w-8 rounded bg-slate-100 dark:bg-slate-800 group-hover:bg-[#1b4332]/10 flex items-center justify-center text-slate-700 dark:text-slate-300 group-hover:text-[#1b4332] transition-colors">
                     <Icon className="h-4 w-4" />
                   </div>
-                  <ArrowUpRight className="h-4 w-4 text-slate-400 group-hover:text-emerald-600 transition-colors" />
+                  <ArrowUpRight className="h-4 w-4 text-slate-400 group-hover:text-[#1b4332] transition-colors" />
                 </div>
                 <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 mt-2">
                   {item.title}
                 </h4>
-                <p className="text-[10px] text-muted-foreground">{item.desc}</p>
+                <p className="text-[10px] text-slate-500">{item.desc}</p>
               </Card>
             </Link>
           );

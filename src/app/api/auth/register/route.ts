@@ -5,23 +5,23 @@ export async function POST(req: NextRequest) {
   try {
 
     const body = await req.json();
-    const { name, email, password, role } = body;
+    const { name, email, password, role, phone, department, unit } = body;
 
     if (!name || !email || !password) {
       return NextResponse.json(
-        { success: false, error: "กรุณากรอกข้อมูลให้ครบถ้วน" },
+        { success: false, error: "กรุณากรอกข้อมูลสำคัญให้ครบถ้วน (ชื่อ, อีเมล, รหัสผ่าน)" },
         { status: 400 }
       );
     }
 
     // ตรวจสอบว่าอีเมลมีอยู่แล้วหรือยัง
     const existingUser = await prisma.user.findUnique({
-      where: { email },
+      where: { email: email.trim().toLowerCase() },
     });
 
     if (existingUser) {
       return NextResponse.json(
-        { success: false, error: "อีเมลนี้มีอยู่แล้วในระบบ" },
+        { success: false, error: "อีเมลนี้มีอยู่ในระบบแล้ว กรุณาเข้าสู่ระบบหรือใช้อีเมลอื่น" },
         { status: 409 }
       );
     }
@@ -33,22 +33,26 @@ export async function POST(req: NextRequest) {
 
     const newUser = await prisma.user.create({
       data: {
-        name,
-        email,
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
         passwordHash,
         role: role || "STAFF",
-        isActive: true,
-        department: "ระบบปฏิบัติการสิทธิ",
+        isActive: false, // ต้องรอแอดมินอนุมัติก่อนจึงจะเข้าใช้งานได้
+        department: department || "หน่วยงานกำลังพลสายสนาม",
+        unit: unit || null,
+        phone: phone || null,
       },
     });
 
     return NextResponse.json({
       success: true,
+      message: "ลงทะเบียนสำเร็จ บัญชีของท่านอยู่ระหว่างรอการอนุมัติสิทธิ์เข้าใช้งานจากผู้ดูแลระบบ (Admin) กรมกำลังพลทหารบก",
       data: {
         id: newUser.id,
         name: newUser.name,
         email: newUser.email,
         role: newUser.role,
+        isActive: newUser.isActive,
       },
     });
   } catch (error: any) {

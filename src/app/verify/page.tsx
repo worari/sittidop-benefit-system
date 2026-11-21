@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import QRCode from "qrcode";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/presentation/components/ui/card";
@@ -43,7 +43,7 @@ function formatThaiDateTime(value?: string) {
   }
 }
 
-export default function VerifyPage() {
+function VerifyContent() {
   const searchParams = useSearchParams();
   const [code, setCode] = useState(searchParams.get("code") || "");
   const [hash, setHash] = useState(searchParams.get("hash") || "");
@@ -237,5 +237,13 @@ export default function VerifyPage() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+export default function VerifyPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-xs text-slate-500">กำลังโหลดระบบตรวจสอบเอกสาร...</div>}>
+      <VerifyContent />
+    </Suspense>
   );
 }

@@ -3,25 +3,29 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../../lib/utils";
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+  "inline-flex items-center rounded px-2 py-0.5 text-xs font-medium border transition-colors focus:outline-none focus:ring-1 focus:ring-ring",
   {
     variants: {
       variant: {
         default:
-          "border-transparent bg-emerald-600 text-white hover:bg-emerald-700",
+          "border-transparent bg-[#1877F2] text-white hover:bg-[#166fe5]",
         secondary:
-          "border-transparent bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100",
+          "border-[#283b5c] bg-[#1f2e4a] text-slate-200",
         destructive:
-          "border-transparent bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-900/50",
-        outline: "text-foreground border-slate-300 dark:border-slate-700",
+          "border-red-900/60 bg-red-950/50 text-red-300",
+        outline: "text-slate-200 border-[#283b5c] bg-[#162136]",
         success:
-          "border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300",
+          "border-emerald-800/60 bg-emerald-950/50 text-emerald-300",
         warning:
-          "border-amber-200 dark:border-amber-900/50 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300",
+          "border-amber-800/60 bg-amber-950/50 text-amber-300",
         info:
-          "border-blue-200 dark:border-blue-900/50 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
+          "border-blue-700/60 bg-blue-950/60 text-blue-300",
         purple:
-          "border-purple-200 dark:border-purple-900/50 bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-300",
+          "border-purple-800/60 bg-purple-950/50 text-purple-300",
+        gold:
+          "border-amber-600/50 bg-amber-950/50 text-amber-300",
+        army:
+          "border-[#1877F2]/50 bg-[#1877F2]/20 text-blue-200",
       },
     },
     defaultVariants: {

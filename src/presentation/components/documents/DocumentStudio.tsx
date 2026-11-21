@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { MilitaryPersonnelRecord, initialMilitaryPersonnel } from "@/infrastructure/database/repositories/MilitaryStoreManager";
 import { DocumentTemplateType, OfficialDocumentService } from "@/core/use-cases/documents/OfficialDocumentService";
+import Link from "next/link";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/presentation/components/ui/card";
 import { Button } from "@/presentation/components/ui/button";
 import { Badge } from "@/presentation/components/ui/badge";
@@ -123,37 +124,47 @@ export function DocumentStudio() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5 print:hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4 print:hidden">
         <div>
-          <div className="flex items-center gap-2.5">
-            <FileText className="h-6 w-6 text-emerald-600" />
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
-              ระบบสร้างและส่งออกเอกสารทางการ (Document Generator Studio)
+          <div className="flex items-center gap-2">
+            <FileText className="h-6 w-6 text-[#1b4332] dark:text-emerald-400" />
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              ระบบสร้างและพิมพ์เอกสารทางการ (Document Studio)
             </h1>
           </div>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            รองรับ 4 แม่แบบมาตรฐานกลาโหม: PDF Export, DOCX Word Export, ตราสัญลักษณ์, QR Code e-Verification, และ e-Signature
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            หนังสือรับรองสิทธิ 4 แม่แบบมาตรฐาน กห./ทบ. รองรับการพิมพ์ราชการ, ส่งออก PDF / Word (DOCX) และระบบ e-Verification
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href="/heirs/intent-form">
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-xs gap-1.5 border-[#1877F2] text-[#4599ff] hover:bg-[#1877F2]/15"
+            >
+              <FileCheck className="h-4 w-4 text-amber-400" />
+              หนังสือแสดงเจตนาทายาท (แบบ ทบ.)
+            </Button>
+          </Link>
           <Button
             size="sm"
             variant="outline"
-            className="text-xs gap-1.5 shadow-xs"
+            className="text-xs gap-1.5 shadow-xs border-slate-300"
             onClick={handleDownloadDocx}
             disabled={downloadingDocx}
           >
-            <Download className="h-4 w-4 text-blue-600" />
+            <Download className="h-4 w-4 text-blue-700" />
             {downloadingDocx ? "กำลังสร้างไฟล์..." : "ส่งออก Word (DOCX)"}
           </Button>
           <Button
             size="sm"
-            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5 shadow-xs"
+            className="bg-[#1b4332] hover:bg-[#143426] text-white text-xs gap-1.5 shadow-xs"
             onClick={handlePrintPdf}
           >
             <Printer className="h-4 w-4" />
-            พิมพ์ / ส่งออก PDF (Print PDF)
+            พิมพ์หนังสือรับรอง (Print PDF)
           </Button>
         </div>
       </div>
@@ -167,17 +178,17 @@ export function DocumentStudio() {
             <div
               key={t.id}
               onClick={() => setSelectedTemplate(t.id)}
-              className={`p-4 rounded-2xl border transition-all cursor-pointer space-y-2 ${
+              className={`p-3 rounded-md border transition-all cursor-pointer space-y-2 ${
                 isSelected
-                  ? "border-emerald-600 bg-emerald-50/60 dark:bg-emerald-950/40 shadow-sm ring-1 ring-emerald-600"
-                  : "border-slate-200 dark:border-slate-800 bg-card hover:border-slate-300"
+                  ? "border-[#1b4332] bg-[#1b4332]/10 shadow-xs ring-1 ring-[#1b4332]"
+                  : "border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-400"
               }`}
             >
               <div className="flex items-center justify-between">
-                <div className="h-8 w-8 rounded-lg bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600">
+                <div className={`h-8 w-8 rounded flex items-center justify-center ${isSelected ? "bg-[#1b4332] text-white" : "bg-slate-100 text-[#1b4332] dark:bg-slate-800"}`}>
                   <Icon className="h-4 w-4" />
                 </div>
-                <Badge variant={isSelected ? "default" : "secondary"} className="text-[9px]">
+                <Badge variant={isSelected ? "army" : "secondary"} className="text-[9px]">
                   {t.badge}
                 </Badge>
               </div>
@@ -185,7 +196,7 @@ export function DocumentStudio() {
                 <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 line-clamp-1">
                   {t.name}
                 </h4>
-                <p className="text-[10px] text-muted-foreground">{t.description}</p>
+                <p className="text-[10px] text-slate-500">{t.description}</p>
               </div>
             </div>
           );
@@ -194,9 +205,9 @@ export function DocumentStudio() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Side: Control Panel (Hidden on print) */}
-        <Card className="p-5 space-y-4 print:hidden border-slate-200 dark:border-slate-800 shadow-sm h-fit">
-          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-            <Sliders className="h-4 w-4 text-emerald-600" />
+        <Card className="p-4 space-y-4 print:hidden border-slate-200 dark:border-slate-800 shadow-xs h-fit rounded-md bg-white dark:bg-slate-900">
+          <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+            <Sliders className="h-4 w-4 text-[#1b4332] dark:text-emerald-400" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
               การปรับแต่งเอกสาร (Customization)
             </h3>

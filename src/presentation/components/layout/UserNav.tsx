@@ -1,6 +1,7 @@
 "use client";
 
-import { useSession, signOut, signIn } from "next-auth/react";
+import Link from "next/link";
+import { useSession, signOut } from "next-auth/react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,134 +14,95 @@ import {
 import { Button } from "../ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { Badge } from "../ui/badge";
-import { User, LogOut, ShieldCheck, RefreshCw, KeyRound } from "lucide-react";
+import { User, LogOut, ShieldCheck, Settings, Users, Building, Shield } from "lucide-react";
 import { Role } from "../../../core/domain/value-objects/enums";
-import { RoleDescriptions } from "@/core/domain/security/rbac";
 
 export function UserNav() {
   const { data: session } = useSession();
-
   const user = session?.user as any;
 
-  const roleLabels: Record<Role, { label: string; variant: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "info" | "purple" }> = {
-    [Role.SUPERADMIN]: { label: "ผู้ดูแลระบบสูงสุด (SUPERADMIN)", variant: "destructive" },
-    [Role.ADMIN]: { label: "ผู้ดูแลระบบกำลังพล (ADMIN)", variant: "purple" },
-    [Role.COMMANDER]: { label: "ผู้บังคับบัญชา (COMMANDER)", variant: "warning" },
-    [Role.STAFF]: { label: "เจ้าหน้าที่กำลังพล (STAFF)", variant: "success" },
-    [Role.AUDITOR]: { label: "ผู้ตรวจสอบภายใน (AUDITOR)", variant: "info" },
-    [Role.READONLY]: { label: "กำลังพล/ทายาท (READONLY)", variant: "secondary" },
+  const roleLabels: Record<Role, { label: string; badgeVariant: "army" | "gold" | "secondary" | "destructive" | "outline" | "info" | "warning" }> = {
+    [Role.SUPERADMIN]: { label: "ผู้ดูแลระบบสูงสุด (Superadmin)", badgeVariant: "destructive" },
+    [Role.ADMIN]: { label: "ผู้ดูแลระบบกำลังพล (Admin)", badgeVariant: "army" },
+    [Role.COMMANDER]: { label: "ผู้บังคับบัญชา / ผู้อนุมัติ (Commander)", badgeVariant: "gold" },
+    [Role.STAFF]: { label: "เจ้าหน้าที่กำลังพลและสิทธิ (Staff)", badgeVariant: "army" },
+    [Role.AUDITOR]: { label: "ผู้ตรวจสอบภายใน (Auditor)", badgeVariant: "info" },
+    [Role.READONLY]: { label: "กำลังพล / ทายาท (Personnel)", badgeVariant: "secondary" },
   };
 
-  const currentRole = (user?.role as Role) || Role.SUPERADMIN;
-  const roleInfo = roleLabels[currentRole] || { label: currentRole, variant: "secondary" };
+  const currentRole = (user?.role as Role) || Role.ADMIN;
+  const roleInfo = roleLabels[currentRole] || { label: currentRole, badgeVariant: "secondary" };
 
-  const handleQuickSwitch = async (email: string) => {
-    let password = "superadmin1234";
-    if (email === "admin@mod.go.th") password = "admin1234";
-    if (email === "staff@mod.go.th") password = "staff1234";
-    if (email === "commander@mod.go.th") password = "commander1234";
-    if (email === "auditor@mod.go.th") password = "auditor1234";
-    if (email === "readonly@mod.go.th") password = "readonly1234";
-
-    await signIn("credentials", {
-      email,
-      password,
-      callbackUrl: "/dashboard",
-    });
-  };
+  const initials = user?.name
+    ? user.name
+        .split(" ")
+        .slice(0, 2)
+        .map((n: string) => n[0])
+        .join("")
+    : "ทบ";
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-10 w-10 rounded-full p-0">
-          <Avatar className="h-10 w-10 border-2 border-emerald-500/30">
-            <AvatarImage src={user?.image || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&auto=format&fit=crop&q=80"} alt={user?.name || "User"} />
-            <AvatarFallback className="bg-emerald-600 text-white">
-              {user?.name ? user.name.slice(0, 2) : "MOD"}
+        <Button variant="ghost" className="relative h-9 w-9 rounded-md p-0 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800">
+          <Avatar className="h-8 w-8 rounded-md">
+            <AvatarImage src={user?.image || ""} alt={user?.name || "User"} />
+            <AvatarFallback className="bg-[#1b4332] text-white font-semibold text-xs rounded-md">
+              {initials}
             </AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-80" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1.5 p-1">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold leading-none text-slate-900 dark:text-slate-100">
-                {user?.name || "พลเอก ภูมิพัฒน์ ภักดีชนม์"}
-              </p>
-            </div>
-            <p className="text-xs leading-none text-muted-foreground font-mono">
-              {user?.email || "superadmin@mod.go.th"}
+      <DropdownMenuContent className="w-72 rounded-md border-slate-200 dark:border-slate-800" align="end" forceMount>
+        <DropdownMenuLabel className="font-normal p-3">
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-bold text-slate-900 dark:text-slate-100 leading-tight">
+              {user?.name || "กำลังพลผู้ใช้งาน ทบ."}
             </p>
-            <div className="pt-1.5">
-              <Badge variant={roleInfo.variant} className="text-[10px] font-normal">
-                <ShieldCheck className="h-3 w-3 mr-1" />
+            <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+              {user?.email || "-"}
+            </p>
+            {user?.department && (
+              <p className="text-[11px] text-slate-600 dark:text-slate-300 flex items-center gap-1 pt-0.5">
+                <Building className="h-3 w-3 text-slate-400 shrink-0" />
+                <span className="truncate">{user.department}</span>
+              </p>
+            )}
+            <div className="pt-2">
+              <Badge variant={roleInfo.badgeVariant} className="text-[10px] font-semibold">
+                <ShieldCheck className="h-3 w-3 mr-1 shrink-0" />
                 {roleInfo.label}
               </Badge>
             </div>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuGroup>
-          <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold px-2 py-1">
-            สลับสิทธิ์การใช้งาน 6 ระดับ (RBAC Role Switcher)
-          </DropdownMenuLabel>
 
-          <DropdownMenuItem
-            className="cursor-pointer text-xs flex items-center justify-between"
-            onClick={() => handleQuickSwitch("superadmin@mod.go.th")}
-          >
-            <span>🛡️ SUPERADMIN (ผู้ดูแลระบบสูงสุด)</span>
-            {currentRole === Role.SUPERADMIN && <span className="text-emerald-600 font-bold">✓</span>}
-          </DropdownMenuItem>
+        <DropdownMenuGroup className="p-1">
+          {(currentRole === Role.SUPERADMIN || currentRole === Role.ADMIN) && (
+            <DropdownMenuItem asChild className="cursor-pointer text-xs rounded">
+              <Link href="/users" className="flex items-center gap-2 w-full">
+                <Users className="h-4 w-4 text-slate-500" />
+                <span>จัดการผู้ใช้งานในระบบ (User Management)</span>
+              </Link>
+            </DropdownMenuItem>
+          )}
 
-          <DropdownMenuItem
-            className="cursor-pointer text-xs flex items-center justify-between"
-            onClick={() => handleQuickSwitch("admin@mod.go.th")}
-          >
-            <span>👨‍💼 ADMIN (ผู้ดูแลระบบกำลังพล)</span>
-            {currentRole === Role.ADMIN && <span className="text-emerald-600 font-bold">✓</span>}
-          </DropdownMenuItem>
-
-          <DropdownMenuItem
-            className="cursor-pointer text-xs flex items-center justify-between"
-            onClick={() => handleQuickSwitch("staff@mod.go.th")}
-          >
-            <span>✍️ STAFF (เจ้าหน้าที่กำลังพล/ธุรการ)</span>
-            {currentRole === Role.STAFF && <span className="text-emerald-600 font-bold">✓</span>}
-          </DropdownMenuItem>
-
-          <DropdownMenuItem
-            className="cursor-pointer text-xs flex items-center justify-between"
-            onClick={() => handleQuickSwitch("commander@mod.go.th")}
-          >
-            <span>🎖️ COMMANDER (ผู้บังคับบัญชา/ผู้อนุมัติ)</span>
-            {currentRole === Role.COMMANDER && <span className="text-emerald-600 font-bold">✓</span>}
-          </DropdownMenuItem>
-
-          <DropdownMenuItem
-            className="cursor-pointer text-xs flex items-center justify-between"
-            onClick={() => handleQuickSwitch("auditor@mod.go.th")}
-          >
-            <span>🕵️ AUDITOR (ผู้ตรวจสอบภายใน/สตง.)</span>
-            {currentRole === Role.AUDITOR && <span className="text-emerald-600 font-bold">✓</span>}
-          </DropdownMenuItem>
-
-          <DropdownMenuItem
-            className="cursor-pointer text-xs flex items-center justify-between"
-            onClick={() => handleQuickSwitch("readonly@mod.go.th")}
-          >
-            <span>👁️ READONLY (กำลังพล/ทายาท)</span>
-            {currentRole === Role.READONLY && <span className="text-emerald-600 font-bold">✓</span>}
+          <DropdownMenuItem asChild className="cursor-pointer text-xs rounded">
+            <Link href="/settings" className="flex items-center gap-2 w-full">
+              <Settings className="h-4 w-4 text-slate-500" />
+              <span>การตั้งค่าระบบ (System Settings)</span>
+            </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>
+
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          className="cursor-pointer text-rose-600 dark:text-rose-400 focus:bg-rose-50 dark:focus:bg-rose-950/30"
+          className="cursor-pointer text-xs text-red-600 dark:text-red-400 focus:bg-red-50 dark:focus:bg-red-950/40 focus:text-red-700 m-1 rounded"
           onClick={() => signOut({ callbackUrl: "/login" })}
         >
           <LogOut className="mr-2 h-4 w-4" />
-          <span>ออกจากระบบ (Sign out)</span>
+          <span>ออกจากระบบงาน (Sign Out)</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

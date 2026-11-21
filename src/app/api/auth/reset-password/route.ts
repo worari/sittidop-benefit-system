@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     await prisma.emailLog.create({
       data: {
         email: user.email,
-        subject: "ลิงค์รีเซ็ตรหัสผ่าน - ระบบประมาณการสิทธิประโยชน์กำลังพล ทบ.",
+        subject: "ลิงค์รีเซ็ตรหัสผ่าน - ระบบ WeR-RTA กองทัพบก",
         body: `สวัสดี ${user.name},
 
 คุณได้ขอลิงค์รีเซ็ตรหัสผ่าน กรุณาคลิกที่ลิงค์ด้านล่างเพื่อรีเซ็ตรหัสผ่าน:

@@ -96,10 +96,10 @@ export function ReportGenerator({ metrics }: ReportGeneratorProps) {
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <Shield className="h-5 w-5 text-emerald-700 dark:text-amber-400" />
-            รายงานสถิติและหนังสือรับรองประมาณการสิทธิประโยชน์กำลังพล ทบ.
+            รายงานสถิติการบริหารจัดการสิทธิและสวัสดิการกำลังพล (ระบบ WeR-RTA)
           </h2>
           <p className="text-xs text-muted-foreground">
-            ปีงบประมาณ พ.ศ. {selectedFiscalYear} • กรมกำลังพลทหารบก (กพ.ทบ.) • กองสิทธิกำลังพล สำนักปกครองและบริการกำลังพล กองทัพบก
+            ปีงบประมาณ พ.ศ. {selectedFiscalYear} • ศูนย์ปฏิบัติการกองทัพบก (ศปก.ทบ.) • กรมกำลังพลทหารบก (กพ.ทบ.)
           </p>
         </div>
 

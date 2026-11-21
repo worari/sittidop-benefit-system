@@ -34,6 +34,7 @@ import {
   KeyRound,
   ShieldAlert,
   Users,
+  Trash2,
 } from "lucide-react";
 import { Role } from "@/core/domain/value-objects/enums";
 import { RoleDescriptions } from "@/core/domain/security/rbac";
@@ -42,7 +43,9 @@ export function UserManagementTable() {
   const [users, setUsers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "PENDING" | "ACTIVE">("ALL");
   const [loading, setLoading] = useState(true);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Form
@@ -68,6 +71,50 @@ export function UserManagementTable() {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  const handleToggleUserStatus = async (user: any, newStatus: boolean) => {
+    const actionText = newStatus ? "อนุมัติสิทธิ์เข้าใช้งาน" : "ระงับสิทธิ์การใช้งาน";
+    if (!confirm(`ยืนยันการ ${actionText} ของ "${user.name}" หรือไม่?`)) return;
+
+    try {
+      setActionLoadingId(user.id);
+      const res = await fetch(`/api/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: newStatus }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        fetchUsers();
+      } else {
+        alert(json.error || `เกิดข้อผิดพลาดในการ ${actionText}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("เกิดข้อผิดพลาดในการเชื่อมต่อระบบ");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleDeleteUser = async (user: any) => {
+    if (!confirm(`ยืนยันการลบบัญชีผู้ใช้งาน "${user.name}" (${user.email}) หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้`)) return;
+
+    try {
+      setActionLoadingId(user.id);
+      const res = await fetch(`/api/users/${user.id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (json.success) {
+        fetchUsers();
+      } else {
+        alert(json.error || "เกิดข้อผิดพลาดในการลบผู้ใช้งาน");
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
 
   const handleCreateUser = async () => {
     if (!newName || !newEmail) return;
@@ -116,8 +163,15 @@ export function UserManagementTable() {
 
     const matchRole = roleFilter === "ALL" || u.role === roleFilter;
 
-    return matchSearch && matchRole;
+    const matchStatus =
+      statusFilter === "ALL" ||
+      (statusFilter === "PENDING" && !u.isActive) ||
+      (statusFilter === "ACTIVE" && u.isActive);
+
+    return matchSearch && matchRole && matchStatus;
   });
+
+  const pendingCount = users.filter((u) => !u.isActive).length;
 
   return (
     <div className="space-y-6">
@@ -127,11 +181,11 @@ export function UserManagementTable() {
           <div className="flex items-center gap-2.5">
             <UserCog className="h-6 w-6 text-emerald-600" />
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
-              การจัดการผู้ใช้งานระบบ (User Management & RBAC)
+              การจัดการผู้ใช้งานระบบและการอนุมัติสิทธิ์ (User Management & Approval)
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            กำหนดระดับสิทธิ์การเข้าถึงข้อมูลกำลังพลและสิทธิประโยชน์ 6 ระดับ (SUPERADMIN, ADMIN, STAFF, COMMANDER, AUDITOR, READONLY)
+            พิจารณาอนุมัติบัญชีผู้ลงทะเบียนใหม่ และกำหนดระดับสิทธิ์การเข้าถึงข้อมูลกำลังพลสายสนาม กองทัพบก
           </p>
         </div>
 
@@ -144,6 +198,32 @@ export function UserManagementTable() {
           เพิ่มผู้ใช้งานใหม่
         </Button>
       </div>
+
+      {/* Pending Approval Banner */}
+      {pendingCount > 0 && (
+        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-200">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0 text-amber-400">
+              <ShieldAlert className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-amber-300">
+                มีผู้ลงทะเบียนใหม่รอการอนุมัติเข้าใช้งาน {pendingCount} บัญชี
+              </p>
+              <p className="text-xs text-slate-300">
+                ผู้ลงทะเบียนใหม่จะไม่สามารถเข้าใช้งานระบบจนกว่าผู้ดูแลระบบจะกดอนุมัติสิทธิ์
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setStatusFilter(statusFilter === "PENDING" ? "ALL" : "PENDING")}
+            className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs gap-1.5 self-start sm:self-auto"
+          >
+            {statusFilter === "PENDING" ? "แสดงทั้งหมด" : "ดูเฉพาะรออนุมัติ"}
+          </Button>
+        </div>
+      )}
 
       {/* 6 Roles Overview Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -182,21 +262,36 @@ export function UserManagementTable() {
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">กรองสิทธิ์:</span>
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="h-9 rounded-md border border-input bg-background px-3 text-xs"
-          >
-            <option value="ALL">ทุกระดับสิทธิ์ ({users.length})</option>
-            <option value={Role.SUPERADMIN}>SUPERADMIN</option>
-            <option value={Role.ADMIN}>ADMIN</option>
-            <option value={Role.STAFF}>STAFF</option>
-            <option value={Role.COMMANDER}>COMMANDER</option>
-            <option value={Role.AUDITOR}>AUDITOR</option>
-            <option value={Role.READONLY}>READONLY</option>
-          </select>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">สถานะ:</span>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-xs"
+            >
+              <option value="ALL">ทุกสถานะ ({users.length})</option>
+              <option value="PENDING">รออนุมัติ ({pendingCount})</option>
+              <option value="ACTIVE">อนุมัติแล้ว ({users.length - pendingCount})</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">สิทธิ์:</span>
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-xs"
+            >
+              <option value="ALL">ทุกระดับสิทธิ์</option>
+              <option value={Role.SUPERADMIN}>SUPERADMIN</option>
+              <option value={Role.ADMIN}>ADMIN</option>
+              <option value={Role.STAFF}>STAFF</option>
+              <option value={Role.COMMANDER}>COMMANDER</option>
+              <option value={Role.AUDITOR}>AUDITOR</option>
+              <option value={Role.READONLY}>READONLY</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -211,19 +306,20 @@ export function UserManagementTable() {
                 <TableHead className="text-xs font-bold">อีเมล / บัญชี</TableHead>
                 <TableHead className="text-xs font-bold">ระดับสิทธิ์ (RBAC Role)</TableHead>
                 <TableHead className="text-xs font-bold">สังกัด / หน่วยงาน</TableHead>
-                <TableHead className="text-xs font-bold text-center">สถานะ</TableHead>
+                <TableHead className="text-xs font-bold text-center">สถานะการใช้งาน</TableHead>
+                <TableHead className="text-xs font-bold text-center w-36">การอนุมัติ / จัดการ</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-xs text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-12 text-xs text-muted-foreground">
                     กำลังโหลดข้อมูลผู้ใช้งาน...
                   </TableCell>
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-xs text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-12 text-xs text-muted-foreground">
                     ไม่พบข้อมูลผู้ใช้งานที่ตรงกับเงื่อนไขการค้นหา
                   </TableCell>
                 </TableRow>
@@ -245,14 +341,49 @@ export function UserManagementTable() {
                     </TableCell>
                     <TableCell className="text-center">
                       {u.isActive ? (
-                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 border-emerald-300">
-                          เปิดใช้งาน
+                        <Badge variant="outline" className="text-[10px] bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800">
+                          อนุมัติแล้ว (ใช้งานได้)
                         </Badge>
                       ) : (
-                        <Badge variant="outline" className="text-[10px] bg-red-50 text-red-700 border-red-300">
-                          ระงับชั่วคราว
+                        <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-800 font-bold animate-pulse">
+                          รออนุมัติเข้าใช้งาน
                         </Badge>
                       )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        {!u.isActive ? (
+                          <Button
+                            size="sm"
+                            onClick={() => handleToggleUserStatus(u, true)}
+                            disabled={actionLoadingId === u.id}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] h-7 px-2.5 font-bold shadow-xs gap-1"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            อนุมัติ
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleToggleUserStatus(u, false)}
+                            disabled={actionLoadingId === u.id}
+                            className="text-[11px] h-7 px-2 border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                          >
+                            ระงับ
+                          </Button>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeleteUser(u)}
+                          disabled={actionLoadingId === u.id}
+                          className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
+                          title="ลบผู้ใช้งาน"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

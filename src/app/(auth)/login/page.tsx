@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../../../presentation/components/ui/card";
@@ -10,27 +10,45 @@ import { Button } from "../../../presentation/components/ui/button";
 import { Input } from "../../../presentation/components/ui/input";
 import { Label } from "../../../presentation/components/ui/label";
 import { Badge } from "../../../presentation/components/ui/badge";
-import { ThemeToggle } from "../../../presentation/components/layout/ThemeToggle";
 import {
   Lock,
   Mail,
   ArrowRight,
   ShieldCheck,
-  UserCheck,
   AlertCircle,
-  Sparkles,
   KeyRound,
   RotateCcw,
   UserPlus,
   Eye,
   EyeOff,
   X,
+  Clock,
+  CheckCircle2,
 } from "lucide-react";
 
 export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0d1526] flex items-center justify-center">
+          <div className="w-8 h-8 border-3 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@army.mod.go.th");
-  const [password, setPassword] = useState("admin1234");
+  const searchParams = useSearchParams();
+  const urlError = searchParams.get("error");
+  const isRegisteredPending = searchParams.get("registered") === "pending" || searchParams.get("registered") === "true";
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
@@ -38,6 +56,14 @@ export default function LoginPage() {
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotSuccess, setForgotSuccess] = useState(false);
+
+  useEffect(() => {
+    if (urlError === "PendingApproval") {
+      setError("บัญชีของท่านอยู่ระหว่างรอการอนุมัติสิทธิ์เข้าใช้งานจากผู้ดูแลระบบ (Admin) กรุณารอการตรวจสอบและอนุมัติ");
+    } else if (urlError === "CredentialsSignin") {
+      setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง หรือบัญชีอยู่ระหว่างรอการอนุมัติจากผู้ดูแลระบบ");
+    }
+  }, [urlError]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,14 +73,18 @@ export default function LoginPage() {
     try {
       const res = await signIn("credentials", {
         redirect: false,
-        email,
+        email: email.trim().toLowerCase(),
         password,
       });
 
       if (res?.error) {
-        setError(res.error || "อีเมลหรือรหัสผ่านไม่ถูกต้อง");
+        if (res.error.includes("อนุมัติ") || res.error.includes("ACCOUNT_PENDING_APPROVAL")) {
+          setError("บัญชีของท่านอยู่ระหว่างรอการอนุมัติสิทธิ์เข้าใช้งานจากผู้ดูแลระบบ (Admin) กรุณารอการตรวจสอบและอนุมัติ");
+        } else {
+          setError("อีเมลหรือรหัสผ่านไม่ถูกต้อง หรือบัญชีอยู่ระหว่างรอการอนุมัติสิทธิ์");
+        }
       } else {
-        router.push("/dashboard");
+        router.push(callbackUrl);
         router.refresh();
       }
     } catch {
@@ -62,11 +92,6 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleQuickLogin = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
   };
 
   const handleForgotPassword = async () => {
@@ -95,54 +120,6 @@ export default function LoginPage() {
     setForgotEmail("");
     setForgotSuccess(false);
   };
-
-  const demoAccounts = [
-    {
-      role: "ผู้ดูแลระบบ (Admin กพ.ทบ.)",
-      name: "พ.อ. พงศกร พิทักษ์สิทธิ์",
-      email: "admin@army.mod.go.th",
-      pass: "admin1234",
-      desc: "สิทธิ์สูงสุด จัดการเกณฑ์สิทธิและทะเบียน",
-      badge: "กพ.ทบ.",
-      color: "border-purple-200 dark:border-purple-900 bg-purple-50/50 dark:bg-purple-950/30",
-    },
-    {
-      role: "นายทหารฝ่ายสวัสดิการ (Staff)",
-      name: "พ.ต. นพดล สายสวัสดิการ",
-      email: "staff@army.mod.go.th",
-      pass: "staff1234",
-      desc: "คำนวณและออกหนังสือรับรองสิทธิ",
-      badge: "กองสิทธิกำลังพล",
-      color: "border-emerald-200 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-950/30",
-    },
-    {
-      role: "ผู้บังคับบัญชา (Commander)",
-      name: "พล.ท. สมโชค ชัยชนะ (จก.กพ.ทบ.)",
-      email: "commander@army.mod.go.th",
-      pass: "commander1234",
-      desc: "ลงนามอนุมัติสิทธิและหนังสือรับรอง",
-      badge: "ผู้บังคับบัญชา",
-      color: "border-amber-200 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-950/30",
-    },
-    {
-      role: "ผู้ตรวจสอบภายใน (Auditor)",
-      name: "พ.อ. พิษณุ ตรวจการดี",
-      email: "auditor@army.mod.go.th",
-      pass: "auditor1234",
-      desc: "ตรวจสอบรายงานและ Audit Logs",
-      badge: "สตส.ทบ.",
-      color: "border-blue-200 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-950/30",
-    },
-    {
-      role: "กำลังพล / ทายาท (Personnel)",
-      name: "ส.อ. สันติ ผู้รับสิทธิ",
-      email: "readonly@army.mod.go.th",
-      pass: "readonly1234",
-      desc: "ตรวจสอบสิทธิและสถานะเงินสงเคราะห์",
-      badge: "ทายาท/กำลังพล",
-      color: "border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30",
-    },
-  ];
 
   // Forgot Password Modal
   const forgotPasswordModal = showForgotPassword ? (
@@ -223,84 +200,95 @@ export default function LoginPage() {
   ) : null;
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-emerald-950/20 via-slate-900 to-slate-950">
-      <div className="absolute top-4 right-4">
-        <ThemeToggle />
-      </div>
-
-      <div className="w-full max-w-md space-y-6">
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#0d1526] text-slate-100">
+      <div className="w-full max-w-md space-y-5">
         {/* Branding Logo */}
         <div className="text-center space-y-2">
           <Link href="/" className="inline-flex items-center gap-3">
-            <div className="relative h-20 w-20 rounded-2xl overflow-hidden shadow-lg shadow-emerald-900/30 border border-emerald-600/40 bg-white mx-auto">
+            <div className="relative h-20 w-20 rounded-full overflow-hidden border-2 border-[#1877F2]/60 bg-[#162136] mx-auto p-1 shadow-md">
               <Image
                 src="/images/logo.png"
                 alt="ตรากรมกำลังพลทหารบก"
                 fill
                 sizes="80px"
-                className="object-contain p-1"
+                className="object-contain p-0.5"
                 priority
               />
             </div>
           </Link>
-          <h1 className="text-2xl font-black tracking-tight text-slate-100">
-            ระบบสิทธิประโยชน์กำลังพล ทบ.
+          <h1 className="text-xl font-bold tracking-tight text-white">
+            ระบบ WeR-RTA : บริหารจัดการสิทธิและสวัสดิการกำลังพล
           </h1>
-          <p className="text-xs text-slate-400">
-            กรมกำลังพลทหารบก (กพ.ทบ.) • กองสิทธิกำลังพล สำนักปกครองและบริการกำลังพล กองทัพบก
+          <p className="text-xs text-blue-200/80">
+            ศูนย์ปฏิบัติการกองทัพบก (ศปก.ทบ.) • กรมกำลังพลทหารบก (กพ.ทบ.)
           </p>
         </div>
 
         {/* Login Form Card */}
-        <Card className="border-emerald-800/30 dark:border-slate-800 bg-card/95 backdrop-blur-md shadow-2xl">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-lg font-bold">เข้าสู่ระบบ (Sign In)</CardTitle>
-            <CardDescription className="text-xs">
-              กรอกอีเมลและรหัสผ่านเพื่อเข้าสู่ระบบงานประมาณการสิทธิประโยชน์
+        <Card className="border border-[#283b5c] bg-[#162136] shadow-md rounded-lg overflow-hidden">
+          <div className="h-1 w-full bg-[#1877F2] flex">
+            <div className="h-full w-24 bg-amber-400" />
+          </div>
+          <CardHeader className="pb-3 border-b border-[#243656]">
+            <CardTitle className="text-base font-bold text-white">เข้าสู่ระบบงานราชการ WeR-RTA</CardTitle>
+            <CardDescription className="text-xs text-slate-300">
+              กรอกบัญชีผู้ใช้งานทางราชการเพื่อเข้าสู่ระบบบริหารจัดการสิทธิและสวัสดิการกำลังพล
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 pt-4">
+            {isRegisteredPending && (
+              <div className="p-3.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 space-y-1">
+                <p className="font-semibold flex items-center gap-1.5 text-amber-200">
+                  <Clock className="h-4 w-4 text-amber-400" />
+                  บันทึกการลงทะเบียนสำเร็จ (รอการอนุมัติ)
+                </p>
+                <p className="text-[11px] text-slate-300">
+                  บัญชีของท่านอยู่ระหว่างรอผู้ดูแลระบบ (Admin) ตรวจสอบและอนุมัติสิทธิ์เข้าใช้งาน เมื่อได้รับการอนุมัติแล้ว ท่านจึงจะสามารถเข้าสู่ระบบได้
+                </p>
+              </div>
+            )}
+
             {error && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-xs font-semibold text-rose-700 dark:text-rose-400 flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 shrink-0" />
+              <div className="p-3 rounded-md bg-red-500/10 border border-red-500/30 text-xs font-medium text-red-300 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
                 <span>{error}</span>
               </div>
             )}
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="email">อีเมลผู้ใช้งาน (Email)</Label>
+                <Label htmlFor="email" className="text-xs font-semibold">อีเมลผู้ใช้งาน (Email)</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
                     id="email"
                     type="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-9 text-xs font-mono"
+                    className="pl-9 text-xs font-mono h-9 rounded-md"
                     placeholder="name@army.mod.go.th"
                   />
                 </div>
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="password">รหัสผ่าน (Password)</Label>
+                <Label htmlFor="password" className="text-xs font-semibold">รหัสผ่าน (Password)</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-9 text-xs"
+                    className="pl-9 text-xs h-9 rounded-md"
                     placeholder="••••••••"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-2.5 text-muted-foreground hover:text-slate-600"
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -310,20 +298,20 @@ export default function LoginPage() {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs sm:text-sm py-2.5 shadow-md shadow-emerald-900/30 gap-1.5"
+                className="w-full bg-[#1877F2] hover:bg-[#166fe5] text-white font-semibold text-xs sm:text-sm py-2 shadow-sm rounded-md gap-1.5 border-0"
               >
-                <KeyRound className="h-4 w-4 text-amber-400" />
+                <KeyRound className="h-4 w-4 text-amber-300" />
                 {isLoading ? "กำลังตรวจสอบความปลอดภัย..." : "เข้าสู่ระบบงาน กองทัพบก"}
               </Button>
             </form>
 
             {/* Forgot Password & Register Links */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs pt-1">
               <div className="flex items-center gap-2">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-auto p-0 text-slate-500 hover:text-emerald-600"
+                  className="h-auto p-0 text-slate-500 hover:text-slate-800"
                   onClick={() => setShowForgotPassword(true)}
                 >
                   ลืมรหัสผ่าน?
@@ -333,51 +321,22 @@ export default function LoginPage() {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="rounded-md text-xs border-slate-300"
                   onClick={() => router.push("/register")}
                 >
                   <UserPlus className="h-3.5 w-3.5" />
-                  สมัครสมาชิก
+                  ลงทะเบียนผู้ใช้
                 </Button>
               </div>
             </div>
           </CardContent>
-
-          {/* Quick Demo Accounts Selection */}
-          <div className="px-6 pb-6 pt-2 border-t border-slate-100 dark:border-slate-800/80 space-y-3">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-              คลิกเพื่อเลือกบัญชีทดสอบระบบกองทัพบก (RTA Roles):
-            </p>
-
-            <div className="grid grid-cols-1 gap-2">
-              {demoAccounts.map((acc, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleQuickLogin(acc.email, acc.pass)}
-                  className={`p-2.5 rounded-xl border text-left text-xs transition-all hover:scale-[1.01] ${acc.color}`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-slate-900 dark:text-slate-100">{acc.role}</span>
-                    <Badge variant="outline" className="text-[9px] px-1.5 py-0">
-                      {acc.badge}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between mt-0.5">
-                    <span className="text-[11px] text-muted-foreground">{acc.name}</span>
-                    <span className="text-[10px] text-muted-foreground font-mono truncate">{acc.email}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
         </Card>
 
         {/* Back Link */}
         <div className="text-center">
           <Link
             href="/"
-            className="text-xs text-slate-400 hover:text-slate-100 font-medium inline-flex items-center gap-1"
+            className="text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 font-medium inline-flex items-center gap-1"
           >
             ← กลับสู่หน้าหลักพอร์ทัลกำลังพล กองทัพบก
           </Link>

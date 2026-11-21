@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { BenefitTrackingService } from "@/core/use-cases/benefit-tracking/BenefitTrackingService";
+import { LineNotificationService } from "@/infrastructure/services/LineNotificationService";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/infrastructure/auth/auth-options";
 import { BenefitCalculationSummary } from "@/core/domain/value-objects/types";
@@ -31,6 +32,25 @@ export async function POST(req: NextRequest) {
             userId: (session?.user as any)?.id || "usr-staff-army",
             userName: session?.user?.name || "พันตรี นพดล สายสวัสดิการ",
         });
+
+        // Dispatch LINE Notification Asynchronously for proposed benefits
+        try {
+            for (const t of result.trackings) {
+                LineNotificationService.sendBenefitStatusAlert({
+                    trackingNumber: t.trackingNumber,
+                    recipientName: t.recipientName || t.citizenName || "กำลังพล/ทายาท",
+                    benefitName: t.benefitName,
+                    benefitCategory: t.benefitCategory,
+                    status: t.status,
+                    amount: t.requestedAmount,
+                    officerNotes: t.notes || "ยื่นเสนอขอรับสิทธิจากระบบประมาณการ WeR-RTA",
+                }).catch((lineErr) => {
+                    console.error("Failed to send LINE proposal alert:", lineErr);
+                });
+            }
+        } catch (lineErr) {
+            console.error("LINE proposal dispatch error:", lineErr);
+        }
 
         return NextResponse.json(
             {

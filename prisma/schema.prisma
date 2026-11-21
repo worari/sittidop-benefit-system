@@ -302,6 +302,8 @@ model MilitaryPersonnel {
   estimates              MilitaryBenefitEstimate[]
   claimApplications      BenefitClaimApplication[]
   lossIncidentReports    LossIncidentReport[]
+  lossIncidentCasualties LossIncidentCasualty[]
+  benefitTrackings       BenefitTracking[]
   familyRecordsJson      String?
   documentAttachmentJson String?
 
@@ -579,7 +581,8 @@ model MilitaryBenefitEstimate {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  reports BenefitReport[]
+  reports          BenefitReport[]
+  benefitTrackings BenefitTracking[]
 
   @@index([personnelId])
   @@index([estimateNumber])
@@ -707,6 +710,10 @@ model BenefitTracking {
   application         Application?          @relation(fields: [applicationId], references: [id], onDelete: SetNull)
   estimateId          String?
   estimate            BenefitEstimate?      @relation(fields: [estimateId], references: [id], onDelete: SetNull)
+  militaryEstimateId  String?
+  militaryEstimate    MilitaryBenefitEstimate? @relation(fields: [militaryEstimateId], references: [id], onDelete: SetNull)
+  personnelId         String?
+  personnel           MilitaryPersonnel?    @relation(fields: [personnelId], references: [id], onDelete: Cascade)
   sourceType          String?               // ESTIMATE | APPLICATION | MANUAL
   citizenId           String
   citizen             Citizen               @relation(fields: [citizenId], references: [id], onDelete: Cascade)
@@ -742,6 +749,8 @@ model BenefitTracking {
   userId              String?
 
   @@index([citizenId])
+  @@index([personnelId])
+  @@index([militaryEstimateId])
   @@index([programId])
   @@index([status])
   @@index([trackingNumber])
@@ -752,6 +761,7 @@ model BenefitTracking {
 
 model LossIncidentReport {
   id                String            @id @default(cuid())
+  reportType        String            @default("KP4") // KP4 (กพ.๔ รายงานด่วน) | KP3 (กพ.๓ รายงานละเอียด)
   personnelId       String?
   personnel         MilitaryPersonnel? @relation(fields: [personnelId], references: [id], onDelete: SetNull)
   militaryId        String?
@@ -772,6 +782,7 @@ model LossIncidentReport {
   behaviorSummary   String?           @db.Text
   engagementBehavior String
   enemyAction       String
+  dispatchMetaJson  String?           @db.Text
   createdByUserId   String?
   createdByUserName String?
   updatedByUserId   String?
@@ -779,10 +790,45 @@ model LossIncidentReport {
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
+  casualties        LossIncidentCasualty[]
+
   @@index([personnelId])
   @@index([militaryId])
   @@index([incidentDate])
   @@index([province])
+  @@index([reportType])
+}
+
+model LossIncidentCasualty {
+  id              String             @id @default(cuid())
+  reportId        String
+  report          LossIncidentReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  personnelId     String?
+  personnel       MilitaryPersonnel? @relation(fields: [personnelId], references: [id], onDelete: SetNull)
+  militaryId      String
+  citizenId       String?
+  rankAbbr        String
+  fullName        String
+  unit            String?
+  normalPosition  String?
+  normalUnit      String?
+  fieldPosition   String?
+  fieldUnit       String?
+  bloodGroup      String?
+  salaryLevel     String?
+  salaryAmount    Float?
+  lossType        String             // DECEASED, DISABLED, INJURED
+  lossSeverity    String?
+  injuryDetails   String?            @db.Text
+  hospital        String?
+  dutyStatus      String?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@index([reportId])
+  @@index([personnelId])
+  @@index([militaryId])
+  @@index([lossType])
 }
 
 // ------------------------------------------------------------------------------

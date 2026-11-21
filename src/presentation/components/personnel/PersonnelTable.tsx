@@ -143,7 +143,15 @@ const DEFAULT_FIELD_UNITS = [
 ];
 
 const DEFAULT_ORDER_ISSUERS = [
+  "ศูนย์ปฏิบัติการกองทัพบก (ศปก.ทบ.)",
   "กองทัพบก (ทบ.)",
+  "กอ.รมน.ภาค 4 สน.",
+  "กองกำลังสุรสีห์ (กกล.สุรสีห์)",
+  "กองกำลังบูรพา (กกล.บูรพา)",
+  "กองกำลังผาเมือง (กกล.ผาเมือง)",
+  "กองกำลังนเรศวร (กกล.นเรศวร)",
+  "กองกำลังสุรนารี (กกล.สุรนารี)",
+  "กองกำลังเทพสตรี (กกล.เทพสตรี)",
   "กองทัพภาคที่ 1 (ทภ.1)",
   "กองทัพภาคที่ 2 (ทภ.2)",
   "กองทัพภาคที่ 3 (ทภ.3)",
@@ -152,14 +160,13 @@ const DEFAULT_ORDER_ISSUERS = [
   "กองพลทหารราบที่ 15 (พล.ร.15)",
   "กรมทหารราบที่ 19 (ร.19)",
   "กรมทหารราบที่ 25 (ร.25)",
-  "กอ.รมน.ภาค 4 สน.",
-  "ศปก.ทบ.",
 ];
 
 export function PersonnelTable() {
   const [personnelList, setPersonnelList] = useState<MilitaryPersonnelRecord[]>([]);
   const [search, setSearch] = useState("");
   const [unitFilter, setUnitFilter] = useState("ALL");
+  const [areaFilter, setAreaFilter] = useState("ALL");
   const [selectedPersonnel, setSelectedPersonnel] = useState<MilitaryPersonnelRecord | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -695,9 +702,17 @@ export function PersonnelTable() {
         p.normalUnit === unitFilter ||
         p.fieldUnit === unitFilter;
 
-      return matchSearch && matchUnit;
+      const fUnit = (p.fieldUnit || "").toLowerCase();
+      const mCat = ((p as any).missionCategory || (p as any).missionType || "").toUpperCase();
+      const matchArea =
+        areaFilter === "ALL" ||
+        (areaFilter === "SOUTH" && (mCat === "COUNTER_INSURGENCY" || fUnit.includes("นราธิวาส") || fUnit.includes("ปัตตานี") || fUnit.includes("ยะลา") || fUnit.includes("สงขลา") || fUnit.includes("กอ.รมน."))) ||
+        (areaFilter === "BORDER" && (mCat === "BORDER_DEFENSE" || fUnit.includes("สุรสีห์") || fUnit.includes("บูรพา") || fUnit.includes("ผาเมือง") || fUnit.includes("นเรศวร") || fUnit.includes("สุรนารี") || fUnit.includes("เทพสตรี") || fUnit.includes("กกล."))) ||
+        (areaFilter === "RISK" && (mCat === "HIGH_RISK_AREA" || mCat === "INTERNAL_SECURITY" || Boolean(p.fieldUnit && !fUnit.includes("ปกติ"))));
+
+      return matchSearch && matchUnit && matchArea;
     });
-  }, [personnelList, search, unitFilter]);
+  }, [personnelList, search, unitFilter, areaFilter]);
 
   // ── Pagination State (แสดงหน้าละ 20 รายการ มี pagination นำไปหน้าและย้อนหลัง) ──
   const [currentPage, setCurrentPage] = useState(1);
@@ -706,7 +721,7 @@ export function PersonnelTable() {
   // รีเซ็ตหน้ากลับเป็นหน้า 1 เสมอเมื่อมีการค้นหาหรือเปลี่ยนตัวกรอง
   useEffect(() => {
     setCurrentPage(1);
-  }, [search, unitFilter]);
+  }, [search, unitFilter, areaFilter]);
 
   const totalItems = filteredList.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
@@ -1050,9 +1065,9 @@ export function PersonnelTable() {
     setNewNormalPosition("ผบ.มว.ปล.");
     setNewFieldUnit("ฉก.นราธิวาส (กกล.ทบ.)");
     setNewFieldPosition("ผบ.มว.ปล. สน.");
-    setNewFieldDutyOrderNo("คำสั่ง ทภ.4 ที่ 142/2567");
+    setNewFieldDutyOrderNo("คำสั่ง ศปก.ทบ. ที่ ๑๒๔/๒๕๖๗");
     setNewFieldDutyOrderDate("2024-10-01");
-    setNewFieldDutyOrderIssuer("กองทัพภาคที่ 4");
+    setNewFieldDutyOrderIssuer("ศูนย์ปฏิบัติการกองทัพบก (ศปก.ทบ.)");
     setNewMissionCategory("COUNTER_INSURGENCY");
     setNewSalaryLevel("ป.3");
     setNewSalaryStep(15);
@@ -1556,23 +1571,23 @@ export function PersonnelTable() {
   return (
     <div className="space-y-6">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-5">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
         <div>
-          <div className="flex items-center gap-2.5">
-            <Shield className="h-6 w-6 text-emerald-600" />
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
-              ทะเบียนและประวัติกำลังพล (Personnel Management)
+          <div className="flex items-center gap-2">
+            <Shield className="h-6 w-6 text-[#1b4332] dark:text-emerald-400" />
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+              ทะเบียนและประวัติกำลังพล กองทัพบก (Personnel Management)
             </h1>
           </div>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            ระบบฐานข้อมูลประวัติการรับราชการ สังกัดปกติ สังกัดสนาม และเวลาราชการทวีคูณ
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            ระบบฐานข้อมูลประวัติการรับราชการ สังกัดปกติ สังกัดสนาม และสิทธิประโยชน์กำลังพล
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <Button
             size="sm"
-            className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs gap-1.5 shadow-sm"
+            className="bg-[#1b4332] hover:bg-[#143426] text-white text-xs gap-1.5 shadow-xs"
             onClick={() => setIsAddModalOpen(true)}
           >
             <Plus className="h-4 w-4" />
@@ -1584,23 +1599,23 @@ export function PersonnelTable() {
       {/* Action Feedback Banner */}
       {actionFeedback && (
         <div
-          className={`flex items-center justify-between p-3.5 rounded-xl border text-xs font-medium transition-all animate-in fade-in slide-in-from-top-2 ${
+          className={`flex items-center justify-between p-3 rounded-md border text-xs font-medium transition-all ${
             actionFeedback.type === "success"
               ? "bg-emerald-50 border-emerald-300 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-200"
-              : "bg-rose-50 border-rose-300 text-rose-800 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-200"
+              : "bg-red-50 border-red-300 text-red-800 dark:bg-red-950/40 dark:border-red-800 dark:text-red-200"
           }`}
         >
           <div className="flex items-center gap-2">
             {actionFeedback.type === "success" ? (
-              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <CheckCircle2 className="h-4 w-4 text-[#1b4332] dark:text-emerald-400 shrink-0" />
             ) : (
-              <AlertTriangle className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
+              <AlertTriangle className="h-4 w-4 text-red-600 dark:text-red-400 shrink-0" />
             )}
             <span>{actionFeedback.message}</span>
           </div>
           <button
             onClick={() => setActionFeedback(null)}
-            className="text-xs text-muted-foreground hover:text-slate-900 dark:hover:text-slate-100 font-bold px-1"
+            className="text-xs text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 font-bold px-1"
           >
             ✕
           </button>
@@ -1608,44 +1623,44 @@ export function PersonnelTable() {
       )}
 
       {/* Executive Quick Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-        <div className="p-3.5 rounded-xl border border-slate-200/80 bg-card dark:border-slate-800 shadow-xs flex items-center justify-between">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="p-3.5 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-medium text-muted-foreground block">กำลังพลทั้งหมดในระบบ</span>
+            <span className="text-[11px] font-medium text-slate-500 block">กำลังพลทั้งหมดในระบบ</span>
             <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="text-2xl font-black text-slate-900 dark:text-slate-100">{stats.total}</span>
-              <span className="text-xs text-muted-foreground">นาย</span>
+              <span className="text-2xl font-bold text-slate-900 dark:text-slate-100">{stats.total}</span>
+              <span className="text-xs text-slate-500">นาย</span>
             </div>
           </div>
-          <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
+          <div className="p-2 rounded bg-slate-100 text-[#1b4332] dark:bg-slate-800 dark:text-emerald-400">
             <Users className="h-5 w-5" />
           </div>
         </div>
 
-        <div className="p-3.5 rounded-xl border border-slate-200/80 bg-card dark:border-slate-800 shadow-xs flex items-center justify-between">
+        <div className="p-3.5 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-medium text-muted-foreground block">กำลังพลสายปฏิบัติการสนาม</span>
+            <span className="text-[11px] font-medium text-slate-500 block">กำลังพลสายปฏิบัติการสนาม</span>
             <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{stats.fieldDutyCount}</span>
-              <span className="text-xs text-muted-foreground">นาย</span>
+              <span className="text-2xl font-bold text-[#1b4332] dark:text-emerald-400">{stats.fieldDutyCount}</span>
+              <span className="text-xs text-slate-500">นาย</span>
             </div>
           </div>
-          <div className="p-2.5 rounded-xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
+          <div className="p-2 rounded bg-slate-100 text-[#1b4332] dark:bg-slate-800 dark:text-emerald-400">
             <Shield className="h-5 w-5" />
           </div>
         </div>
 
-        <div className="p-3.5 rounded-xl border border-slate-200/80 bg-card dark:border-slate-800 shadow-xs flex items-center justify-between">
+        <div className="p-3.5 rounded-md border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs flex items-center justify-between">
           <div>
-            <span className="text-[11px] font-medium text-muted-foreground block">สัญญาบัตร / ประทวน & พลฯ</span>
+            <span className="text-[11px] font-medium text-slate-500 block">สัญญาบัตร / ประทวน & พลฯ</span>
             <div className="flex items-baseline gap-1.5 mt-1">
-              <span className="text-xl font-black text-blue-600 dark:text-blue-400">{stats.officers}</span>
-              <span className="text-xs text-muted-foreground">/</span>
-              <span className="text-xl font-black text-slate-700 dark:text-slate-300">{stats.ncos + stats.enlisted}</span>
-              <span className="text-xs text-muted-foreground">นาย</span>
+              <span className="text-xl font-bold text-blue-700 dark:text-blue-400">{stats.officers}</span>
+              <span className="text-xs text-slate-500">/</span>
+              <span className="text-xl font-bold text-slate-700 dark:text-slate-300">{stats.ncos + stats.enlisted}</span>
+              <span className="text-xs text-slate-500">นาย</span>
             </div>
           </div>
-          <div className="p-2.5 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-400">
+          <div className="p-2 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400">
             <Briefcase className="h-5 w-5" />
           </div>
         </div>
@@ -1666,7 +1681,7 @@ export function PersonnelTable() {
 
       {/* Filter and Search Bar */}
       <div className="space-y-2 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-card shadow-xs">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -1675,6 +1690,20 @@ export function PersonnelTable() {
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 text-xs"
             />
+          </div>
+
+          <div>
+            <select
+              value={areaFilter}
+              onChange={(e) => setAreaFilter(e.target.value)}
+              aria-label="ตัวกรองพื้นที่ราชการสนาม ศปก.ทบ."
+              className="w-full h-9 rounded-md border border-input bg-background px-3 text-xs focus:outline-none focus:ring-1 focus:ring-ring font-medium"
+            >
+              <option value="ALL">ทุกพื้นที่ปฏิบัติการสนาม (ศปก.ทบ.)</option>
+              <option value="SOUTH">จชต. (จังหวัดชายแดนภาคใต้)</option>
+              <option value="BORDER">กองกำลังป้องกันชายแดน (กกล.ทบ.)</option>
+              <option value="RISK">พื้นที่เสี่ยงภัย / ปฏิบัติการพิเศษ</option>
+            </select>
           </div>
 
           <div>
@@ -1703,11 +1732,12 @@ export function PersonnelTable() {
               หน้า {safeCurrentPage} จาก {totalPages} (หน้าละ 20 รายการ)
             </Badge>
           </div>
-          {(search || unitFilter !== "ALL") && (
+          {(search || unitFilter !== "ALL" || areaFilter !== "ALL") && (
             <button
               onClick={() => {
                 setSearch("");
                 setUnitFilter("ALL");
+                setAreaFilter("ALL");
               }}
               className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium self-start sm:self-auto"
             >
@@ -1804,7 +1834,8 @@ export function PersonnelTable() {
                             )}
                             {p.fieldDutyOrderNo && (
                               <span className="text-muted-foreground block pl-4 text-[9px]">
-                                คำสั่ง: {p.fieldDutyOrderNo}
+                                คำสั่ง ศปก.ทบ.: {p.fieldDutyOrderNo}
+                                {p.fieldDutyOrderIssuer ? ` (${p.fieldDutyOrderIssuer})` : ""}
                               </span>
                             )}
                           </div>
@@ -2068,7 +2099,7 @@ export function PersonnelTable() {
               <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 space-y-2">
                 <span className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 text-xs">
                   <Building2 className="h-4 w-4 text-emerald-600" />
-                  2. ข้อมูลตำแหน่ง สังกัด และคำสั่งปฏิบัติราชการสนาม
+                  2. ข้อมูลตำแหน่ง สังกัด และคำสั่งปฏิบัติราชการสนาม (รับรองโดย ศปก.ทบ.)
                 </span>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
                   <div>
@@ -2084,15 +2115,15 @@ export function PersonnelTable() {
                     <span className="font-medium text-emerald-700 dark:text-emerald-400">{selectedPersonnel.fieldPosition || "-"}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-muted-foreground block">หน่วยสนาม / ฉก.:</span>
+                    <span className="text-[10px] text-muted-foreground block">หน่วยสนาม / ฉก. (ศปก.ทบ.):</span>
                     <span className="font-semibold text-emerald-700 dark:text-emerald-400">{selectedPersonnel.fieldUnit || "-"}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-muted-foreground block">เลขที่คำสั่งปฏิบัติราชการสนาม:</span>
+                    <span className="text-[10px] text-muted-foreground block">เลขที่คำสั่ง ศปก.ทบ. รับรอง:</span>
                     <span className="font-mono">{selectedPersonnel.fieldDutyOrderNo || "-"}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-muted-foreground block">วันที่มีคำสั่ง / ผู้ออกคำสั่ง:</span>
+                    <span className="text-[10px] text-muted-foreground block">วันที่มีคำสั่ง / หน่วยออกคำสั่ง:</span>
                     <span>{formatThaiBE(selectedPersonnel.fieldDutyOrderDate)} ({selectedPersonnel.fieldDutyOrderIssuer || "-"})</span>
                   </div>
                 </div>
@@ -2632,18 +2663,17 @@ export function PersonnelTable() {
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="text-xs">ประเภทภารกิจ</Label>
+                    <Label className="text-xs">ประเภทพื้นที่ราชการสนาม (ศปก.ทบ.)</Label>
                     <select
                       value={editingPersonnel.missionCategory ?? "COUNTER_INSURGENCY"}
                       onChange={(e) => setEditingPersonnel((prev) => prev ? ({ ...prev, missionCategory: e.target.value }) : null)}
                       className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs"
                     >
-                      <option value="COUNTER_INSURGENCY">จชต.</option>
-                      <option value="BORDER_DEFENSE">กกล.</option>
-                      <option value="INTERNAL_SECURITY">แผนป้องกันประเทศ</option>
-                      <option value="ROUTINE_SERVICE">การปฏิบัติราชการเวลาปกติ</option>
-                      <option value="DISASTER_RELIEF">การช่วยเหลือและบรรเทาสาธารณภัย</option>
-                      <option value="PEACEKEEPING_UN">การช่วยเหลือตามมนุษยชน</option>
+                      <option value="COUNTER_INSURGENCY">จชต. (จังหวัดชายแดนภาคใต้)</option>
+                      <option value="BORDER_DEFENSE">กองกำลังป้องกันชายแดน (กกล.ทบ.)</option>
+                      <option value="HIGH_RISK_AREA">พื้นที่เสี่ยงภัย / ปฏิบัติการพิเศษ</option>
+                      <option value="INTERNAL_SECURITY">แผนเผชิญเหตุ / ความมั่นคงภายใน</option>
+                      <option value="ROUTINE_SERVICE">การปฏิบัติราชการปกติ (ในที่ตั้งปกติ)</option>
                     </select>
                   </div>
 
@@ -3653,14 +3683,13 @@ export function PersonnelTable() {
                   </datalist>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs">ประเภทภารกิจ</Label>
+                  <Label className="text-xs">ประเภทพื้นที่ราชการสนาม (ศปก.ทบ.)</Label>
                   <select value={newMissionCategory} onChange={(e) => setNewMissionCategory(e.target.value)} className="w-full h-8 rounded-md border border-input bg-background px-2 text-xs">
-                    <option value="COUNTER_INSURGENCY">จชต.</option>
-                    <option value="BORDER_DEFENSE">กกล.</option>
-                    <option value="INTERNAL_SECURITY">แผนป้องกันประเทศ</option>
-                    <option value="ROUTINE_SERVICE">การปฏิบัติราชการเวลาปกติ</option>
-                    <option value="DISASTER_RELIEF">การช่วยเหลือและบรรเทาสาธารณภัย</option>
-                    <option value="PEACEKEEPING_UN">การช่วยเหลือตามมนุษยชน</option>
+                    <option value="COUNTER_INSURGENCY">จชต. (จังหวัดชายแดนภาคใต้)</option>
+                    <option value="BORDER_DEFENSE">กองกำลังป้องกันชายแดน (กกล.ทบ.)</option>
+                    <option value="HIGH_RISK_AREA">พื้นที่เสี่ยงภัย / ปฏิบัติการพิเศษ</option>
+                    <option value="INTERNAL_SECURITY">แผนเผชิญเหตุ / ความมั่นคงภายใน</option>
+                    <option value="ROUTINE_SERVICE">การปฏิบัติราชการปกติ (ในที่ตั้งปกติ)</option>
                   </select>
                 </div>
 

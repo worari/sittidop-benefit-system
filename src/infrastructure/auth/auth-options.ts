@@ -31,8 +31,12 @@ async authorize(credentials, req) {
       }
 
       const user = await userRepository.findByEmail(credentials.email);
-      if (!user || !user.isActive) {
-        throw new Error("ไม่พบข้อมูลผู้ใช้หรือบัญชีถูกระงับ");
+      if (!user) {
+        throw new Error("ไม่พบบัญชีผู้ใช้งานในระบบ");
+      }
+
+      if (!user.isActive) {
+        throw new Error("ACCOUNT_PENDING_APPROVAL: บัญชีของท่านอยู่ระหว่างรอการอนุมัติสิทธิ์เข้าใช้งานจากผู้ดูแลระบบ");
       }
 
       const isPasswordValid = await bcrypt.compare(credentials.password, user.passwordHash ?? "");
@@ -69,8 +73,12 @@ async authorize(credentials, req) {
         department: user.department || undefined,
         image: user.avatarUrl || undefined,
         citizenId: user.citizenId || undefined,
+        isActive: user.isActive,
       };
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message?.includes("ACCOUNT_PENDING_APPROVAL")) {
+        throw new Error("บัญชีของท่านอยู่ระหว่างรอการอนุมัติสิทธิ์เข้าใช้งานจากผู้ดูแลระบบ (Admin) กรุณาติดต่อกรมกำลังพลทหารบก");
+      }
       // Return null so NextAuth shows proper error page instead of 500
       return null;
     }
@@ -84,6 +92,7 @@ async authorize(credentials, req) {
         token.role = (user as any).role as Role;
         token.department = (user as any).department;
         token.citizenId = (user as any).citizenId;
+        token.isActive = (user as any).isActive ?? true;
       }
       return token;
     },
@@ -93,6 +102,7 @@ async authorize(credentials, req) {
         (session.user as any).role = token.role as Role;
         (session.user as any).department = token.department as string;
         (session.user as any).citizenId = token.citizenId as string;
+        (session.user as any).isActive = token.isActive as boolean;
       }
       return session;
     },

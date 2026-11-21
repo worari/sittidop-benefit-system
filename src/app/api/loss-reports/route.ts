@@ -5,6 +5,7 @@ import { AuditLogger } from "@/infrastructure/logging/audit-logger";
 import { LossIncidentReportRepository } from "@/infrastructure/database/repositories/LossIncidentReportRepository";
 import { NotificationRepository } from "@/infrastructure/database/repositories/NotificationRepository";
 import { TelegramNotificationService } from "@/infrastructure/services/TelegramNotificationService";
+import { LineNotificationService } from "@/infrastructure/services/LineNotificationService";
 import * as mgrs from "mgrs";
 
 export const dynamic = 'force-dynamic';
@@ -195,6 +196,15 @@ export async function POST(req: NextRequest) {
       });
     } catch (telegramErr) {
       console.error("Telegram alert dispatch error:", telegramErr);
+    }
+
+    // 3. Dispatch LINE Messaging API Alert Asynchronously
+    try {
+      LineNotificationService.sendLossIncidentAlert(created).catch((lineErr) => {
+        console.error("Failed to send LINE alert:", lineErr);
+      });
+    } catch (lineErr) {
+      console.error("LINE alert dispatch error:", lineErr);
     }
 
     return NextResponse.json({ success: true, data: toResponseModel(created) }, { status: 201 });

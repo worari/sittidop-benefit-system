@@ -1975,9 +1975,31 @@ export function LossIncidentReportTable() {
                             </div>
                           ) : (
                             <div className="space-y-1.5 py-1">
-                              <div className="text-[11px] font-semibold text-muted-foreground">
-                                ยอดสูญเสียรวม {casualties.length} นาย:
-                              </div>
+                              {(() => {
+                                const rowDeceased = casualties.filter((c) => c.lossType === "DECEASED").length;
+                                const rowDisabled = casualties.filter((c) => c.lossType === "DISABLED").length;
+                                const rowInjured = casualties.filter((c) => c.lossType === "INJURED").length;
+                                return (
+                                  <div className="flex items-center gap-1.5 flex-wrap text-[11px] font-semibold text-slate-800 dark:text-slate-200">
+                                    <span>ยอดสูญเสียรวม {casualties.length} นาย:</span>
+                                    {rowDeceased > 0 && (
+                                      <span className="text-[10px] bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-950 px-1.5 py-0.2 rounded font-bold">
+                                        เสียชีวิต {rowDeceased}
+                                      </span>
+                                    )}
+                                    {rowDisabled > 0 && (
+                                      <span className="text-[10px] bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-300 px-1.5 py-0.2 rounded font-bold">
+                                        พิการ {rowDisabled}
+                                      </span>
+                                    )}
+                                    {rowInjured > 0 && (
+                                      <span className="text-[10px] bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 px-1.5 py-0.2 rounded font-bold">
+                                        บาดเจ็บ {rowInjured}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
                               <div className="flex flex-col gap-1">
                                 {casualties.map((c, cIdx) => (
                                   <div

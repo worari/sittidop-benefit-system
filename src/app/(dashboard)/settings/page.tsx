@@ -48,14 +48,30 @@ export default function SettingsPage() {
   const [isTestingTelegram, setIsTestingTelegram] = useState(false);
   const [telegramResult, setTelegramResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  // Load Telegram Settings
+  // LINE Messaging API Settings State
+  const [lineChannelAccessToken, setLineChannelAccessToken] = useState("");
+  const [lineDestinationId, setLineDestinationId] = useState("");
+  const [lineEnabled, setLineEnabled] = useState(true);
+  const [hasSavedLineToken, setHasSavedLineToken] = useState(false);
+  const [maskedLineToken, setMaskedLineToken] = useState("");
+  const [isLoadingLine, setIsLoadingLine] = useState(false);
+  const [isSavingLine, setIsSavingLine] = useState(false);
+  const [isTestingLine, setIsTestingLine] = useState(false);
+  const [lineResult, setLineResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Load Telegram & LINE Settings
   React.useEffect(() => {
-    async function loadTelegramSettings() {
+    async function loadAllSettings() {
       setIsLoadingTelegram(true);
+      setIsLoadingLine(true);
       try {
-        const res = await fetch("/api/settings/telegram");
-        if (res.ok) {
-          const json = await res.json();
+        const [tgRes, lineRes] = await Promise.all([
+          fetch("/api/settings/telegram"),
+          fetch("/api/settings/line"),
+        ]);
+
+        if (tgRes.ok) {
+          const json = await tgRes.json();
           if (json.success && json.data) {
             setTelegramChatId(json.data.chatId || "");
             setTelegramEnabled(json.data.enabled !== false);
@@ -63,14 +79,88 @@ export default function SettingsPage() {
             setMaskedToken(json.data.botTokenMasked || "");
           }
         }
+
+        if (lineRes.ok) {
+          const json = await lineRes.json();
+          if (json.success && json.data) {
+            setLineDestinationId(json.data.destinationId || "");
+            setLineEnabled(json.data.enabled !== false);
+            setHasSavedLineToken(Boolean(json.data.hasChannelAccessToken));
+            setMaskedLineToken(json.data.channelAccessTokenMasked || "");
+          }
+        }
       } catch (err) {
-        console.warn("Failed to load Telegram settings:", err);
+        console.warn("Failed to load notification settings:", err);
       } finally {
         setIsLoadingTelegram(false);
+        setIsLoadingLine(false);
       }
     }
-    loadTelegramSettings();
+    loadAllSettings();
   }, []);
+
+  const handleSaveLine = async () => {
+    setIsSavingLine(true);
+    setLineResult(null);
+    try {
+      const res = await fetch("/api/settings/line", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channelAccessToken: lineChannelAccessToken || undefined,
+          destinationId: lineDestinationId,
+          enabled: lineEnabled,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setLineResult({ success: true, message: "บันทึกการตั้งค่า LINE Messaging API เรียบร้อยแล้ว" });
+        setHasSavedLineToken(Boolean(json.data.hasChannelAccessToken));
+        setMaskedLineToken(json.data.channelAccessTokenMasked || "");
+        setLineChannelAccessToken("");
+      } else {
+        setLineResult({ success: false, message: json.error || "บันทึกการตั้งค่าไม่สำเร็จ" });
+      }
+    } catch {
+      setLineResult({ success: false, message: "เกิดข้อผิดพลาดในการเชื่อมต่อ" });
+    } finally {
+      setIsSavingLine(false);
+    }
+  };
+
+  const handleTestLine = async () => {
+    setIsTestingLine(true);
+    setLineResult(null);
+    try {
+      const res = await fetch("/api/settings/line/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          channelAccessToken: lineChannelAccessToken || undefined,
+          destinationId: lineDestinationId || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setLineResult({
+          success: true,
+          message: "✅ ส่งข้อความทดสอบไปยัง LINE Messaging API สำเร็จ! ตรวจสอบแชทใน LINE ของท่าน",
+        });
+      } else {
+        setLineResult({
+          success: false,
+          message: `❌ ส่งข้อความไม่สำเร็จ: ${json.error || "กรุณาตรวจสอบ Channel Access Token และ Destination ID"}`,
+        });
+      }
+    } catch {
+      setLineResult({
+        success: false,
+        message: "เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย",
+      });
+    } finally {
+      setIsTestingLine(false);
+    }
+  };
 
   const handleSaveTelegram = async () => {
     setIsSavingTelegram(true);
@@ -386,6 +476,162 @@ export default function SettingsPage() {
               <Save className="h-3.5 w-3.5" />
             )}
             <span>{isSavingTelegram ? "กำลังบันทึก..." : "บันทึกการตั้งค่า Telegram"}</span>
+          </Button>
+        </CardFooter>
+      </Card>
+
+      {/* LINE Messaging API Notification Card */}
+      <Card className="border-emerald-200 dark:border-emerald-950/60 shadow-xs bg-linear-to-b from-white to-emerald-50/20 dark:from-[#162136] dark:to-emerald-950/20">
+        <CardHeader>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className="h-8 w-8 rounded-lg bg-[#06C755]/15 flex items-center justify-center text-[#06C755]">
+                <MessageCircle className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-bold flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                  ระบบแจ้งเตือนทาง LINE Messaging API (WeR-RTA LINE Alert)
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  ส่งข้อความเตือนด่วนเหตุการณ์สูญเสีย (กพ.๔/กพ.๓) และอัปเดตสถานะสิทธิกำลังพลเข้า LINE ส่วนตัวหรือกลุ่มงาน ทบ.
+                </CardDescription>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {hasSavedLineToken ? (
+                <Badge className="bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800 text-[11px] gap-1">
+                  <Check className="h-3 w-3" /> เชื่อมต่อ LINE API แล้ว
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800 text-[11px]">
+                  ยังไม่ได้กำหนด Token
+                </Badge>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          {lineResult && (
+            <div
+              className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+                lineResult.success
+                  ? "bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-emerald-800 dark:text-emerald-300"
+                  : "bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-300"
+              }`}
+            >
+              {lineResult.success ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600" />
+              ) : (
+                <AlertTriangle className="h-4 w-4 shrink-0 text-rose-600" />
+              )}
+              <span>{lineResult.message}</span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between p-3 rounded-xl border border-emerald-100 dark:border-emerald-950/80 bg-white/60 dark:bg-[#0d1526]/60">
+            <div className="space-y-0.5">
+              <p className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                เปิดใช้งานการแจ้งเตือนผ่าน LINE Messaging API
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                เมื่อบันทึกรายงาน กพ.๔ / กพ.๓ หรือเปลี่ยนแปลงสถานะการจ่ายสิทธิ ระบบจะส่ง Flex Card เข้าแชท LINE อัตโนมัติ
+              </p>
+            </div>
+            <Switch
+              checked={lineEnabled}
+              onCheckedChange={setLineEnabled}
+              disabled={isLoadingLine}
+            />
+          </div>
+
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="lineChannelAccessToken" className="text-xs font-semibold">
+                  Channel Access Token (Long-Lived)
+                </Label>
+                {hasSavedLineToken && (
+                  <span className="text-[11px] text-muted-foreground">
+                    บันทึกไว้แล้ว: <code className="text-emerald-700 dark:text-emerald-400 font-mono">{maskedLineToken}</code>
+                  </span>
+                )}
+              </div>
+              <Input
+                id="lineChannelAccessToken"
+                type="password"
+                placeholder={hasSavedLineToken ? "กรอกเพื่อเปลี่ยน Token ใหม่..." : "วาง Channel Access Token จาก LINE Developers Console..."}
+                value={lineChannelAccessToken}
+                onChange={(e) => setLineChannelAccessToken(e.target.value)}
+                className="text-xs font-mono border-emerald-200 dark:border-emerald-950 focus:border-emerald-500"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                รับ Token ได้จาก <a href="https://developers.line.biz/console/" target="_blank" rel="noreferrer" className="text-emerald-600 dark:text-emerald-400 underline font-medium inline-flex items-center gap-0.5">LINE Developers Console <ExternalLink className="h-2.5 w-2.5 inline" /></a> &gt; Messaging API &gt; Channel access token (long-lived)
+              </p>
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="lineDestinationId" className="text-xs font-semibold">
+                Destination ID (User ID หรือ Group ID ที่ต้องการรับแจ้งเตือน)
+              </Label>
+              <Input
+                id="lineDestinationId"
+                placeholder="เช่น U4af4980629... หรือ C9b248a..."
+                value={lineDestinationId}
+                onChange={(e) => setLineDestinationId(e.target.value)}
+                className="text-xs font-mono border-emerald-200 dark:border-emerald-950 focus:border-emerald-500"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                ระบุ LINE User ID (ขึ้นต้นด้วย U...) หรือ Group ID ของกลุ่มงานราชการสนาม (ขึ้นต้นด้วย C...)
+              </p>
+            </div>
+          </div>
+
+          {/* Quick Setup Guide */}
+          <div className="p-3 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-900/40 text-[11px] text-slate-700 dark:text-slate-300 space-y-1">
+            <p className="font-semibold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+              <HelpCircle className="h-3.5 w-3.5" />
+              ขั้นตอนการเชื่อมต่อ LINE Messaging API สำหรับหน่วยงาน ทบ.
+            </p>
+            <ol className="list-decimal list-inside space-y-0.5 ml-1">
+              <li>เข้าสู่ <a href="https://developers.line.biz/console/" target="_blank" rel="noreferrer" className="text-emerald-600 underline">LINE Developers Console</a> สร้าง Provider และ Channel ประเภท <b>Messaging API</b></li>
+              <li>ในแท็บ <b>Messaging API</b> ให้กด Issue <b>Channel access token (long-lived)</b> และคัดลอกมาใส่ในช่องด้านบน</li>
+              <li>ในแท็บ <b>Basic settings</b> หรือดูที่โปรไฟล์ผู้รับ คัดลอก <b>Your user ID</b> (ขึ้นต้นด้วย U) หรือ Group ID มาใส่ในช่อง Destination ID</li>
+              <li>กด <b>"ทดสอบส่งการแจ้งเตือน LINE"</b> เพื่อตรวจสอบว่าบอทสามารถส่ง Flex Card สิทธิกำลังพลเข้าแอป LINE ได้สมบูรณ์</li>
+            </ol>
+          </div>
+        </CardContent>
+
+        <CardFooter className="flex flex-wrap items-center justify-between gap-2 border-t border-emerald-100 dark:border-emerald-950/80 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleTestLine}
+            disabled={isTestingLine || (!hasSavedLineToken && !lineChannelAccessToken) || (!lineDestinationId && !lineDestinationId)}
+            className="text-xs gap-1.5 border-emerald-300 text-emerald-800 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-300"
+          >
+            {isTestingLine ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Send className="h-3.5 w-3.5" />
+            )}
+            <span>{isTestingLine ? "กำลังทดสอบส่ง..." : "ทดสอบส่งการแจ้งเตือน LINE"}</span>
+          </Button>
+
+          <Button
+            type="button"
+            onClick={handleSaveLine}
+            disabled={isSavingLine}
+            className="bg-[#06C755] hover:bg-[#05a847] text-white font-semibold text-xs gap-1.5"
+          >
+            {isSavingLine ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+            <span>{isSavingLine ? "กำลังบันทึก..." : "บันทึกการตั้งค่า LINE"}</span>
           </Button>
         </CardFooter>
       </Card>

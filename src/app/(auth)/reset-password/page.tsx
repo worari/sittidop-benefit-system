@@ -8,7 +8,6 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "../..
 import { Button } from "../../../presentation/components/ui/button";
 import { Input } from "../../../presentation/components/ui/input";
 import { Label } from "../../../presentation/components/ui/label";
-import { ThemeToggle } from "../../../presentation/components/layout/ThemeToggle";
 import {
     Lock,
     Mail,
@@ -191,16 +190,12 @@ function ResetPasswordContent() {
     };
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gradient-to-br from-emerald-950/20 via-slate-900 to-slate-950">
-            <div className="absolute top-4 right-4">
-                <ThemeToggle />
-            </div>
-
+        <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#0d1526]">
             <div className="w-full max-w-md space-y-6">
                 {/* Branding Logo */}
                 <div className="text-center space-y-2">
                     <Link href="/" className="inline-flex items-center gap-3">
-                        <div className="relative h-20 w-20 rounded-2xl overflow-hidden shadow-lg shadow-emerald-900/30 border border-emerald-600/40 bg-white mx-auto">
+                        <div className="relative h-20 w-20 rounded-full overflow-hidden shadow-lg shadow-blue-900/40 border-2 border-[#1877F2]/60 bg-[#162136] mx-auto">
                             <Image
                                 src="/images/logo.png"
                                 alt="ตรากรมกำลังพลทหารบก"

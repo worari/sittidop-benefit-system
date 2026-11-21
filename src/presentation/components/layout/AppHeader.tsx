@@ -2,17 +2,9 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
-import { ThemeToggle } from "./ThemeToggle";
 import { UserNav } from "./UserNav";
 import { NotificationBell } from "./NotificationBell";
-import {
-  Calculator,
-  LayoutDashboard,
-  FileText,
-  Sparkles,
-  Menu,
-} from "lucide-react";
+import { Calculator, Menu } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 
@@ -21,44 +13,50 @@ interface AppHeaderProps {
 }
 
 export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
-  const pathname = usePathname();
-
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-background/85 backdrop-blur-md border-emerald-800/20 dark:border-slate-800 shadow-xs">
+    <header className="sticky top-0 z-40 w-full border-b bg-[#162136] border-[#283b5c] shadow-sm">
+      {/* Official Government Blue & Gold Top Bar Stripe */}
+      <div className="h-1 w-full bg-[#1877F2] flex">
+        <div className="h-full w-28 bg-amber-400" />
+      </div>
+
       <div className="flex h-16 items-center justify-between px-4 sm:px-6">
         <div className="flex items-center gap-3">
           <Button
             variant="ghost"
             size="icon"
-            className="md:hidden"
+            className="md:hidden text-slate-200 hover:bg-[#1f2e4a]"
             onClick={onToggleSidebar}
             aria-label="Toggle Sidebar"
           >
             <Menu className="h-5 w-5" />
           </Button>
 
-          <Link href="/dashboard" className="flex items-center gap-3 group">
-            <div className="relative h-10 w-10 rounded-xl overflow-hidden shadow-md shadow-emerald-900/25 border border-emerald-600/40 group-hover:scale-105 transition-transform bg-white">
+          <Link href="/dashboard" className="flex items-center gap-3">
+            <div className="relative h-11 w-11 rounded-full overflow-hidden border-2 border-blue-400/50 bg-[#0d1526] shrink-0 shadow-sm">
               <Image
                 src="/images/logo.png"
                 alt="ตรากรมกำลังพลทหารบก"
                 fill
-                sizes="40px"
+                sizes="44px"
                 className="object-contain p-0.5"
                 priority
               />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-base tracking-tight text-slate-900 dark:text-slate-100">
-                  ระบบสิทธิกำลังพล ทบ.
+                <span className="font-bold text-base tracking-tight text-white">
+                  ระบบ WeR-RTA
                 </span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
-                  กองทัพบก
+                <span className="text-xs font-semibold text-blue-200 hidden md:inline">
+                  : บริหารจัดการสิทธิและสวัสดิการกำลังพล
                 </span>
+                <Badge variant="army" className="text-[10px] font-semibold uppercase tracking-wider py-0 px-2">
+                  ศปก.ทบ. • กพ.ทบ.
+                </Badge>
               </div>
-              <p className="text-[11px] text-muted-foreground hidden sm:block">
-                กรมกำลังพลทหารบก (กพ.ทบ.) • กองสิทธิกำลังพล สำนักปกครองและบริการกำลังพล
+              <p className="text-xs text-slate-300 hidden sm:block">
+                ศูนย์ปฏิบัติการกองทัพบก • กรมกำลังพลทหารบก (Welfare and Rights RTA)
               </p>
             </div>
           </Link>
@@ -69,9 +67,9 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
           <Link href="/calculator">
             <Button
               size="sm"
-              className="bg-emerald-800 hover:bg-emerald-900 text-white shadow-sm flex items-center gap-1.5 text-xs sm:text-sm font-medium"
+              className="bg-[#1877F2] hover:bg-[#166fe5] text-white flex items-center gap-1.5 text-xs sm:text-sm font-medium rounded-md shadow-xs border-0"
             >
-              <Calculator className="h-3.5 w-3.5 text-amber-400" />
+              <Calculator className="h-4 w-4 text-amber-300" />
               <span className="hidden sm:inline">คำนวณสิทธิ 4 หมวด</span>
               <span className="sm:hidden">คำนวณสิทธิ</span>
             </Button>
@@ -80,7 +78,6 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
           {/* Notification Bell */}
           <NotificationBell />
 
-          <ThemeToggle />
           <UserNav />
         </div>
       </div>

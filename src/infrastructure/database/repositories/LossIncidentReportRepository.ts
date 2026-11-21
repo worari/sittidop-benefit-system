@@ -126,7 +126,33 @@ export function unpackCasualties(rawSummary?: string | null): { notes: string; c
 }
 
 function normalize(record: any): LossIncidentReportRecord {
-  const { notes, casualties } = unpackCasualties(record.behaviorSummary);
+  let casualtiesFromRel: IncidentCasualty[] = [];
+  if (Array.isArray(record.casualties) && record.casualties.length > 0) {
+    casualtiesFromRel = record.casualties.map((c: any) => ({
+      id: String(c.id),
+      personnelId: c.personnelId ?? null,
+      militaryId: c.militaryId ?? "-",
+      citizenId: c.citizenId ?? null,
+      rankAbbr: c.rankAbbr ?? "",
+      fullName: c.fullName ?? "-",
+      unit: c.unit ?? null,
+      normalPosition: c.normalPosition ?? null,
+      normalUnit: c.normalUnit ?? null,
+      fieldPosition: c.fieldPosition ?? null,
+      fieldUnit: c.fieldUnit ?? null,
+      bloodGroup: c.bloodGroup ?? null,
+      salaryLevel: c.salaryLevel ?? null,
+      salaryAmount: c.salaryAmount ?? null,
+      lossType: (c.lossType || "DECEASED") as LossType,
+      lossSeverity: c.lossSeverity ?? null,
+      injuryDetails: c.injuryDetails ?? null,
+      hospital: c.hospital ?? null,
+      dutyStatus: c.dutyStatus ?? null,
+    }));
+  }
+
+  const { notes, casualties: packedCasualties } = unpackCasualties(record.behaviorSummary);
+  const casualties = casualtiesFromRel.length > 0 ? casualtiesFromRel : packedCasualties;
 
   const fallbackCasualties: IncidentCasualty[] =
     casualties.length > 0
@@ -190,6 +216,7 @@ export class LossIncidentReportRepository {
     if (model?.findMany) {
       try {
         const dbRows = await model.findMany({
+          include: { casualties: true },
           orderBy: { incidentDate: "desc" },
         });
         rows = dbRows.map(normalize);
@@ -243,7 +270,10 @@ export class LossIncidentReportRepository {
     const model = getPrismaModel();
     if (model?.findUnique) {
       try {
-        const row = await model.findUnique({ where: { id } });
+        const row = await model.findUnique({
+          where: { id },
+          include: { casualties: true },
+        });
         if (row) return normalize(row);
       } catch {
         // fallback to in-memory
@@ -323,7 +353,36 @@ export class LossIncidentReportRepository {
     const model = getPrismaModel();
     if (model?.create) {
       try {
-        const row = await model.create({ data: dbPayload });
+        const row = await model.create({
+          data: {
+            ...dbPayload,
+            casualties: Array.isArray(data.casualties) && data.casualties.length > 0
+              ? {
+                  create: data.casualties.map((c) => ({
+                    personnelId: c.personnelId || null,
+                    militaryId: c.militaryId || "-",
+                    citizenId: c.citizenId || null,
+                    rankAbbr: c.rankAbbr || "",
+                    fullName: c.fullName || "-",
+                    unit: c.unit || null,
+                    normalPosition: c.normalPosition || null,
+                    normalUnit: c.normalUnit || null,
+                    fieldPosition: c.fieldPosition || null,
+                    fieldUnit: c.fieldUnit || null,
+                    bloodGroup: c.bloodGroup || null,
+                    salaryLevel: c.salaryLevel || null,
+                    salaryAmount: c.salaryAmount || null,
+                    lossType: c.lossType || "DECEASED",
+                    lossSeverity: c.lossSeverity || null,
+                    injuryDetails: c.injuryDetails || null,
+                    hospital: c.hospital || null,
+                    dutyStatus: c.dutyStatus || null,
+                  })),
+                }
+              : undefined,
+          },
+          include: { casualties: true },
+        });
         return normalize(row);
       } catch {
         // fallback to in-memory

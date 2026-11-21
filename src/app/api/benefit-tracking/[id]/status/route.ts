@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { BenefitTrackingService } from "@/core/use-cases/benefit-tracking/BenefitTrackingService";
+import { LineNotificationService } from "@/infrastructure/services/LineNotificationService";
 import { authorizePermission } from "@/infrastructure/auth/rbac-guard";
 import { Permission } from "@/core/domain/security/rbac";
 import { BenefitTrackingStatus } from "@/core/domain/value-objects/enums";
@@ -34,6 +35,23 @@ export async function PATCH(
             updatedByUserName: auth.user?.name,
             updatedByRole: auth.user?.role,
         });
+
+        // Dispatch LINE Notification Asynchronously
+        try {
+            LineNotificationService.sendBenefitStatusAlert({
+                trackingNumber: updated.trackingNumber,
+                recipientName: updated.recipientName || updated.citizenName || "กำลังพล/ทายาท",
+                benefitName: updated.benefitName,
+                benefitCategory: updated.benefitCategory,
+                status: updated.status,
+                amount: updated.approvedAmount ?? updated.disbursedAmount ?? updated.requestedAmount,
+                officerNotes: updated.officerNotes,
+            }).catch((lineErr) => {
+                console.error("Failed to send LINE benefit status alert:", lineErr);
+            });
+        } catch (lineErr) {
+            console.error("LINE status alert dispatch error:", lineErr);
+        }
 
         return NextResponse.json({ success: true, data: updated });
     } catch (error: any) {

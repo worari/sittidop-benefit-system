@@ -83,7 +83,7 @@ const statusConfig: Record<
     [BenefitTrackingStatus.UNDER_REVIEW]: { label: "ตรวจสอบเอกสาร", variant: "warning", icon: FileCheck, color: "text-amber-600" },
     [BenefitTrackingStatus.APPROVED]: { label: "อนุมัติแล้ว", variant: "success", icon: CheckCircle2, color: "text-emerald-600" },
     [BenefitTrackingStatus.DISBURSED]: { label: "โอนเงินแล้ว", variant: "info", icon: Banknote, color: "text-blue-600" },
-    [BenefitTrackingStatus.RECEIVED]: { label: "ได้รับสิทธิแล้ว", variant: "success", icon: PackageCheck, color: "text-emerald-700" },
+    [BenefitTrackingStatus.RECEIVED]: { label: "ปิดจบขั้นตอน (รับสิทธิสมบูรณ์)", variant: "success", icon: PackageCheck, color: "text-emerald-700" },
     [BenefitTrackingStatus.REJECTED]: { label: "ไม่อนุมัติ", variant: "destructive", icon: XCircle, color: "text-rose-600" },
     [BenefitTrackingStatus.CANCELLED]: { label: "ยกเลิก", variant: "outline", icon: X, color: "text-slate-400" },
 };

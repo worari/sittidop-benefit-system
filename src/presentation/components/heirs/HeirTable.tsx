@@ -924,7 +924,17 @@ export function HeirTable() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Link href="/heirs/intent-form">
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-[#1877F2] text-[#4599ff] hover:bg-[#1877F2]/15 text-xs gap-1.5 font-medium"
+            >
+              <FileCheck className="h-4 w-4 text-amber-400" />
+              พิมพ์หนังสือแสดงเจตนาทายาท (แบบ ทบ.)
+            </Button>
+          </Link>
           <Button
             size="sm"
             className="bg-blue-600 hover:bg-blue-700 text-white text-xs gap-1.5 shadow-sm"
