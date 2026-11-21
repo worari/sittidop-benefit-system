@@ -5,8 +5,10 @@ import { SessionProvider } from "next-auth/react";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  const bp = process.env.NEXT_PUBLIC_BASE_PATH || "/wer-rta";
+  const authBasePath = `${bp}/api/auth`;
+
   useEffect(() => {
-    const bp = process.env.NEXT_PUBLIC_BASE_PATH || "/wer-rta";
     if (typeof window !== "undefined" && bp) {
       const originalFetch = window.fetch;
       window.fetch = function (input: RequestInfo | URL, init?: RequestInit) {
@@ -16,10 +18,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
         return originalFetch(input, init);
       };
     }
-  }, []);
+  }, [bp]);
 
   return (
-    <SessionProvider>
+    <SessionProvider basePath={authBasePath}>
       <NextThemesProvider
         attribute="class"
         defaultTheme="dark"

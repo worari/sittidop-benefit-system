@@ -27,7 +27,7 @@ export const authOptions: AuthOptions = {
       options: {
         httpOnly: true,
         sameSite: "lax",
-        path: basePath,
+        path: "/",
         secure: isProduction,
       },
     },
@@ -35,16 +35,16 @@ export const authOptions: AuthOptions = {
       name: `${cookiePrefix}wer-rta.callback-url`,
       options: {
         sameSite: "lax",
-        path: basePath,
+        path: "/",
         secure: isProduction,
       },
     },
     csrfToken: {
-      name: `${isProduction ? "__Host-" : ""}wer-rta.csrf-token`,
+      name: `${cookiePrefix}wer-rta.csrf-token`,
       options: {
         httpOnly: true,
         sameSite: "lax",
-        path: basePath,
+        path: "/",
         secure: isProduction,
       },
     },
