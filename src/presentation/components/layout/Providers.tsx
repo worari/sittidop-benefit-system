@@ -6,7 +6,7 @@ import { ThemeProvider as NextThemesProvider } from "next-themes";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    const bp = process.env.NEXT_PUBLIC_BASE_PATH;
+    const bp = process.env.NEXT_PUBLIC_BASE_PATH || "/wer-rta";
     if (typeof window !== "undefined" && bp) {
       const originalFetch = window.fetch;
       window.fetch = function (input: RequestInfo | URL, init?: RequestInit) {
