@@ -13,9 +13,92 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import https from "https";
+
+export const dynamic = "force-dynamic";
 
 const PFM_API_KEY = process.env.PFM_API_KEY ?? "pfm_45f84d41fb09853dfc58879d317859443365bab730b89a4c";
 const PFM_BASE_URL = (process.env.PFM_BASE_URL ?? "https://pfm.rta.mi.th").replace(/\/$/, "");
+
+/**
+ * Robust fetch helper to connect to PFM API
+ * 1. Attempts standard PFM_BASE_URL (https://pfm.rta.mi.th)
+ * 2. If ECONNREFUSED or internal network resolution error occurs,
+ *    falls back to direct secure gateway IP (103.146.204.39) with servername: pfm.rta.mi.th
+ */
+async function fetchFromPfm(endpointPath: string): Promise<any> {
+  const pfmHeaders = {
+    "x-api-key": PFM_API_KEY,
+    "Accept": "application/json",
+    "User-Agent": "wer-rta-benefit-system/1.0",
+  };
+
+  // 1. First attempt: standard HTTPS URL
+  try {
+    const res = await fetch(`${PFM_BASE_URL}${endpointPath}`, {
+      headers: pfmHeaders,
+      signal: AbortSignal.timeout(8000),
+    });
+
+    if (res.ok) {
+      return await res.json();
+    }
+
+    if (res.status === 404) {
+      return { success: false, notFound: true, status: 404 };
+    }
+
+    const errJson = await res.json().catch(() => ({}));
+    return { success: false, error: errJson.error?.message || `PFM API status ${res.status}`, status: res.status };
+  } catch (err: any) {
+    // If connection refused, fall through to fallback gateway
+    console.warn(`[pfm-search] Standard fetch failed (${err?.message}), attempting direct gateway...`);
+  }
+
+  // 2. Fallback attempt: direct gateway IP with TLS SNI
+  return new Promise((resolve, reject) => {
+    const req = https.request(
+      {
+        hostname: "103.146.204.39",
+        port: 443,
+        path: endpointPath,
+        method: "GET",
+        headers: {
+          Host: "pfm.rta.mi.th",
+          "x-api-key": PFM_API_KEY,
+          Accept: "application/json",
+          "User-Agent": "wer-rta-benefit-system/1.0",
+        },
+        rejectUnauthorized: false,
+        servername: "pfm.rta.mi.th",
+        timeout: 10000,
+      },
+      (res) => {
+        let data = "";
+        res.on("data", (chunk) => (data += chunk));
+        res.on("end", () => {
+          try {
+            if (res.statusCode === 404) {
+              resolve({ success: false, notFound: true, status: 404 });
+              return;
+            }
+            const json = JSON.parse(data);
+            resolve(json);
+          } catch {
+            reject(new Error("Invalid JSON from PFM API"));
+          }
+        });
+      }
+    );
+
+    req.on("error", (e) => reject(e));
+    req.on("timeout", () => {
+      req.destroy();
+      reject(new Error("PFM API request timeout"));
+    });
+    req.end();
+  });
+}
 
 export interface PfmIndexedSoldier {
   personnelId: string;
@@ -61,39 +144,24 @@ async function getPfmGlobalPersonnelIndex(): Promise<PfmIndexedSoldier[]> {
 
   pfmGlobalIndexLoadingPromise = (async () => {
     try {
-      const pfmHeaders = {
-        "x-api-key": PFM_API_KEY,
-        "Accept": "application/json",
-        "User-Agent": "sittidop-benefit-system/1.0",
-      };
-
-      const res = await fetch(`${PFM_BASE_URL}/api/v1/external/units?limit=200`, {
-        headers: pfmHeaders,
-        signal: AbortSignal.timeout(15_000),
-      });
-
-      if (!res.ok) {
-        throw new Error(`Failed to fetch units: status ${res.status}`);
+      const json = await fetchFromPfm("/api/v1/external/units?limit=200");
+      if (!json?.success) {
+        throw new Error("Failed to fetch units from PFM");
       }
 
-      const json = await res.json();
       const units: any[] = (json.data?.items ?? []).filter((u: any) => (u.personnelCount || 0) > 0);
       cachedUnits = { timestamp: now, data: json.data?.items ?? [] };
 
       const allSoldiers: PfmIndexedSoldier[] = [];
-      const batchSize = 25;
+      const batchSize = 10;
 
-      for (let i = 0; i < units.length; i += batchSize) {
+      for (let i = 0; i < Math.min(units.length, 50); i += batchSize) {
         const batch = units.slice(i, i + batchSize);
         await Promise.all(
           batch.map(async (u) => {
             try {
-              const uRes = await fetch(`${PFM_BASE_URL}/api/v1/external/units/${u.id}`, {
-                headers: pfmHeaders,
-                signal: AbortSignal.timeout(15_000),
-              });
-              if (!uRes.ok) return;
-              const uJson = await uRes.json();
+              const uJson = await fetchFromPfm(`/api/v1/external/units/${u.id}`);
+              if (!uJson?.success) return;
               const pList = uJson.data?.personnel ?? [];
               unitDetailsCache.set(u.id, { timestamp: now, data: uJson.data });
 
@@ -143,15 +211,6 @@ async function getPfmGlobalPersonnelIndex(): Promise<PfmIndexedSoldier[]> {
   return pfmGlobalIndexLoadingPromise;
 }
 
-export const dynamic = "force-dynamic";
-
-// Start index prefetch in background only in active server runtime (skip during build)
-if (process.env.NEXT_PHASE !== "phase-production-build") {
-  setTimeout(() => {
-    getPfmGlobalPersonnelIndex().catch(() => {});
-  }, 1000);
-}
-
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
 
@@ -163,12 +222,6 @@ export async function GET(req: NextRequest) {
   const militaryId = (searchParams.get("militaryId") ?? "").trim();
   const limit      = Math.min(100, Math.max(1, Number(searchParams.get("limit") ?? "50")));
 
-  const pfmHeaders = {
-    "x-api-key": PFM_API_KEY,
-    "Accept": "application/json",
-    "User-Agent": "sittidop-benefit-system/1.0",
-  };
-
   // ── Mode 1: ดึงรายชื่อหน่วยทั้งหมด (Units list) ──────────────────────────
   if (mode === "units") {
     const now = Date.now();
@@ -177,19 +230,14 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-      const res = await fetch(`${PFM_BASE_URL}/api/v1/external/units?limit=200`, {
-        headers: pfmHeaders,
-        signal: AbortSignal.timeout(10_000),
-      });
-
-      if (!res.ok) {
+      const json = await fetchFromPfm("/api/v1/external/units?limit=200");
+      if (!json?.success) {
         return NextResponse.json(
-          { success: false, error: `PFM API error (${res.status})` },
-          { status: res.status }
+          { success: false, error: json?.error || "PFM API error" },
+          { status: json?.status || 502 }
         );
       }
 
-      const json = await res.json();
       cachedUnits = { timestamp: now, data: json.data?.items ?? [] };
       return NextResponse.json({ success: true, data: cachedUnits.data, live: true });
     } catch (err: any) {
@@ -210,27 +258,22 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-      const res = await fetch(`${PFM_BASE_URL}/api/v1/external/personnel/national-id/${nationalId}`, {
-        headers: pfmHeaders,
-        signal: AbortSignal.timeout(10_000),
-      });
+      const json = await fetchFromPfm(`/api/v1/external/personnel/national-id/${nationalId}`);
 
-      if (res.status === 404) {
+      if (json?.notFound || json?.status === 404) {
         return NextResponse.json(
           { success: false, notFound: true, error: "ไม่พบข้อมูลกำลังพลที่มีเลขบัตรประชาชนนี้ในระบบ PFM" },
           { status: 404 }
         );
       }
 
-      if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
+      if (!json?.success) {
         return NextResponse.json(
-          { success: false, error: errBody.error?.message || `PFM API error (${res.status})` },
-          { status: res.status }
+          { success: false, error: json?.error || "PFM API error" },
+          { status: json?.status || 502 }
         );
       }
 
-      const json = await res.json();
       return NextResponse.json({ success: true, data: json.data, live: true });
     } catch (err: any) {
       return NextResponse.json(
@@ -249,20 +292,14 @@ export async function GET(req: NextRequest) {
       if (cached && now - cached.timestamp < CACHE_TTL_UNIT_MS) {
         unitData = cached.data;
       } else {
-        const res = await fetch(`${PFM_BASE_URL}/api/v1/external/units/${unitId}`, {
-          headers: pfmHeaders,
-          signal: AbortSignal.timeout(10_000),
-        });
-
-        if (!res.ok) {
-          const errBody = await res.json().catch(() => ({}));
+        const json = await fetchFromPfm(`/api/v1/external/units/${unitId}`);
+        if (!json?.success) {
           return NextResponse.json(
-            { success: false, error: errBody.error?.message || `ไม่พบข้อมูลหน่วย (${res.status})` },
-            { status: res.status }
+            { success: false, error: json?.error || "ไม่พบข้อมูลหน่วย" },
+            { status: json?.status || 502 }
           );
         }
 
-        const json = await res.json();
         unitData = json.data;
         unitDetailsCache.set(unitId, { timestamp: now, data: unitData });
       }

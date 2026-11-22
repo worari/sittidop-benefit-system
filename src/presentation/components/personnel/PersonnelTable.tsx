@@ -53,6 +53,8 @@ import {
   Phone,
   Briefcase,
   FileText,
+  Database,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -363,6 +365,7 @@ export function PersonnelTable() {
   const [pfmSearchError,    setPfmSearchError]    = useState<string | null>(null);
   const [pfmSearchWarning,  setPfmSearchWarning]  = useState<string | null>(null);
   const [pfmSearchDone,     setPfmSearchDone]     = useState(false);
+  const [pfmDirectSavingId, setPfmDirectSavingId] = useState<string | null>(null);
 
   // ── PFM Unit Search Autocomplete State ──
   const [pfmUnitSearchText,   setPfmUnitSearchText]   = useState("");
@@ -647,10 +650,17 @@ export function PersonnelTable() {
     event.target.value = "";
   };
 
+  const getApiUrl = (path: string) => {
+    const bp = process.env.NEXT_PUBLIC_BASE_PATH || "/wer-rta";
+    if (path.startsWith(bp)) return path;
+    if (path.startsWith("/api/")) return `${bp}${path}`;
+    return path;
+  };
+
   const fetchPersonnel = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/personnel");
+      const res = await fetch(getApiUrl("/api/personnel"));
       const json = await res.json();
       if (json.success) {
         setPersonnelList(json.data);
@@ -853,7 +863,7 @@ export function PersonnelTable() {
     if (pfmUnitsList.length > 0) return;
     try {
       setPfmUnitsLoading(true);
-      const res = await fetch("/api/pfm-search?mode=units");
+      const res = await fetch(getApiUrl("/api/pfm-search?mode=units"));
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         const sorted = [...json.data].sort((a: any, b: any) => (b.personnelCount || 0) - (a.personnelCount || 0));
@@ -901,7 +911,7 @@ export function PersonnelTable() {
       }
       setPfmSearchLoading(true);
       try {
-        const res = await fetch(`/api/pfm-search?nationalId=${cleanId}`);
+        const res = await fetch(getApiUrl(`/api/pfm-search?nationalId=${cleanId}`));
         const json = await res.json();
         if (json.success && json.data) {
           const d = json.data;
@@ -945,7 +955,7 @@ export function PersonnelTable() {
         const qs = new URLSearchParams({ unitId: pfmSelectedUnitId });
         if (pfmSearchFirstName.trim()) qs.set("firstName", pfmSearchFirstName.trim());
         if (pfmSearchLastName.trim())  qs.set("lastName",  pfmSearchLastName.trim());
-        const res = await fetch(`/api/pfm-search?${qs.toString()}`);
+        const res = await fetch(getApiUrl(`/api/pfm-search?${qs.toString()}`));
         const json = await res.json();
         if (json.success && json.data?.items) {
           setPfmSearchResults(json.data.items);
@@ -971,7 +981,7 @@ export function PersonnelTable() {
       const qs = new URLSearchParams();
       if (pfmSearchFirstName.trim()) qs.set("firstName", pfmSearchFirstName.trim());
       if (pfmSearchLastName.trim())  qs.set("lastName",  pfmSearchLastName.trim());
-      const res = await fetch(`/api/pfm-search?${qs.toString()}`);
+      const res = await fetch(getApiUrl(`/api/pfm-search?${qs.toString()}`));
       const json = await res.json();
       if (json.success) {
         const items = json.data?.items ?? json.data ?? [];
@@ -985,6 +995,38 @@ export function PersonnelTable() {
       setPfmSearchError(err.message || "ไม่สามารถเชื่อมต่อ PFM API ได้");
     } finally {
       setPfmSearchLoading(false);
+    }
+  };
+
+  // ── Helper: Default salary scale mapped from rank code ──
+  const getDefaultSalaryForRank = (rankCode: string) => {
+    switch (rankCode) {
+      case "PRIVATE":
+        return { level: "ป.1", step: 11.5, salary: 10990 };
+      case "VOLUNTEER_RANGER":
+      case "RANGER_ENLISTED":
+        return { level: "ป.1", step: 13.5, salary: 12050 };
+      case "LANCE_CORPORAL":
+      case "CORPORAL":
+      case "SERGEANT":
+        return { level: "ป.2", step: 15.5, salary: 16190 };
+      case "MASTER_SERGEANT_3RD":
+      case "MASTER_SERGEANT_2ND":
+      case "MASTER_SERGEANT_1ST":
+        return { level: "ป.3", step: 18.5, salary: 24400 };
+      case "SECOND_LIEUTENANT":
+      case "FIRST_LIEUTENANT":
+        return { level: "น.1", step: 15.5, salary: 21580 };
+      case "CAPTAIN":
+        return { level: "น.2", step: 18.5, salary: 29980 };
+      case "MAJOR":
+      case "LIEUTENANT_COLONEL":
+        return { level: "น.3", step: 20.5, salary: 38750 };
+      case "COLONEL":
+      case "COLONEL_SPECIAL":
+        return { level: "น.4", step: 24.5, salary: 48620 };
+      default:
+        return { level: "น.2", step: 15, salary: 26500 };
     }
   };
 
@@ -1004,18 +1046,47 @@ export function PersonnelTable() {
       else if (p.slotType === "NCO") setNewPersonnelType("NCO");
       else if (p.slotType === "PRIVATE") setNewPersonnelType("ENLISTED");
       else if (p.slotType === "VOLUNTEER") setNewPersonnelType("VOLUNTEER");
+    } else if (["PRIVATE"].includes(r.code)) {
+      setNewPersonnelType("ENLISTED");
+    } else if (["VOLUNTEER_RANGER", "RANGER_ENLISTED"].includes(r.code)) {
+      setNewPersonnelType("VOLUNTEER");
+    } else if (["LANCE_CORPORAL", "CORPORAL", "SERGEANT", "MASTER_SERGEANT_3RD", "MASTER_SERGEANT_2ND", "MASTER_SERGEANT_1ST"].includes(r.code)) {
+      setNewPersonnelType("NCO");
+    } else {
+      setNewPersonnelType("OFFICER");
     }
 
-    if (p.militaryId) setNewMilitaryId(p.militaryId);
-    if (p.citizenId)  setNewCitizenId(p.citizenId);
+    // Auto-fill salary scale matching rank
+    const defSal = getDefaultSalaryForRank(r.code);
+    setNewSalaryLevel(defSal.level);
+    setNewSalaryStep(defSal.step);
+    setNewSalary(defSal.salary);
+    setNewCompensationAmount(defSal.salary);
+
+    // Auto-generate valid 10-digit militaryId & 13-digit citizenId if PFM omits them
+    const milId = p.militaryId && validateMilitaryId(p.militaryId)
+      ? p.militaryId
+      : `49${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const citId = p.citizenId && validateThaiCitizenId(p.citizenId)
+      ? p.citizenId
+      : generateValidThaiCitizenId();
+    setNewMilitaryId(milId);
+    setNewCitizenId(citId);
+
     if (p.normalUnit) setNewNormalUnit(p.normalUnit);
-    if (p.fieldUnit)  setNewFieldUnit(p.fieldUnit);
-    if (p.fieldPosition) setNewFieldPosition(p.fieldPosition);
+    else if (p.fieldUnit) setNewNormalUnit(p.fieldUnit);
+
+    if (p.fieldUnit) setNewFieldUnit(p.fieldUnit);
+    if (p.fieldPosition) {
+      setNewFieldPosition(p.fieldPosition);
+      setNewNormalPosition(p.fieldPosition);
+    }
 
     if (p.orderName || p.orderNo) {
       const orderText = p.orderName ? `${p.orderName} ที่ ${p.orderNo || ""}`.trim() : (p.orderNo || "");
       setNewFieldDutyOrderNo(orderText);
     }
+    setNewFieldDutyOrderIssuer(p.orderName || "ศูนย์ปฏิบัติการกองทัพบก (ศปก.ทบ.)");
 
     if (p.orderDate) {
       let dateStr = p.orderDate;
@@ -1039,9 +1110,150 @@ export function PersonnelTable() {
     }
     if (p.age) setNewAge(p.age);
 
-    // Clear search results
+    // Clear validation errors & search results
+    setMilitaryIdError("");
+    setCitizenIdError("");
+    setPhoneError("");
+    setNameError("");
+    setActionFeedback({
+      type: "success",
+      message: `ดึงข้อมูล ${r.abbr} ${p.firstName} ${p.lastName} จาก PFM กรอกลงฟอร์มแล้ว — ตรวจสอบและกดปุ่ม "บันทึกกำลังพล" ด้านล่างได้เลย`,
+    });
     setPfmSearchResults([]);
     setPfmSearchDone(false);
+  };
+
+  // ── Direct 1-Click Save PFM Personnel straight to WeR-RTA PostgreSQL DB ──
+  const handleDirectSavePfmToDb = async (p: (typeof pfmSearchResults)[0], cardKey: string) => {
+    const first = (p.firstName || "").trim();
+    const last = (p.lastName || "").trim();
+    if (!first || !last) {
+      setPfmSearchError("ข้อมูลจาก PFM ไม่มีชื่อหรือนามสกุลครบถ้วน กรุณาใช้ปุ่มเลือกกรอกลงฟอร์ม");
+      return;
+    }
+
+    // Check duplicate name in existing database list
+    const dupName = personnelList.find(
+      (item) => item.firstName.trim() === first && item.lastName.trim() === last
+    );
+    if (dupName) {
+      setPfmSearchError(`กำลังพล ${dupName.rankAbbr} ${first} ${last} มีข้อมูลอยู่ในระบบ WeR-RTA แล้ว (เลขประจำตัว: ${dupName.militaryId})`);
+      return;
+    }
+
+    const r = parseRankFromThai(p.rankAbbr || p.rank || "");
+    const defSal = getDefaultSalaryForRank(r.code);
+    const milId = p.militaryId && validateMilitaryId(p.militaryId)
+      ? p.militaryId
+      : `49${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const citId = p.citizenId && validateThaiCitizenId(p.citizenId)
+      ? p.citizenId
+      : generateValidThaiCitizenId();
+
+    let orderDateIso: string | undefined = undefined;
+    if (p.orderDate) {
+      const parts = p.orderDate.split("-");
+      if (parts.length === 3) {
+        let yr = parseInt(parts[0], 10);
+        if (yr > 2400) yr = yr - 543;
+        orderDateIso = `${yr}-${parts[1].padStart(2, "0")}-${parts[2].padStart(2, "0")}`;
+      }
+    }
+
+    const orderText = p.orderName
+      ? `${p.orderName} ที่ ${p.orderNo || ""}`.trim()
+      : (p.orderNo || "คำสั่ง ศปก.ทบ.");
+
+    const appointmentDate = "2018-05-01";
+    const normSrv = calculateServiceTime(appointmentDate, null);
+
+    try {
+      setPfmDirectSavingId(cardKey);
+      setPfmSearchError(null);
+      const res = await fetch(getApiUrl("/api/personnel"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          militaryId: milId,
+          citizenId: citId,
+          rank: r.code,
+          rankAbbr: r.abbr,
+          firstName: first,
+          lastName: last,
+          dateOfBirth: p.dateOfBirth || undefined,
+          age: p.age || 28,
+          maritalStatus: "SINGLE",
+          religion: "BUDDHISM",
+          phone: "",
+          militaryBranch: "ROYAL_THAI_ARMY",
+          abbreviatedPosition: p.fieldPosition || "จนท.ปฏิบัติการ",
+          normalUnit: p.normalUnit || p.fieldUnit || "กองทัพบก",
+          fieldPosition: p.fieldPosition || "จนท.ปฏิบัติการ สน.",
+          fieldUnit: p.fieldUnit || p.normalUnit || "กกล.ทบ.",
+          fieldDutyOrderNo: orderText,
+          fieldDutyOrderDate: orderDateIso,
+          fieldDutyOrderIssuer: p.orderName || "ศูนย์ปฏิบัติการกองทัพบก (ศปก.ทบ.)",
+          missionCategory: "BORDER_DEFENSE",
+          salary: defSal.salary,
+          salaryLevel: defSal.level,
+          salaryStep: defSal.step,
+          compensationAmount: defSal.salary,
+          additionalPay: 0,
+          appointmentDate,
+          serviceYearsNormal: Math.max(0, normSrv.years),
+          serviceMonthsNormal: normSrv.months,
+          serviceDaysNormal: normSrv.days,
+          serviceYearsMultiplier: 2,
+          serviceMonthsMultiplier: 0,
+          serviceDaysMultiplier: 0,
+          totalServiceYears: Math.max(0, normSrv.years) + 2,
+          totalServiceMonths: normSrv.months,
+          totalServiceDays: normSrv.days,
+          missionType: "BORDER_DEFENSE",
+          actionType: "DIRECT_COMBAT",
+          incidentType: "COMBAT_ENGAGEMENT",
+          conscriptionBatch: r.code === "PRIVATE" ? 1 : null,
+          promotionSteps: 0,
+          promotedRankAbbr: r.abbr,
+          promotedSalary: Math.round(defSal.salary * 1.5),
+          documentAttachments: [],
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        const savedFullName = `${r.abbr} ${first} ${last}`;
+        setActionFeedback({
+          type: "success",
+          message: `นำเข้าและบันทึกข้อมูลกำลังพล ${savedFullName} จาก PFM ลงฐานข้อมูล WeR-RTA เรียบร้อยแล้ว`,
+        });
+        fetchPersonnel();
+        // Remove saved item from current PFM list
+        setPfmSearchResults((prev) =>
+          prev.filter((item) => !(item.firstName === p.firstName && item.lastName === p.lastName))
+        );
+        setResultModal({
+          isOpen: true,
+          type: "success",
+          title: "นำเข้าข้อมูลจาก PFM สำเร็จ",
+          actionName: "เชื่อมโยงและบันทึกลงฐานข้อมูล WeR-RTA (PFM API)",
+          message: "ระบบได้ดึงข้อมูลจากกรมกำลังพลทหารบก (PFM API) และบันทึกลงฐานข้อมูล WeR-RTA เรียบร้อยแล้ว",
+          details: {
+            fullName: savedFullName,
+            militaryId: milId,
+            citizenId: citId,
+            normalUnit: p.normalUnit || p.fieldUnit || "กองทัพบก",
+            fieldUnit: p.fieldUnit || "-",
+            timestamp: getThaiTimestamp(),
+          },
+        });
+      } else {
+        setPfmSearchError(json.error || "ไม่สามารถบันทึกข้อมูลลงฐานข้อมูลได้");
+      }
+    } catch (err: any) {
+      setPfmSearchError(err.message || "เกิดข้อผิดพลาดในการเชื่อมต่อฐานข้อมูล WeR-RTA");
+    } finally {
+      setPfmDirectSavingId(null);
+    }
   };
 
   const fillSampleTestData = () => {
@@ -1155,7 +1367,7 @@ export function PersonnelTable() {
 
     try {
       setIsSubmitting(true);
-      const res = await fetch("/api/personnel", {
+      const res = await fetch(getApiUrl("/api/personnel"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1430,7 +1642,7 @@ export function PersonnelTable() {
         documentAttachments: editDocumentAttachments,
       };
 
-      const res = await fetch(`/api/personnel/${editingPersonnelId}`, {
+      const res = await fetch(getApiUrl(`/api/personnel/${editingPersonnelId}`), {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -1511,7 +1723,7 @@ export function PersonnelTable() {
     try {
       setIsSubmitting(true);
       const target = personnelToDelete;
-      const res = await fetch(`/api/personnel/${target.id}`, { method: "DELETE" });
+      const res = await fetch(getApiUrl(`/api/personnel/${target.id}`), { method: "DELETE" });
       const json = await res.json();
       if (json.success) {
         setActionFeedback({
@@ -3265,17 +3477,19 @@ export function PersonnelTable() {
             {pfmSearchResults.length > 0 && (
               <div className="mt-2 rounded-lg border border-emerald-200 dark:border-emerald-800 overflow-hidden bg-white dark:bg-slate-900">
                 <div className="flex items-center justify-between text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-100/80 dark:bg-emerald-900/50 px-3 py-1.5 border-b border-emerald-200 dark:border-emerald-800">
-                  <span>พบข้อมูลกำลังพล {pfmSearchResults.length} นาย — คลิก &quot;เลือก&quot; เพื่อนำข้อมูลลงฟอร์ม</span>
+                  <span>พบข้อมูลกำลังพล {pfmSearchResults.length} นาย — เลือก &quot;กรอกลงฟอร์ม&quot; หรือ &quot;บันทึกลง DB ทันที&quot;</span>
                   <Badge variant="outline" className="text-[9px] px-1 py-0 border-emerald-400 text-emerald-700 dark:text-emerald-300">
-                    PFM Live
+                    PFM Live API
                   </Badge>
                 </div>
-                <div className="max-h-52 overflow-y-auto divide-y divide-emerald-100 dark:divide-emerald-900/50">
+                <div className="max-h-56 overflow-y-auto divide-y divide-emerald-100 dark:divide-emerald-900/50">
                   {pfmSearchResults.map((p, idx) => {
                     const anyP = p as any;
+                    const cardKey = `pfm-${anyP.personnelId || p.militaryId || idx}`;
+                    const isSavingThis = pfmDirectSavingId === cardKey;
                     return (
                     <div
-                      key={`pfm-${anyP.personnelId || p.militaryId || idx}`}
+                      key={cardKey}
                       className="flex items-center justify-between gap-2 px-3 py-2 bg-white dark:bg-slate-900 hover:bg-emerald-50/60 dark:hover:bg-emerald-950/40 transition-colors"
                     >
                       <div className="flex-1 min-w-0">
@@ -3299,15 +3513,33 @@ export function PersonnelTable() {
                           {p.orderName && <span className="text-emerald-700 dark:text-emerald-400">คำสั่ง: {p.orderName} {p.orderNo ? `ที่ ${p.orderNo}` : ""}</span>}
                         </div>
                       </div>
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => applyPfmPersonnel(p)}
-                        className="h-6 text-[10px] px-2.5 shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-sm"
-                      >
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
-                        เลือก
-                      </Button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={!!pfmDirectSavingId}
+                          onClick={() => applyPfmPersonnel(p)}
+                          className="h-6 text-[10px] px-2 border-emerald-400 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-900/50 font-semibold"
+                        >
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          กรอกลงฟอร์ม
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={!!pfmDirectSavingId}
+                          onClick={() => handleDirectSavePfmToDb(p, cardKey)}
+                          className="h-6 text-[10px] px-2.5 bg-[#1877F2] hover:bg-[#166FE5] text-white font-bold shadow-sm"
+                        >
+                          {isSavingThis ? (
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          ) : (
+                            <Database className="h-3 w-3 mr-1" />
+                          )}
+                          {isSavingThis ? "กำลังบันทึก..." : "บันทึกลง DB ทันที"}
+                        </Button>
+                      </div>
                     </div>
                     );
                   })}
