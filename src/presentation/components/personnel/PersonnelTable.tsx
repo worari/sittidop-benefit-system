@@ -839,7 +839,7 @@ export function PersonnelTable() {
     if (clean.includes("พล.อ.") || clean === "พลเอก") return { code: "GENERAL", abbr: "พล.อ." };
     if (clean.includes("พล.ท.") || clean === "พลโท") return { code: "LIEUTENANT_GENERAL", abbr: "พล.ท." };
     if (clean.includes("พล.ต.") || clean === "พลตรี") return { code: "MAJOR_GENERAL", abbr: "พล.ต." };
-    if (clean.includes("พ.อ.(พิเศษ)") || clean.includes("พ.อ.พิเศษ") || clean === "พันเอกพิเศษ") return { code: "COLONEL_SPECIAL", abbr: "พ.อ.(พิเศษ)" };
+    if (clean.includes("พ.อ.(พิเศษ)") || clean.includes("พ.อ.พิเศษ") || clean.includes("พ.อ.(พ)") || clean === "พันเอกพิเศษ") return { code: "COLONEL_SPECIAL", abbr: "พ.อ.(พิเศษ)" };
     if (clean.includes("พ.อ.") || clean === "พันเอก") return { code: "COLONEL", abbr: "พ.อ." };
     if (clean.includes("พ.ท.") || clean === "พันโท") return { code: "LIEUTENANT_COLONEL", abbr: "พ.ท." };
     if (clean.includes("พ.ต.") || clean === "พันตรี") return { code: "MAJOR", abbr: "พ.ต." };
@@ -854,7 +854,7 @@ export function PersonnelTable() {
     if (clean.includes("ส.ต") || clean === "สิบตรี") return { code: "LANCE_CORPORAL", abbr: "ส.ต." };
     if (clean.includes("พลทหาร") || clean.includes("พลฯ") || clean === "พล") return { code: "PRIVATE", abbr: "พลทหาร" };
     if (clean.includes("อส.ทพ") || clean.includes("ทหารพราน")) return { code: "VOLUNTEER_RANGER", abbr: "อส.ทพ." };
-    if (clean.includes("พล.อส")) return { code: "RANGER_ENLISTED", abbr: "พล.อส." };
+    if (clean.includes("พล.อส")) return { code: "VOLUNTEER_RANGER", abbr: "พล.อส." };
     return { code: "PRIVATE", abbr: clean || "พลทหาร" };
   };
 
